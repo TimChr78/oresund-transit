@@ -4,6 +4,7 @@ import {
   getDirection,
   categorizeCause,
   categorizeSeverity,
+  classifyType,
 } from '../src/logic.js';
 
 describe('normalizeScan', () => {
@@ -156,5 +157,33 @@ describe('categorizeSeverity', () => {
     expect(categorizeSeverity(0, false, 'Vagnbrist', '')).toBe('minor');
     expect(categorizeSeverity(0, false, '', 'kort tåg')).toBe('minor');
     expect(categorizeSeverity(0, false, 'short train', '')).toBe('minor');
+  });
+});
+
+describe('classifyType', () => {
+  it('returns cancellation for canceled departures', () => {
+    expect(classifyType(true, 0, '', '')).toBe('cancellation');
+    expect(classifyType(true, 900, 'Inställt', '')).toBe('cancellation');
+  });
+
+  it('returns cancellation on cancellation keywords', () => {
+    expect(classifyType(false, 0, 'Inställt tåg', '')).toBe('cancellation');
+    expect(classifyType(false, 0, '', 'cancelled')).toBe('cancellation');
+    expect(classifyType(false, 0, 'canceled', '')).toBe('cancellation');
+  });
+
+  it('returns delay for delay >= 600 (before title check)', () => {
+    expect(classifyType(false, 600, 'Försening', '')).toBe('delay');
+    expect(classifyType(false, 1200, '', '')).toBe('delay');
+  });
+
+  it('returns alert for delay < 600 with a message', () => {
+    expect(classifyType(false, 599, 'Något', '')).toBe('alert');
+    expect(classifyType(false, 0, '', 'text')).toBe('alert');
+  });
+
+  it('returns unknown when no message and no delay', () => {
+    expect(classifyType(false, 0, '', '')).toBe('unknown');
+    expect(classifyType(false, null, '', '')).toBe('unknown');
   });
 });
