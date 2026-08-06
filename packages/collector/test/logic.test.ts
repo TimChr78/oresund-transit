@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import gottorpRaw from './fixtures/gottorp-raw.json';
+import hyllieRaw from './fixtures/hyllie-raw.json';
+import kobenhavnHRaw from './fixtures/kobenhavn-h-raw.json';
 import {
   normalizeScan,
   getDirection,
@@ -7,6 +10,7 @@ import {
   classifyType,
   formatTime,
   isChronic,
+  isCrossborderTrain,
 } from '../src/logic.js';
 
 describe('normalizeScan', () => {
@@ -223,5 +227,39 @@ describe('isChronic', () => {
   it('returns false for non-chronic text', () => {
     expect(isChronic('Personalbrist', '')).toBe(false);
     expect(isChronic('', '')).toBe(false);
+  });
+});
+
+describe('isCrossborderTrain', () => {
+  it('flags TRAIN departures bound for Denmark (fixture data)', () => {
+    expect(isCrossborderTrain(hyllieRaw.departures[0]!)).toBe(true); // Østerport
+    expect(isCrossborderTrain(hyllieRaw.departures[6]!)).toBe(true); // Østerport
+    expect(isCrossborderTrain(hyllieRaw.departures[20]!)).toBe(true); // København H
+    expect(isCrossborderTrain(kobenhavnHRaw.departures[1]!)).toBe(true); // Østerport
+    expect(isCrossborderTrain(kobenhavnHRaw.departures[4]!)).toBe(true); // Østerport
+  });
+
+  it('does not flag Sweden-bound or non-Denmark trains (fixture data)', () => {
+    expect(isCrossborderTrain(hyllieRaw.departures[3]!)).toBe(false); // Halmstad C
+    expect(isCrossborderTrain(kobenhavnHRaw.departures[0]!)).toBe(false); // Hässleholm
+    expect(isCrossborderTrain(kobenhavnHRaw.departures[3]!)).toBe(false); // Kristianstad C
+  });
+
+  it('does not flag buses', () => {
+    expect(isCrossborderTrain(gottorpRaw.departures[0]!)).toBe(false);
+  });
+
+  it('handles other crossborder keywords and RAIL mode', () => {
+    const base = hyllieRaw.departures[0]!;
+    const withDest = (direction: string, transportMode = 'TRAIN') => ({
+      ...base,
+      route: { ...base.route, direction, transport_mode: transportMode },
+    });
+    expect(isCrossborderTrain(withDest('Københavns Lufthavn'))).toBe(true);
+    expect(isCrossborderTrain(withDest('Kopengamn'))).toBe(true); // reference keyword as spelled
+    expect(isCrossborderTrain(withDest('Copenhagen'))).toBe(true);
+    expect(isCrossborderTrain(withDest('Lufthavn'))).toBe(true);
+    expect(isCrossborderTrain(withDest('Østerport', 'RAIL'))).toBe(true);
+    expect(isCrossborderTrain(withDest('Malmö'))).toBe(false);
   });
 });
