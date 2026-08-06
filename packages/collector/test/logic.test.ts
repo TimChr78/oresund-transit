@@ -11,6 +11,7 @@ import {
   formatTime,
   isChronic,
   isCrossborderTrain,
+  isSwedenBoundTrain,
 } from '../src/logic.js';
 
 describe('normalizeScan', () => {
@@ -261,5 +262,43 @@ describe('isCrossborderTrain', () => {
     expect(isCrossborderTrain(withDest('Lufthavn'))).toBe(true);
     expect(isCrossborderTrain(withDest('Østerport', 'RAIL'))).toBe(true);
     expect(isCrossborderTrain(withDest('Malmö'))).toBe(false);
+  });
+});
+
+describe('isSwedenBoundTrain', () => {
+  it('flags TRAIN departures bound for Sweden (fixture data)', () => {
+    expect(isSwedenBoundTrain(hyllieRaw.departures[16]!)).toBe(true); // Hässleholm
+    expect(isSwedenBoundTrain(kobenhavnHRaw.departures[0]!)).toBe(true); // Hässleholm
+  });
+
+  it('does not flag Denmark-bound or non-listed trains (fixture data)', () => {
+    expect(isSwedenBoundTrain(hyllieRaw.departures[0]!)).toBe(false); // Østerport
+    expect(isSwedenBoundTrain(kobenhavnHRaw.departures[1]!)).toBe(false); // Østerport
+    expect(isSwedenBoundTrain(hyllieRaw.departures[3]!)).toBe(false); // Halmstad C
+    expect(isSwedenBoundTrain(kobenhavnHRaw.departures[3]!)).toBe(false); // Kristianstad C
+  });
+
+  it('does not flag buses', () => {
+    expect(isSwedenBoundTrain(gottorpRaw.departures[0]!)).toBe(false);
+  });
+
+  it('handles Sweden keywords (Scandinavian-normalized) and RAIL mode', () => {
+    const base = hyllieRaw.departures[16]!;
+    const withDest = (direction: string, transportMode = 'TRAIN') => ({
+      ...base,
+      route: { ...base.route, direction, transport_mode: transportMode },
+    });
+    expect(isSwedenBoundTrain(withDest('Malmö'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Göteborg'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Växjö'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Hyllie'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Lund C'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Ystad'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Trelleborg'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Karlskrona'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Sverige'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Sweden'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Malmö', 'RAIL'))).toBe(true);
+    expect(isSwedenBoundTrain(withDest('Østerport'))).toBe(false);
   });
 });
