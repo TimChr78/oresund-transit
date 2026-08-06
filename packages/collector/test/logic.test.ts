@@ -13,6 +13,7 @@ import {
   isCrossborderTrain,
   isSwedenBoundTrain,
   isGottorpHyllieBus,
+  delayStatus,
 } from '../src/logic.js';
 
 describe('normalizeScan', () => {
@@ -330,5 +331,18 @@ describe('isGottorpHyllieBus', () => {
     expect(isGottorpHyllieBus(withRoute({ direction: 'HYLLIE' }))).toBe(true);
     expect(isGottorpHyllieBus(withRoute({ designation: 16 } as never))).toBe(true);
     expect(isGottorpHyllieBus(withRoute({ direction: 'Malmö' }))).toBe(false);
+  });
+});
+
+describe('delayStatus', () => {
+  it('returns on_time below 60s (incl. negative delays)', () => {
+    expect(delayStatus(0)).toBe('on_time');
+    expect(delayStatus(59)).toBe('on_time');
+    expect(delayStatus(-85)).toBe('on_time');
+  });
+
+  it('returns delayed at and above 60s', () => {
+    expect(delayStatus(60)).toBe('delayed');
+    expect(delayStatus(120)).toBe('delayed');
   });
 });
