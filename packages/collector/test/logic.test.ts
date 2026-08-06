@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeScan, getDirection, categorizeCause } from '../src/logic.js';
+import {
+  normalizeScan,
+  getDirection,
+  categorizeCause,
+  categorizeSeverity,
+} from '../src/logic.js';
 
 describe('normalizeScan', () => {
   it('lowercases and replaces Scandinavian chars', () => {
@@ -118,5 +123,38 @@ describe('categorizeCause', () => {
     expect(categorizeCause('strejk', 'signalfel')).toBe('staffing');
     expect(categorizeCause('', '')).toBe('unknown');
     expect(categorizeCause('Trafikstart', '')).toBe('unknown');
+  });
+});
+
+describe('categorizeSeverity', () => {
+  it('returns major for canceled departures', () => {
+    expect(categorizeSeverity(0, true, '', '')).toBe('major');
+    expect(categorizeSeverity(900, true, 'installt', '')).toBe('major');
+  });
+
+  it('returns moderate for delay >= 900 (before keyword check)', () => {
+    expect(categorizeSeverity(900, false, '', '')).toBe('moderate');
+    expect(categorizeSeverity(1200, false, '', '')).toBe('moderate');
+    expect(categorizeSeverity(900, false, 'installt', '')).toBe('moderate');
+  });
+
+  it('returns minor for delay below 900 without keywords', () => {
+    expect(categorizeSeverity(899, false, '', '')).toBe('minor');
+    expect(categorizeSeverity(600, false, '', '')).toBe('minor');
+    expect(categorizeSeverity(599, false, '', '')).toBe('minor');
+    expect(categorizeSeverity(0, false, '', '')).toBe('minor');
+  });
+
+  it('returns major on cancellation keywords', () => {
+    expect(categorizeSeverity(0, false, 'Inställt tåg', '')).toBe('major');
+    expect(categorizeSeverity(0, false, '', 'cancelled')).toBe('major');
+    expect(categorizeSeverity(0, false, 'canceled', '')).toBe('major');
+    expect(categorizeSeverity(0, false, '', 'stoppad')).toBe('major');
+  });
+
+  it('returns minor on vehicle keywords', () => {
+    expect(categorizeSeverity(0, false, 'Vagnbrist', '')).toBe('minor');
+    expect(categorizeSeverity(0, false, '', 'kort tåg')).toBe('minor');
+    expect(categorizeSeverity(0, false, 'short train', '')).toBe('minor');
   });
 });
