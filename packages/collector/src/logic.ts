@@ -49,3 +49,89 @@ export function getDirection(
   }
   return null;
 }
+
+const CAUSE_KEYWORDS: Record<string, string[]> = {
+  staffing: ['personalbrist', 'forarbortfall', 'tagpersonal', 'strejk', 'konflikt', 'sjuk'],
+  signal_failure: [
+    'signal',
+    'vaxel',
+    'sbx',
+    'banarbete',
+    'storning i',
+    'tekniskt fel',
+    'teknisk storning',
+    'stillastaende',
+  ],
+  vehicle: [
+    'vagnbrist',
+    'fordonsfel',
+    'fordon',
+    'kort tag',
+    'short train',
+    'motorfel',
+    'materialfel',
+    'bakre tagsatt',
+    'vagn',
+  ],
+  person_on_tracks: [
+    'person pa sparet',
+    'person',
+    'smith',
+    'obducent',
+    'olycka',
+    'pakord',
+    'obehoriga pa sparen',
+  ],
+  infrastructure: ['banarbete', 'bygge', 'underhall', 'entreprenad', 'sparspar'],
+  police: ['polis', 'larm', 'raddning', 'brand'],
+  weather: [
+    'snostorm',
+    'storm',
+    'blast',
+    'halka',
+    'oversvamning',
+    'regnskur',
+    'dimma',
+    'vadarforhallanden',
+    'hard vind',
+  ],
+  congestion: ['tagko', 'tågkö', 'ko vid'],
+};
+
+const CAUSE_PRIORITY = [
+  'staffing',
+  'person_on_tracks',
+  'signal_failure',
+  'vehicle',
+  'police',
+  'infrastructure',
+  'congestion',
+  'weather',
+] as const;
+
+export type DisruptionCause =
+  | 'staffing'
+  | 'person_on_tracks'
+  | 'signal_failure'
+  | 'vehicle'
+  | 'police'
+  | 'infrastructure'
+  | 'congestion'
+  | 'weather'
+  | 'unknown';
+
+/** Keyword-map cause classification over normalized title+text, priority-ordered. */
+export function categorizeCause(title: string, text: string): DisruptionCause {
+  let combined = (title + ' ' + text)
+    .toLowerCase()
+    .replaceAll('ä', 'a')
+    .replaceAll('ö', 'o')
+    .replaceAll('å', 'a')
+    .replaceAll('ø', 'o')
+    .replaceAll('æ', 'ae');
+  combined = ' ' + combined + ' ';
+  for (const cause of CAUSE_PRIORITY) {
+    if ((CAUSE_KEYWORDS[cause] ?? []).some((kw) => combined.includes(kw))) return cause;
+  }
+  return 'unknown';
+}
