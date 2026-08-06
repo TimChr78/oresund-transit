@@ -14,3 +14,38 @@ export function normalizeScan(text: string): string {
     .replaceAll('ö', 'o')
     .replaceAll('ä', 'a');
 }
+
+const DENMARK_DEST_KEYWORDS = [
+  'kobenhavn',
+  'copenhagen',
+  'osterport',
+  'helsingor',
+  'norreport',
+  'kbh',
+  'lufthavn',
+];
+
+/**
+ * Bus lines 6/16 → "bus"; else scan dest for Denmark keywords → "to_denmark",
+ * otherwise "to_sweden"; parity fallback (even→to_denmark, odd→to_sweden) only
+ * when dest is empty/unknown; null if line is not numeric.
+ */
+export function getDirection(
+  line: string | number | null | undefined,
+  dest?: string | null,
+): 'bus' | 'to_denmark' | 'to_sweden' | null {
+  // Mirrors Python `int(line)` (full-string integer, may be signed/whitespace-padded).
+  const s = String(line).trim();
+  const numeric = /^[+-]?\d+$/.test(s) ? Number(s) : null;
+  if (numeric === 6 || numeric === 16) return 'bus';
+
+  const d = normalizeScan(dest ?? '');
+  if (d && d !== '?' && d !== '-') {
+    if (DENMARK_DEST_KEYWORDS.some((k) => d.includes(k))) return 'to_denmark';
+    return 'to_sweden';
+  }
+  if (numeric !== null) {
+    return numeric % 2 === 0 ? 'to_denmark' : 'to_sweden';
+  }
+  return null;
+}
