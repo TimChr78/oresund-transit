@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeScan, getDirection } from '../src/logic.js';
+import { normalizeScan, getDirection, categorizeCause } from '../src/logic.js';
 
 describe('normalizeScan', () => {
   it('lowercases and replaces Scandinavian chars', () => {
@@ -57,5 +57,66 @@ describe('getDirection', () => {
   it('still uses dest when line is non-numeric', () => {
     expect(getDirection('abc', 'Malmö')).toBe('to_sweden');
     expect(getDirection('abc', 'København')).toBe('to_denmark');
+  });
+});
+
+describe('categorizeCause', () => {
+  it('matches staffing keywords', () => {
+    expect(categorizeCause('Personalbrist', '')).toBe('staffing');
+    expect(categorizeCause('', 'strejk')).toBe('staffing');
+    expect(categorizeCause('konflikt', '')).toBe('staffing');
+    expect(categorizeCause('', 'sjuk')).toBe('staffing');
+    expect(categorizeCause('Förarbortfall', '')).toBe('staffing');
+  });
+
+  it('matches signal_failure keywords (incl. banarbete priority)', () => {
+    expect(categorizeCause('Signalfel', '')).toBe('signal_failure');
+    expect(categorizeCause('', 'stillastående tåg')).toBe('signal_failure');
+    expect(categorizeCause('Växelfel', '')).toBe('signal_failure');
+    expect(categorizeCause('', 'banarbete')).toBe('signal_failure');
+  });
+
+  it('matches vehicle keywords', () => {
+    expect(categorizeCause('Vagnbrist', '')).toBe('vehicle');
+    expect(categorizeCause('', 'kort tåg')).toBe('vehicle');
+    expect(categorizeCause('', 'short train')).toBe('vehicle');
+    expect(categorizeCause('Fordonsfel', '')).toBe('vehicle');
+  });
+
+  it('matches person_on_tracks keywords', () => {
+    expect(categorizeCause('Person på spåret', '')).toBe('person_on_tracks');
+    expect(categorizeCause('', 'olycka')).toBe('person_on_tracks');
+    expect(categorizeCause('', 'Smith')).toBe('person_on_tracks');
+  });
+
+  it('matches infrastructure keywords', () => {
+    expect(categorizeCause('Bygge', '')).toBe('infrastructure');
+    expect(categorizeCause('Underhåll', '')).toBe('infrastructure');
+    expect(categorizeCause('', 'entreprenad')).toBe('infrastructure');
+  });
+
+  it('matches police keywords', () => {
+    expect(categorizeCause('Polis på plats', '')).toBe('police');
+    expect(categorizeCause('', 'brand')).toBe('police');
+    expect(categorizeCause('', 'larm')).toBe('police');
+    expect(categorizeCause('Räddning', '')).toBe('police');
+  });
+
+  it('matches weather keywords', () => {
+    expect(categorizeCause('Snöstorm', '')).toBe('weather');
+    expect(categorizeCause('', 'halka')).toBe('weather');
+    expect(categorizeCause('Hård vind', '')).toBe('weather');
+  });
+
+  it('matches congestion keywords', () => {
+    expect(categorizeCause('Tågkö', '')).toBe('congestion');
+    expect(categorizeCause('', 'kö vid Malmö')).toBe('congestion');
+  });
+
+  it('respects priority order and falls back to unknown', () => {
+    expect(categorizeCause('Personalbrist', 'person på spåret')).toBe('staffing');
+    expect(categorizeCause('strejk', 'signalfel')).toBe('staffing');
+    expect(categorizeCause('', '')).toBe('unknown');
+    expect(categorizeCause('Trafikstart', '')).toBe('unknown');
   });
 });
