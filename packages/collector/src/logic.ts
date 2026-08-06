@@ -256,3 +256,8 @@ export function isGottorpHyllieBus(dep: TrafiklabDeparture): boolean {
   const dest = (dep.route?.direction ?? '').toLowerCase();
   return dest.includes('hyllie');
 }
+
+/** <60s → "on_time", ≥60s → "delayed" (mirrors log_departure in the live monitor). */
+export function delayStatus(delaySeconds: number): 'on_time' | 'delayed' {
+  return delaySeconds < 60 ? 'on_time' : 'delayed';
+}
