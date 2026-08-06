@@ -3,6 +3,7 @@
  * (transit-monitor.py). Pure functions — no I/O. Behavior and constants are
  * locked by the port plan; a later A/B week validates equivalence.
  */
+import type { TrafiklabDeparture } from '@oresund/shared';
 
 /** Scandinavian normalization: ø→o, æ→ae, å→a, ö→o, ä→a, lowercase. */
 export function normalizeScan(text: string): string {
@@ -200,4 +201,21 @@ export function isChronic(title: string, text: string): boolean {
   return ['vagnbrist', 'kort tag', 'short train', 'fordon'].some((kw) =>
     (title + ' ' + text).toLowerCase().includes(kw),
   );
+}
+
+const CROSSBORDER_DEST_KEYWORDS = [
+  'osterport',
+  'kobenhavn',
+  'copenhagen',
+  'kopengamn',
+  'lufthavn',
+  'kobenhavns lufthavn',
+];
+
+/** TRAIN/RAIL and dest contains a Denmark keyword (normalized). */
+export function isCrossborderTrain(dep: TrafiklabDeparture): boolean {
+  const mode = (dep.route?.transport_mode ?? '').toUpperCase();
+  if (!mode.includes('TRAIN') && !mode.includes('RAIL')) return false;
+  const dest = normalizeScan(dep.route?.direction ?? '');
+  return CROSSBORDER_DEST_KEYWORDS.some((d) => dest.includes(d));
 }
