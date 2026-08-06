@@ -1,0 +1,18 @@
+name = "oresund-transit-collector"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# D1 database (created via `wrangler d1 create oresund-transit-db`)
+[[d1_databases]]
+binding = "DB"
+database_name = "oresund-transit-db"
+database_id = "REPLACE_WITH_D1_ID"
+migrations_dir = "migrations"
+
+# Cron: poll every 5 minutes (aligned with the private monitor cadence)
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Trafiklab key from .dev.vars (local) / secrets (prod)
+[vars]
+TRAFIKLAB_BASE_URL = "https://realtime-api.trafiklab.se/v1/departures"
