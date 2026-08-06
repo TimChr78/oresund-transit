@@ -12,6 +12,7 @@ import {
   isChronic,
   isCrossborderTrain,
   isSwedenBoundTrain,
+  isGottorpHyllieBus,
 } from '../src/logic.js';
 
 describe('normalizeScan', () => {
@@ -300,5 +301,34 @@ describe('isSwedenBoundTrain', () => {
     expect(isSwedenBoundTrain(withDest('Sweden'))).toBe(true);
     expect(isSwedenBoundTrain(withDest('Malmö', 'RAIL'))).toBe(true);
     expect(isSwedenBoundTrain(withDest('Østerport'))).toBe(false);
+  });
+});
+
+describe('isGottorpHyllieBus', () => {
+  it('flags BUS 6/16 departures to Hyllie (fixture data)', () => {
+    expect(isGottorpHyllieBus(gottorpRaw.departures[1]!)).toBe(true); // 6 → Toftanäs via Hyllie
+    expect(isGottorpHyllieBus(gottorpRaw.departures[2]!)).toBe(true); // 16 → Hyllie
+    expect(isGottorpHyllieBus(gottorpRaw.departures[5]!)).toBe(true); // 6 → Toftanäs via Hyllie
+    expect(isGottorpHyllieBus(gottorpRaw.departures[6]!)).toBe(true); // 16 → Hyllie
+  });
+
+  it('does not flag buses not bound for Hyllie (fixture data)', () => {
+    expect(isGottorpHyllieBus(gottorpRaw.departures[0]!)).toBe(false); // 6 → Bunkeflostrand
+    expect(isGottorpHyllieBus(gottorpRaw.departures[3]!)).toBe(false); // 16 → Klagshamn
+    expect(isGottorpHyllieBus(gottorpRaw.departures[4]!)).toBe(false); // 6 → Bunkeflostrand
+    expect(isGottorpHyllieBus(hyllieRaw.departures[4]!)).toBe(false); // 6 → Toftanäs via Södervärn
+  });
+
+  it('does not flag other lines or transport modes (fixture data)', () => {
+    expect(isGottorpHyllieBus(hyllieRaw.departures[2]!)).toBe(false); // 10 → Malmö C via Hyllie
+    expect(isGottorpHyllieBus(kobenhavnHRaw.departures[0]!)).toBe(false); // TRAIN
+  });
+
+  it('matches case-insensitively and handles numeric designation', () => {
+    const base = gottorpRaw.departures[2]!;
+    const withRoute = (route: Partial<typeof base.route>) => ({ ...base, route: { ...base.route, ...route } });
+    expect(isGottorpHyllieBus(withRoute({ direction: 'HYLLIE' }))).toBe(true);
+    expect(isGottorpHyllieBus(withRoute({ designation: 16 } as never))).toBe(true);
+    expect(isGottorpHyllieBus(withRoute({ direction: 'Malmö' }))).toBe(false);
   });
 });
