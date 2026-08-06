@@ -188,3 +188,9 @@ export function classifyType(
   if (title || text) return 'alert';
   return 'unknown';
 }
+
+/** "" or <16 chars → "?", else the HH:MM slice (isoStr[11:16]). */
+export function formatTime(isoStr: string | null | undefined): string {
+  if (!isoStr || isoStr.length < 16) return '?';
+  return isoStr.slice(11, 16);
+}
