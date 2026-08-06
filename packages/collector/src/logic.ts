@@ -135,3 +135,31 @@ export function categorizeCause(title: string, text: string): DisruptionCause {
   }
   return 'unknown';
 }
+
+export type DisruptionSeverity = 'major' | 'moderate' | 'minor';
+
+/** Severity: canceled→major, delay≥900→moderate, cancellation keywords→major, else minor. */
+export function categorizeSeverity(
+  delay: number | null | undefined,
+  canceled: boolean,
+  title: string,
+  text: string,
+): DisruptionSeverity {
+  if (canceled) return 'major';
+  if (delay && delay >= 900) return 'moderate';
+  const combined = (title + ' ' + text)
+    .toLowerCase()
+    .replaceAll('ä', 'a')
+    .replaceAll('ö', 'o')
+    .replaceAll('å', 'a')
+    .replaceAll('ø', 'o')
+    .replaceAll('æ', 'ae');
+  if (['installt', 'cancelled', 'canceled', 'stoppad'].some((kw) => combined.includes(kw))) {
+    return 'major';
+  }
+  if (['vagnbrist', 'kort tag', 'short train'].some((kw) => combined.includes(kw))) {
+    return 'minor';
+  }
+  if (delay && delay >= 600) return 'minor';
+  return 'minor';
+}
