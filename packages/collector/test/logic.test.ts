@@ -6,6 +6,7 @@ import {
   categorizeSeverity,
   classifyType,
   formatTime,
+  isChronic,
 } from '../src/logic.js';
 
 describe('normalizeScan', () => {
@@ -204,5 +205,23 @@ describe('formatTime', () => {
     expect(formatTime('2026-08-06T22:1')).toBe('?');
     expect(formatTime('2026-08-06')).toBe('?');
     expect(formatTime(null)).toBe('?');
+  });
+});
+
+describe('isChronic', () => {
+  it('matches chronic keywords case-insensitively', () => {
+    expect(isChronic('Vagnbrist', '')).toBe(true);
+    expect(isChronic('', 'kort tag')).toBe(true);
+    expect(isChronic('short train', '')).toBe(true);
+    expect(isChronic('', 'Fordon')).toBe(true);
+  });
+
+  it('does not normalize Scandinavian chars (per reference)', () => {
+    expect(isChronic('', 'kort tåg')).toBe(false);
+  });
+
+  it('returns false for non-chronic text', () => {
+    expect(isChronic('Personalbrist', '')).toBe(false);
+    expect(isChronic('', '')).toBe(false);
   });
 });
