@@ -219,3 +219,30 @@ export function isCrossborderTrain(dep: TrafiklabDeparture): boolean {
   const dest = normalizeScan(dep.route?.direction ?? '');
   return CROSSBORDER_DEST_KEYWORDS.some((d) => dest.includes(d));
 }
+
+const SWEDEN_DEST_KEYWORDS = [
+  'malmo',
+  'malmö',
+  'hyllie',
+  'helsingborg',
+  'lund',
+  'ystad',
+  'trelleborg',
+  'hassleholm',
+  'hässleholm',
+  'karlskrona',
+  'växjö',
+  'vaxjo',
+  'göteborg',
+  'goteborg',
+  'sverige',
+  'sweden',
+];
+
+/** TRAIN/RAIL and dest contains a Sweden keyword (normalized). */
+export function isSwedenBoundTrain(dep: TrafiklabDeparture): boolean {
+  const mode = (dep.route?.transport_mode ?? '').toUpperCase();
+  if (!mode.includes('TRAIN') && !mode.includes('RAIL')) return false;
+  const dest = normalizeScan(dep.route?.direction ?? '');
+  return SWEDEN_DEST_KEYWORDS.some((d) => dest.includes(d));
+}
