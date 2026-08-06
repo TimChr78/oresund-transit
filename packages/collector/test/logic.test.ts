@@ -5,6 +5,7 @@ import {
   categorizeCause,
   categorizeSeverity,
   classifyType,
+  formatTime,
 } from '../src/logic.js';
 
 describe('normalizeScan', () => {
@@ -185,5 +186,23 @@ describe('classifyType', () => {
   it('returns unknown when no message and no delay', () => {
     expect(classifyType(false, 0, '', '')).toBe('unknown');
     expect(classifyType(false, null, '', '')).toBe('unknown');
+  });
+});
+
+describe('formatTime', () => {
+  it('extracts HH:MM from a full ISO timestamp', () => {
+    expect(formatTime('2026-08-06T22:14:00')).toBe('22:14');
+    expect(formatTime('2026-08-06T21:59:50')).toBe('21:59');
+  });
+
+  it('handles a 16-char timestamp (no seconds)', () => {
+    expect(formatTime('2026-08-06T22:14')).toBe('22:14');
+  });
+
+  it('returns ? for missing or too-short input', () => {
+    expect(formatTime('')).toBe('?');
+    expect(formatTime('2026-08-06T22:1')).toBe('?');
+    expect(formatTime('2026-08-06')).toBe('?');
+    expect(formatTime(null)).toBe('?');
   });
 });
