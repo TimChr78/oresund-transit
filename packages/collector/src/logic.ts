@@ -194,3 +194,10 @@ export function formatTime(isoStr: string | null | undefined): string {
   if (!isoStr || isoStr.length < 16) return '?';
   return isoStr.slice(11, 16);
 }
+
+/** Chronic keywords (vagnbrist, kort tag, short train, fordon) — lowercase only, no normalization. */
+export function isChronic(title: string, text: string): boolean {
+  return ['vagnbrist', 'kort tag', 'short train', 'fordon'].some((kw) =>
+    (title + ' ' + text).toLowerCase().includes(kw),
+  );
+}
