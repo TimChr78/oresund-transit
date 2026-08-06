@@ -246,3 +246,13 @@ export function isSwedenBoundTrain(dep: TrafiklabDeparture): boolean {
   const dest = normalizeScan(dep.route?.direction ?? '');
   return SWEDEN_DEST_KEYWORDS.some((d) => dest.includes(d));
 }
+
+/** BUS, designation 6 or 16, and (lowercased, un-normalized) dest contains "hyllie". */
+export function isGottorpHyllieBus(dep: TrafiklabDeparture): boolean {
+  const mode = (dep.route?.transport_mode ?? '').toUpperCase();
+  if (!mode.includes('BUS')) return false;
+  const line = String(dep.route?.designation ?? '');
+  if (line !== '6' && line !== '16') return false;
+  const dest = (dep.route?.direction ?? '').toLowerCase();
+  return dest.includes('hyllie');
+}
