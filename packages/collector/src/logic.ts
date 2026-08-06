@@ -163,3 +163,28 @@ export function categorizeSeverity(
   if (delay && delay >= 600) return 'minor';
   return 'minor';
 }
+
+export type DisruptionType = 'cancellation' | 'delay' | 'alert' | 'unknown';
+
+/** Type: canceled→cancellation, cancellation keywords→cancellation, delay≥600→delay, message→alert, else unknown. */
+export function classifyType(
+  canceled: boolean,
+  delay: number | null | undefined,
+  title: string,
+  text: string,
+): DisruptionType {
+  if (canceled) return 'cancellation';
+  const combined = (title + ' ' + text)
+    .toLowerCase()
+    .replaceAll('ä', 'a')
+    .replaceAll('ö', 'o')
+    .replaceAll('å', 'a')
+    .replaceAll('ø', 'o')
+    .replaceAll('æ', 'ae');
+  if (['installt', 'cancelled', 'canceled'].some((kw) => combined.includes(kw))) {
+    return 'cancellation';
+  }
+  if (delay && delay >= 600) return 'delay';
+  if (title || text) return 'alert';
+  return 'unknown';
+}
