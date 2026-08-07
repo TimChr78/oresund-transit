@@ -133,8 +133,13 @@ export function renderHistoryCharts(
       const seg = segments[i] ?? { cancellations: 0, delays: 0, alerts: 0 };
       const dayFrac = max > 0 ? d.count / max : 0;
       const stackHeight = d.count > 0 ? Math.max(barHeightPct(d.count, topTick), 4) : 0;
+      // Value labels above every bar at 7/14 days; at 30/90 days only at the
+      // same stride as the x-labels so long ranges never crowd. 0 renders
+      // nothing.
+      const showValue = d.count > 0 && (dayRange <= 14 || labelTexts.has(i));
       return `
     <div class="bar-group" title="${d.date}: ${d.count}">
+      ${showValue ? `<span class="bar-value">${d.count}</span>` : ''}
       <div class="bar-stack" style="height:${stackHeight.toFixed(1)}%">
         <span class="seg seg-cancel" style="height:${segHeightPct(seg.cancellations, dayFrac).toFixed(1)}%"></span>
         <span class="seg seg-delay" style="height:${segHeightPct(seg.delays, dayFrac).toFixed(1)}%"></span>

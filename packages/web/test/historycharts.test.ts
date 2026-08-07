@@ -139,8 +139,7 @@ describe('renderHistoryCharts — daily axis legibility', () => {
   });
 });
 
-describe('renderHistoryCharts — real y-axis (Item 2)', () => {
-  it('renders a fixed-width left axis column with numeric tick labels (max 6 -> 0,2,4,6)', () => {
+describe('renderHistoryCharts — real y-axis (Item 2)', () => {  it('renders a fixed-width left axis column with numeric tick labels (max 6 -> 0,2,4,6)', () => {
     const html = renderHistoryCharts(HISTORY, null, 7, 'en');
     expect(html).toContain('daily-axis');
     expect(html).toContain('axis-inner');
@@ -175,6 +174,54 @@ describe('renderHistoryCharts — real y-axis (Item 2)', () => {
     expect(html).toContain('daily-axis');
     expect(html).toMatch(/class="daily-tick"[^>]*>0</);
     expect(html).not.toContain('plot-max');
+  });
+});
+
+describe('renderHistoryCharts — per-bar value labels (Item 3)', () => {
+  /** ISO date `start` + i days, computed in UTC so tests are TZ-stable. */
+  const iso = (start: string, i: number): string => {
+    const [y, m, d] = start.split('-').map(Number);
+    return new Date(Date.UTC(y!, m! - 1, d! + i)).toISOString().slice(0, 10);
+  };
+  const rows = (start: string, count: number, value = 1): HistoryResponse['daily'] =>
+    Array.from({ length: count }, (_, i) => ({
+      date: iso(start, i),
+      count: value,
+      cancellations: 0,
+      delays: value,
+      alerts: 0,
+      avg_delay: null,
+    }));
+  const valueLabelCount = (html: string): number => (html.match(/class="bar-value">/g) ?? []).length;
+
+  it('puts a direct count label above each non-zero bar at a 7-day range', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // counts 0,0,0,3,0,0,6
+    expect(html).toMatch(/class="bar-value">6</); // max day 2026-08-06
+    expect(html).toMatch(/class="bar-value">3</); // 2026-08-03
+    expect(valueLabelCount(html)).toBe(2); // only the two non-zero days
+    expect(html).not.toMatch(/class="bar-value">0</); // zero days render nothing
+  });
+
+  it('labels every non-zero bar at a 14-day range', () => {
+    const daily = rows('2026-07-01', 14);
+    const html = renderHistoryCharts({ ...HISTORY, daily }, null, 14, 'en');
+    expect(valueLabelCount(html)).toBe(14);
+  });
+
+  it('shows value labels only at the x-label stride for 30/90-day ranges', () => {
+    // 30 days from 2026-07-08: label plan indices [0,5,10,15,20,24,25] -> 7 labels
+    const html30 = renderHistoryCharts({ ...HISTORY, daily: rows('2026-07-08', 30) }, null, 30, 'en');
+    expect(valueLabelCount(html30)).toBe(7);
+    // 90 days from 2026-05-09: plan has 15 labels
+    const html90 = renderHistoryCharts({ ...HISTORY, daily: rows('2026-05-09', 90) }, null, 90, 'en');
+    expect(valueLabelCount(html90)).toBe(15);
+  });
+
+  it('sits above the bar stack, inside its bar group', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    // the value label comes before the stack inside the same bar group
+    expect(html).toMatch(/class="bar-value">3<[\s\S]*?class="bar-stack"/);
+    expect(html).toMatch(/class="bar-value">6<[\s\S]*?class="bar-stack"/);
   });
 });
 

@@ -25,6 +25,20 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.daily-grid line \{[^}]*rgba\(255,\s*255,\s*255,\s*0\.14\)/);
   });
 
+  it('grows the daily plot to 180px so bars and value labels breathe', () => {
+    expect(css).toMatch(/\.bars \{[^}]*height:\s*180px/);
+  });
+
+  it('widens daily bars (max-width ~34px) so 7-day bars look substantial', () => {
+    expect(css).toMatch(/\.bar-stack \{[^}]*max-width:\s*34px/);
+  });
+
+  it('styles per-bar value labels in mono, dim, above the bar', () => {
+    expect(css).toMatch(/\.bar-value \{[^}]*font-family:\s*var\(--mono\)/);
+    expect(css).toMatch(/\.bar-value \{[^}]*color:\s*var\(--dim\)/);
+    expect(css).toMatch(/\.bar-value \{[^}]*position:\s*absolute/);
+  });
+
   it('left-aligns hbar-count and hbar-meta while keeping tabular numerals', () => {
     expect(css).toMatch(/\.hbar-count \{[^}]*text-align:\s*left/);
     expect(css).toMatch(/\.hbar-count \{[^}]*font-variant-numeric:\s*tabular-nums/);
