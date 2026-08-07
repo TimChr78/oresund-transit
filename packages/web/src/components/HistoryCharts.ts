@@ -153,7 +153,7 @@ export function renderHistoryCharts(
     })
     .join('');
 
-  const ranges: DayRange[] = [7, 14, 30];
+  const ranges: DayRange[] = [7, 14, 30, 90];
   const toggles = ranges
     .map(
       (r) => `

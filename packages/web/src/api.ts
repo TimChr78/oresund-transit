@@ -25,7 +25,7 @@ export interface HistoryResponse {
   by_hour: { hour: number; count: number; avg_delay: number | null }[];
 }
 
-export type HistoryDays = 7 | 14 | 30;
+export type HistoryDays = 7 | 14 | 30 | 90;
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 

@@ -328,8 +328,8 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
   if (url.pathname === '/api/transit/history') {
     const daysParam = url.searchParams.get('days');
     const days = daysParam === null ? 7 : Number(daysParam);
-    if (days !== 7 && days !== 14 && days !== 30) {
-      return json({ error: 'days must be one of 7, 14 or 30' }, 400);
+    if (days !== 7 && days !== 14 && days !== 30 && days !== 90) {
+      return json({ error: 'days must be one of 7, 14, 30 or 90' }, 400);
     }
     return json(await queryHistory(env.DB, days));
   }
@@ -337,8 +337,8 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
   if (url.pathname === '/api/transit/punctuality') {
     const daysParam = url.searchParams.get('days');
     const days = daysParam === null ? 7 : Number(daysParam);
-    if (days !== 7 && days !== 14 && days !== 30) {
-      return json({ error: 'days must be one of 7, 14 or 30' }, 400);
+    if (days !== 7 && days !== 14 && days !== 30 && days !== 90) {
+      return json({ error: 'days must be one of 7, 14, 30 or 90' }, 400);
     }
     return json(await queryPunctuality(env.DB, days));
   }

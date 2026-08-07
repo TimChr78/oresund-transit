@@ -80,6 +80,7 @@ export interface Dict {
   days_7: string;
   days_14: string;
   days_30: string;
+  days_90: string;
   // Sections
   section_disruptions: string;
   section_history: string;
