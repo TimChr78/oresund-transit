@@ -31,8 +31,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # npm workspace flag: run the web package's own "build" (vite build)
+      # from packages/web so index.html resolves. NOTE: `vite --config`
+      # from the repo root would fail (entry resolves relative to CWD), and
+      # `-w` means --watch under bun (use --filter there instead).
       - name: Build web dashboard (vite)
-        run: npx vite build --config packages/web/vite.config.ts
+        run: npm run build -w @oresund/web
       - name: Verify collector workspace typechecks
         run: npm run typecheck
       - name: Build shared types
