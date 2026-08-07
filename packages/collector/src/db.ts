@@ -316,8 +316,7 @@ function addDaysStr(dateStr: string, days: number): string {
 }
 
 const HISTORY_DAILY_SQL =
-  'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
-const HISTORY_LINE_SQL =
+  'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';const HISTORY_LINE_SQL =
   'SELECT line, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
 const HISTORY_CAUSE_SQL =
   'SELECT cause, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
@@ -367,4 +366,87 @@ export async function queryHistory(db: D1Like, days: number, now: Date = new Dat
       .sort((a, b) => b.count - a.count),
     by_hour: hourRows.results.map((r) => ({ hour: r.hour, count: r.count })).sort((a, b) => a.hour - b.hour),
   };
+}
+
+const PUNCTUALITY_SQL =
+  'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+
+/** One calendar day of punctuality stats, zero-filled when no departures. */
+export interface PunctualityRow {
+  date: string;
+  total: number;
+  on_time: number;
+  delayed: number;
+  canceled: number;
+  on_time_pct: number;
+  avg_delay_seconds: number | null;
+}
+
+/** Delay-% over time — the /api/transit/punctuality contract. */
+export interface PunctualityStats {
+  days: number;
+  date_from: string;
+  date_to: string;
+  daily: PunctualityRow[];
+}
+
+/**
+ * Daily delay-% over the last `days` calendar days (7|14|30, validated by the
+ * caller). Same half-open [date_from, date_to + 1 day) range convention as
+ * queryHistory; `now` is injectable so tests are deterministic. One row per
+ * calendar day in the range, zero-filled — sparse early days render as zeros.
+ */
+export async function queryPunctuality(db: D1Like, days: number, now: Date = new Date()): Promise<PunctualityStats> {
+  const to = localDateOnly(now);
+  const from = addDaysStr(to, -(days - 1));
+  const toExclusive = addDaysStr(to, 1);
+
+  const { results } = await db
+    .prepare(PUNCTUALITY_SQL)
+    .bind(from, toExclusive)
+    .all<{ date: string; status: string | null; count: number; avg_delay: number | null }>();
+
+  const daily: PunctualityRow[] = [];
+  const byDate = new Map<string, PunctualityRow>();
+  for (let d = from; d <= to; d = addDaysStr(d, 1)) {
+    const entry: PunctualityRow = {
+      date: d,
+      total: 0,
+      on_time: 0,
+      delayed: 0,
+      canceled: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: null,
+    };
+    daily.push(entry);
+    byDate.set(d, entry);
+  }
+
+  // Per-day rows keyed by status, for the weighted avg delay pass below.
+  const rowsByDay = new Map<string, { count: number; avg_delay: number | null }[]>();
+  for (const r of results) {
+    const entry = byDate.get(r.date);
+    if (!entry) continue;
+    const rows = rowsByDay.get(r.date) ?? [];
+    rows.push({ count: r.count, avg_delay: r.avg_delay });
+    rowsByDay.set(r.date, rows);
+    if (r.status === 'on_time') entry.on_time += r.count;
+    else if (r.status === 'delayed') entry.delayed += r.count;
+    else if (r.status === 'canceled') entry.canceled += r.count;
+  }
+
+  for (const entry of daily) {
+    entry.total = entry.on_time + entry.delayed + entry.canceled;
+    entry.on_time_pct = entry.total > 0 ? Math.round((entry.on_time / entry.total) * 1000) / 10 : 0;
+    const rows = rowsByDay.get(entry.date) ?? [];
+    const withAvg = rows.filter((r) => r.avg_delay != null);
+    if (withAvg.length > 0) {
+      entry.avg_delay_seconds = Math.round(
+        withAvg.reduce((sum, r) => sum + r.count * (r.avg_delay ?? 0), 0) /
+          withAvg.reduce((sum, r) => sum + r.count, 0),
+      );
+    }
+  }
+
+  return { days, date_from: from, date_to: to, daily };
 }

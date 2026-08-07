@@ -421,6 +421,72 @@ describe('handleFetch — /api/transit/history', () => {
   });
 });
 
+describe('handleFetch — /api/transit/punctuality', () => {
+  const PUNCT_SQL =
+    'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('returns zero-filled daily punctuality rows over the last 7 days', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    db.stubAll(PUNCT_SQL, [
+      { date: '2026-08-06', status: 'on_time', count: 9, avg_delay: 0 },
+      { date: '2026-08-06', status: 'delayed', count: 1, avg_delay: 650 },
+      { date: '2026-08-06', status: 'canceled', count: 1, avg_delay: 0 },
+    ]);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/punctuality?days=7'), env(db));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      days: number;
+      date_from: string;
+      date_to: string;
+      daily: { date: string; total: number; on_time: number; delayed: number; canceled: number; on_time_pct: number }[];
+    };
+    expect(body.days).toBe(7);
+    expect(body.date_from).toBe('2026-07-31');
+    expect(body.date_to).toBe('2026-08-06');
+    expect(body.daily).toHaveLength(7);
+    expect(body.daily[0]).toEqual({
+      date: '2026-07-31',
+      total: 0,
+      on_time: 0,
+      delayed: 0,
+      canceled: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: null,
+    });
+    expect(body.daily[6]).toEqual({
+      date: '2026-08-06',
+      total: 11,
+      on_time: 9,
+      delayed: 1,
+      canceled: 1,
+      on_time_pct: 81.8,
+      avg_delay_seconds: 59,
+    });
+    expect(db.lastBindsFor('GROUP BY date(sched_time), status')).toEqual(['2026-07-31', '2026-08-07']);
+  });
+
+  it('defaults to 7 days when days is omitted', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/punctuality'), env(db));
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { days: number }).days).toBe(7);
+  });
+
+  it('returns 400 when days is not 7, 14 or 30', async () => {
+    for (const bad of ['abc', '1', '365', '']) {
+      const db = new FakeD1();
+      const res = await handleFetch(new Request(`https://oresund.live/api/transit/punctuality?days=${bad}`), env(db));
+      expect(res.status).toBe(400);
+    }
+  });
+});
+
 describe('handleFetch — CORS', () => {
   const corsHeaders: Record<string, string> = {
     'access-control-allow-origin': '*',
@@ -454,6 +520,7 @@ describe('handleFetch — CORS', () => {
       ['https://oresund.live/api/transit/delay-stats?from=2026-08-06&to=2026-08-07', 200],
       ['https://oresund.live/api/transit/disruptions', 200],
       ['https://oresund.live/api/transit/history', 200],
+      ['https://oresund.live/api/transit/punctuality?days=7', 200],
       ['https://oresund.live/api/transit/delay-stats', 400],
       ['https://oresund.live/nope', 404],
     ];

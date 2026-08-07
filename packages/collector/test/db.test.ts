@@ -6,6 +6,7 @@ import {
   writeLiveStatus,
   readLiveStatus,
   queryDelayStats,
+  queryPunctuality,
 } from '../src/db.js';
 import { FakeD1 } from './fake-d1.js';
 
@@ -250,5 +251,80 @@ describe('queryDelayStats', () => {
     expect(stats.on_time_pct).toBe(0);
     expect(stats.avg_delay_seconds).toBeNull();
     expect(stats.by_line).toEqual({});
+  });
+});
+
+describe('queryPunctuality', () => {
+  const punctSql =
+    'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+
+  it('returns one zero-filled row per calendar day with on_time_pct math', async () => {
+    const db = new FakeD1();
+    db.stubAll(punctSql, [
+      { date: '2026-08-06', status: 'on_time', count: 8, avg_delay: 0 },
+      { date: '2026-08-06', status: 'delayed', count: 1, avg_delay: 650 },
+      { date: '2026-08-06', status: 'canceled', count: 1, avg_delay: 0 },
+      { date: '2026-08-05', status: 'delayed', count: 2, avg_delay: 300 },
+    ]);
+
+    const stats = await queryPunctuality(db, 7, new Date('2026-08-06T12:00:00Z'));
+
+    expect(stats.days).toBe(7);
+    expect(stats.date_from).toBe('2026-07-31');
+    expect(stats.date_to).toBe('2026-08-06');
+    expect(stats.daily).toHaveLength(7);
+    // zero-filled day with no departures
+    expect(stats.daily[0]).toEqual({
+      date: '2026-07-31',
+      total: 0,
+      on_time: 0,
+      delayed: 0,
+      canceled: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: null,
+    });
+    // 2026-08-05: only 2 delayed
+    expect(stats.daily[5]).toEqual({
+      date: '2026-08-05',
+      total: 2,
+      on_time: 0,
+      delayed: 2,
+      canceled: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: 300,
+    });
+    // 2026-08-06: 8 + 1 + 1 = 10, on_time 8 -> 80%, weighted avg (8*0 + 650 + 0)/10
+    expect(stats.daily[6]).toEqual({
+      date: '2026-08-06',
+      total: 10,
+      on_time: 8,
+      delayed: 1,
+      canceled: 1,
+      on_time_pct: 80,
+      avg_delay_seconds: 65,
+    });
+    // the range bound is [date_from, date_to + 1 day)
+    expect(db.lastBindsFor('GROUP BY date(sched_time), status')).toEqual(['2026-07-31', '2026-08-07']);
+  });
+
+  it('rounds on_time_pct to one decimal and weights avg delay by count', async () => {
+    const db = new FakeD1();
+    db.stubAll(punctSql, [
+      { date: '2026-08-06', status: 'on_time', count: 7, avg_delay: 0 },
+      { date: '2026-08-06', status: 'delayed', count: 3, avg_delay: 600 },
+    ]);
+
+    const stats = await queryPunctuality(db, 7, new Date('2026-08-06T12:00:00Z'));
+    const last = stats.daily[stats.daily.length - 1]!;
+    expect(last.on_time_pct).toBe(70);
+    expect(last.avg_delay_seconds).toBe(180); // (7*0 + 3*600) / 10
+  });
+
+  it('supports 14 and 30 day windows', async () => {
+    const db = new FakeD1();
+    const stats = await queryPunctuality(db, 30, new Date('2026-08-06T12:00:00Z'));
+    expect(stats.daily).toHaveLength(30);
+    expect(stats.date_from).toBe('2026-07-08');
+    expect(stats.date_to).toBe('2026-08-06');
   });
 });
