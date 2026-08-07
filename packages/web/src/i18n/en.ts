@@ -21,7 +21,7 @@ export const en: Dict = {
   th_type: 'Type',
   th_severity: 'Severity',
   th_delay: 'Delay',
-  th_destination: 'Destination',
+  th_direction: 'Direction',
   th_reason: 'Reason',
   // Disruption types
   type_delay: 'Delay',
@@ -60,6 +60,18 @@ export const en: Dict = {
   empty_error: 'Live data is unreachable right now.',
   empty_retry: 'Retry',
   empty_disruptions: 'No disruptions',
+  // Privacy page
+  privacy_title: 'Privacy',
+  privacy_intro:
+    'This site shows live and historical train status across the Øresund. The only thing it stores about you is your language choice, saved in your browser (localStorage).',
+  privacy_analytics:
+    'We use Umami analytics to count visits anonymously. Umami is cookieless, collects no personal data, and does not track you across sites.',
+  privacy_data_source:
+    'Live and historical data is provided by Trafiklab under a CC-BY 4.0 license. Source:',
+  privacy_ads: 'No ads are served on this site.',
+  privacy_contact: 'Questions or feedback? Email us at',
+  privacy_back: '← Back to dashboard',
+  nav_privacy: 'Privacy',
   // Footer
   footer_attribution: 'Data from Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data can lag official apps by ~10–15 min; cancellations may be missed.',
