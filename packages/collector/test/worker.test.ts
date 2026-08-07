@@ -334,13 +334,13 @@ describe('handleFetch — /api/transit/disruptions', () => {
 
 describe('handleFetch — /api/transit/history', () => {
   const DAILY_SQL =
-    'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
+    'SELECT date(timestamp) AS date, type, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
   const LINE_SQL =
-    'SELECT line, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
+    'SELECT line, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay, MAX(delay_seconds) AS max_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
   const CAUSE_SQL =
     'SELECT cause, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
   const HOUR_SQL =
-    "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY hour ORDER BY hour ASC";
+    "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY hour ORDER BY hour ASC";
 
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -350,22 +350,22 @@ describe('handleFetch — /api/transit/history', () => {
     vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
     const db = new FakeD1();
     db.stubAll(DAILY_SQL, [
-      { date: '2026-08-06', type: 'delay', count: 3 },
-      { date: '2026-08-06', type: 'alert', count: 1 },
-      { date: '2026-08-05', type: 'cancellation', count: 1 },
-      { date: '2026-08-05', type: 'delay', count: 2 },
+      { date: '2026-08-06', type: 'delay', count: 3, avg_delay: 650 },
+      { date: '2026-08-06', type: 'alert', count: 1, avg_delay: null },
+      { date: '2026-08-05', type: 'cancellation', count: 1, avg_delay: 0 },
+      { date: '2026-08-05', type: 'delay', count: 2, avg_delay: 300 },
     ]);
     db.stubAll(LINE_SQL, [
-      { line: '804', count: 5 },
-      { line: null, count: 2 },
+      { line: '804', count: 5, avg_delay: 260, max_delay: 650 },
+      { line: null, count: 2, avg_delay: null, max_delay: null },
     ]);
     db.stubAll(CAUSE_SQL, [
       { cause: 'signal_failure', count: 4 },
       { cause: null, count: 3 },
     ]);
     db.stubAll(HOUR_SQL, [
-      { hour: 21, count: 5 },
-      { hour: 7, count: 2 },
+      { hour: 21, count: 5, avg_delay: 260 },
+      { hour: 7, count: 2, avg_delay: 120 },
     ]);
 
     const res = await handleFetch(new Request('https://oresund.live/api/transit/history?days=7'), env(db));
@@ -376,25 +376,25 @@ describe('handleFetch — /api/transit/history', () => {
       date_to: '2026-08-06',
       total_disruptions: 7,
       daily: [
-        { date: '2026-07-31', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-01', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-02', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-03', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-04', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-05', count: 3, cancellations: 1, delays: 2, alerts: 0 },
-        { date: '2026-08-06', count: 4, cancellations: 0, delays: 3, alerts: 1 },
+        { date: '2026-07-31', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-01', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-02', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-03', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-04', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-05', count: 3, cancellations: 1, delays: 2, alerts: 0, avg_delay: 200 },
+        { date: '2026-08-06', count: 4, cancellations: 0, delays: 3, alerts: 1, avg_delay: 650 },
       ],
       by_line: [
-        { line: '804', count: 5 },
-        { line: 'unknown', count: 2 },
+        { line: '804', count: 5, avg_delay: 260, max_delay: 650 },
+        { line: 'unknown', count: 2, avg_delay: null, max_delay: null },
       ],
       by_cause: [
         { cause: 'signal_failure', count: 4 },
         { cause: 'unknown', count: 3 },
       ],
       by_hour: [
-        { hour: 7, count: 2 },
-        { hour: 21, count: 5 },
+        { hour: 7, count: 2, avg_delay: 120 },
+        { hour: 21, count: 5, avg_delay: 260 },
       ],
     });
     // the range bound is [date_from, date_to + 1 day)
@@ -416,6 +416,72 @@ describe('handleFetch — /api/transit/history', () => {
     for (const bad of ['abc', '1', '365', '']) {
       const db = new FakeD1();
       const res = await handleFetch(new Request(`https://oresund.live/api/transit/history?days=${bad}`), env(db));
+      expect(res.status).toBe(400);
+    }
+  });
+});
+
+describe('handleFetch — /api/transit/punctuality', () => {
+  const PUNCT_SQL =
+    'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('returns zero-filled daily punctuality rows over the last 7 days', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    db.stubAll(PUNCT_SQL, [
+      { date: '2026-08-06', status: 'on_time', count: 9, avg_delay: 0 },
+      { date: '2026-08-06', status: 'delayed', count: 1, avg_delay: 650 },
+      { date: '2026-08-06', status: 'canceled', count: 1, avg_delay: 0 },
+    ]);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/punctuality?days=7'), env(db));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      days: number;
+      date_from: string;
+      date_to: string;
+      daily: { date: string; total: number; on_time: number; delayed: number; canceled: number; on_time_pct: number }[];
+    };
+    expect(body.days).toBe(7);
+    expect(body.date_from).toBe('2026-07-31');
+    expect(body.date_to).toBe('2026-08-06');
+    expect(body.daily).toHaveLength(7);
+    expect(body.daily[0]).toEqual({
+      date: '2026-07-31',
+      total: 0,
+      on_time: 0,
+      delayed: 0,
+      canceled: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: null,
+    });
+    expect(body.daily[6]).toEqual({
+      date: '2026-08-06',
+      total: 11,
+      on_time: 9,
+      delayed: 1,
+      canceled: 1,
+      on_time_pct: 81.8,
+      avg_delay_seconds: 59,
+    });
+    expect(db.lastBindsFor('GROUP BY date(sched_time), status')).toEqual(['2026-07-31', '2026-08-07']);
+  });
+
+  it('defaults to 7 days when days is omitted', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/punctuality'), env(db));
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { days: number }).days).toBe(7);
+  });
+
+  it('returns 400 when days is not 7, 14 or 30', async () => {
+    for (const bad of ['abc', '1', '365', '']) {
+      const db = new FakeD1();
+      const res = await handleFetch(new Request(`https://oresund.live/api/transit/punctuality?days=${bad}`), env(db));
       expect(res.status).toBe(400);
     }
   });
@@ -454,6 +520,7 @@ describe('handleFetch — CORS', () => {
       ['https://oresund.live/api/transit/delay-stats?from=2026-08-06&to=2026-08-07', 200],
       ['https://oresund.live/api/transit/disruptions', 200],
       ['https://oresund.live/api/transit/history', 200],
+      ['https://oresund.live/api/transit/punctuality?days=7', 200],
       ['https://oresund.live/api/transit/delay-stats', 400],
       ['https://oresund.live/nope', 404],
     ];

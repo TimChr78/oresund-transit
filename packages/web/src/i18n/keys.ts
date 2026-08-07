@@ -35,6 +35,16 @@ export interface Dict {
   sev_minor: string;
   sev_moderate: string;
   sev_major: string;
+  // Causes (enum keys stored in D1 — see categorizeCause in the collector)
+  cause_staffing: string;
+  cause_person_on_tracks: string;
+  cause_signal_failure: string;
+  cause_vehicle: string;
+  cause_police: string;
+  cause_infrastructure: string;
+  cause_congestion: string;
+  cause_weather: string;
+  cause_unknown: string;
   // Stat labels
   stat_on_time: string;
   stat_delayed: string;
@@ -43,10 +53,30 @@ export interface Dict {
   stat_departures: string;
   // History
   hist_daily: string;
+  hist_punctuality: string;
   hist_by_line: string;
   hist_by_cause: string;
   hist_by_hour: string;
+  hist_by_weekday: string;
+  hist_line_delay: string;
   hist_total: string;
+  trend_avg_3d: string;
+  // Weekdays (Mon..Sun)
+  weekday_mon: string;
+  weekday_tue: string;
+  weekday_wed: string;
+  weekday_thu: string;
+  weekday_fri: string;
+  weekday_sat: string;
+  weekday_sun: string;
+  // Insight cards
+  insight_wow: string;
+  insight_wow_delta: string;
+  insight_wow_counts: string;
+  insight_avg_delay: string;
+  insight_peak: string;
+  insight_peak_share: string;
+  insight_peak_avg: string;
   days_7: string;
   days_14: string;
   days_30: string;

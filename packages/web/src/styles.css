@@ -352,6 +352,17 @@ body::after {
   background: rgba(59, 130, 246, 0.14);
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
+.badge-cause {
+  color: var(--dim);
+  background: rgba(154, 163, 178, 0.1);
+  border: 1px solid rgba(154, 163, 178, 0.24);
+  margin-left: 4px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
 .badge-sev-minor {
   color: var(--green);
   background: rgba(16, 185, 129, 0.12);
@@ -418,6 +429,44 @@ body::after {
   color: #fff;
 }
 
+/* insight cards */
+.insights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.insight {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.insight-title {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--faint);
+  margin: 0 0 4px;
+}
+.insight-value {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.insight-sub {
+  font-size: 12px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
 .chart {
   margin-top: 12px;
 }
@@ -433,15 +482,38 @@ body::after {
 
 /* daily vertical bars */
 .bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
   height: 140px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 10px 8px 0;
   overflow-x: auto;
+}
+.bar-plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 100%;
+  min-width: 100%;
+}
+.trend-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 14px;
+  width: 100%;
+  height: calc(100% - 14px);
+  pointer-events: none;
+  overflow: visible;
+}
+.trend-line {
+  fill: none;
+  stroke: var(--indigo);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 .bar-group {
   flex: 1 0 14px;
@@ -507,6 +579,63 @@ body::after {
 .dot-alert {
   background: var(--blue);
 }
+.dot-trend {
+  background: var(--indigo);
+  border-radius: 50%;
+  width: 5px;
+  height: 5px;
+}
+
+/* punctuality line chart */
+.punct-chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 10px 4px;
+}
+.punct-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.punct-grid {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+.punct-area {
+  fill: rgba(16, 185, 129, 0.12);
+}
+.punct-line {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.punct-dot {
+  fill: var(--surface);
+  stroke: var(--green);
+  stroke-width: 1.5;
+}
+.punct-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--faint);
+  padding: 4px 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+.dot-punct {
+  background: var(--green);
+  border-radius: 50%;
+}
+.punct-latest {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
 
 /* by_line / by_cause horizontal bars */
 .hbars {
@@ -550,6 +679,31 @@ body::after {
   color: var(--dim);
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+.hbar-meta {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.hbar-line .hbar-label {
+  flex-basis: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+.hbar-route {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--faint);
+  max-width: 118px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* by_hour 24-cell heatmap */
@@ -766,6 +920,31 @@ body::after {
 }
 
 /* -------------------------------------------------------------- desktop */
+
+@media (max-width: 719px) {
+  /* subtle edge-fade affordance on the horizontally scrolling table */
+  .table-wrap {
+    position: relative;
+  }
+  .table-wrap::before,
+  .table-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 26px;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .table-wrap::before {
+    left: 0;
+    background: linear-gradient(to right, var(--surface), transparent);
+  }
+  .table-wrap::after {
+    right: 0;
+    background: linear-gradient(to left, var(--surface), transparent);
+  }
+}
 
 @media (min-width: 720px) {
   .wrap {

@@ -1,5 +1,5 @@
 import './styles.css';
-import { ApiError, fetchDelayStats, fetchDisruptions, fetchHistory, fetchLiveStatus } from './api';
+import { ApiError, fetchDelayStats, fetchDisruptions, fetchHistory, fetchLiveStatus, fetchPunctuality } from './api';
 import { detectLang, getDict, saveLang, translate, type Lang } from './i18n';
 import { renderApp, type ConsentState } from './components/App';
 import { renderPrivacyPage } from './components/PrivacyPage';
@@ -123,6 +123,15 @@ export function boot(): void {
     }
   };
 
+  const refreshPunctuality = async (): Promise<void> => {
+    try {
+      const punctuality = await fetchPunctuality(state.dayRange);
+      dispatch({ type: 'PUNCTUALITY_OK', punctuality });
+    } catch (err) {
+      dispatch({ type: 'PUNCTUALITY_ERROR', message: messageOf(err) });
+    }
+  };
+
   const refreshDisruptions = async (): Promise<void> => {
     try {
       const disruptions = await fetchDisruptions(50);
@@ -136,6 +145,7 @@ export function boot(): void {
   void refreshLive();
   void refreshStats();
   void refreshHistory();
+  void refreshPunctuality();
   void refreshDisruptions();
 
   // Refresh cycle: live + disruptions only.
@@ -160,6 +170,7 @@ export function boot(): void {
         const dayRange = Number(value) as DayRange;
         dispatch({ type: 'SET_DAY_RANGE', dayRange });
         void refreshHistory();
+        void refreshPunctuality();
         void refreshStats();
         break;
       }
@@ -187,6 +198,7 @@ export function boot(): void {
         break;
       case 'retry-history':
         void refreshHistory();
+        void refreshPunctuality();
         break;
       case 'retry-disruptions':
         void refreshDisruptions();

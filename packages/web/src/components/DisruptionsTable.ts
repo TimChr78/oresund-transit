@@ -1,6 +1,7 @@
 import type { Disruption } from '@oresund/shared';
-import { formatDelaySeconds, formatTime } from '../i18n/format';
+import { formatDelayPlus, formatDelaySeconds, formatTime } from '../i18n/format';
 import { translate, type Key, type Lang } from '../i18n';
+import { causeLabel, cleanReason } from '../lib/causes';
 import { esc } from '../lib/html';
 
 function typeKey(type: string | null): Key {
@@ -36,16 +37,23 @@ function directionText(direction: string | null, lang: Lang): string {
 function row(d: Disruption, lang: Lang): string {
   const time = formatTime(d.sched_time ?? d.timestamp, lang);
   const delay = d.delay_seconds !== null ? formatDelaySeconds(d.delay_seconds, lang) : '—';
-  const reason = d.raw_text || d.cause || '—';
+  // REASON: delay + translated cause summary + cleaned raw text (full raw
+  // text stays available in the title tooltip).
+  const clean = cleanReason(d.raw_text, lang);
+  const cause = causeLabel(d.cause, lang);
+  const reason = [formatDelayPlus(d.delay_seconds, lang), cause, clean].filter(Boolean).join(' · ') || '—';
   return `
   <tr>
     <td class="num">${esc(time)}</td>
     <td class="line">${esc(d.line ?? '—')}</td>
-    <td><span class="badge ${badgeClass(d.type)}">${translate(typeKey(d.type), lang)}</span></td>
+    <td>
+      <span class="badge ${badgeClass(d.type)}">${translate(typeKey(d.type), lang)}</span>
+      ${d.cause ? `<span class="badge badge-cause" title="${esc(d.cause)}">${esc(cause)}</span>` : ''}
+    </td>
     <td><span class="badge ${severityBadgeClass(d.severity)}">${translate(severityKey(d.severity), lang)}</span></td>
     <td class="num">${esc(delay)}</td>
     <td>${esc(directionText(d.direction, lang))}</td>
-    <td class="reason" title="${esc(reason)}">${esc(reason)}</td>
+    <td class="reason" title="${esc(d.raw_text ?? reason)}">${esc(reason)}</td>
   </tr>`;
 }
 

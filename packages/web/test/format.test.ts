@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDelaySeconds, formatPct, formatTime } from '../src/i18n/format';
+import { formatDate, formatDelaySeconds, formatPct, formatTime, normalizeTs } from '../src/i18n/format';
 
 describe('formatDate', () => {
   it('formats SV/EN dates as YYYY-MM-DD', () => {
@@ -42,6 +42,28 @@ describe('formatTime', () => {
     expect(formatTime('25:99', 'sv')).toBe('');
     expect(formatTime('', 'sv')).toBe('');
   });
+
+  it('parses the space-separated timestamp format (2026-08-06 15:35:11)', () => {
+    expect(formatTime('2026-08-06 15:35:11', 'sv')).toBe('15:35');
+    expect(formatTime('2026-08-06 15:35:11', 'da')).toBe('15.35');
+  });
+});
+
+describe('normalizeTs', () => {
+  it('converts the space-separated format to ISO-T', () => {
+    expect(normalizeTs('2026-08-06 15:35:11')).toBe('2026-08-06T15:35:11');
+    expect(normalizeTs('2026-08-06 15:35')).toBe('2026-08-06T15:35');
+  });
+
+  it('leaves ISO-T timestamps unchanged', () => {
+    expect(normalizeTs('2026-08-06T15:35:11')).toBe('2026-08-06T15:35:11');
+  });
+
+  it('returns an empty string for unparseable input', () => {
+    expect(normalizeTs('')).toBe('');
+    expect(normalizeTs('not-a-date')).toBe('');
+    expect(normalizeTs('15:35')).toBe('');
+  });
 });
 
 describe('formatDelaySeconds', () => {
@@ -49,9 +71,14 @@ describe('formatDelaySeconds', () => {
     expect(formatDelaySeconds(null, 'sv')).toBe('—');
   });
 
-  it('renders minutes rounded to the nearest whole minute', () => {
-    expect(formatDelaySeconds(0, 'sv')).toBe('0 min');
-    expect(formatDelaySeconds(30, 'sv')).toBe('1 min');
+  it('renders sub-minute delays as seconds', () => {
+    expect(formatDelaySeconds(0, 'sv')).toBe('0 s');
+    expect(formatDelaySeconds(21, 'sv')).toBe('21 s');
+    expect(formatDelaySeconds(59, 'sv')).toBe('59 s');
+    expect(formatDelaySeconds(21, 'da')).toBe('21 sek.');
+  });
+
+  it('renders minute delays rounded to the nearest whole minute', () => {
     expect(formatDelaySeconds(240, 'sv')).toBe('4 min');
     expect(formatDelaySeconds(3590, 'sv')).toBe('60 min');
   });

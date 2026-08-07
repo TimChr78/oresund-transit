@@ -1,5 +1,5 @@
 import type { DelayStats, Disruption, LiveStatus } from '@oresund/shared';
-import type { HistoryResponse } from './api';
+import type { HistoryResponse, PunctualityResponse } from './api';
 import type { DayRange, Direction } from './lib/stats';
 
 /**
@@ -25,6 +25,8 @@ export interface AppState {
   disruptionsError: string | null;
   history: HistoryResponse | null;
   historyError: string | null;
+  punctuality: PunctualityResponse | null;
+  punctualityError: string | null;
 }
 
 export type Action =
@@ -38,7 +40,9 @@ export type Action =
   | { type: 'DISRUPTIONS_OK'; disruptions: Disruption[] }
   | { type: 'DISRUPTIONS_ERROR'; message: string }
   | { type: 'HISTORY_OK'; history: HistoryResponse }
-  | { type: 'HISTORY_ERROR'; message: string };
+  | { type: 'HISTORY_ERROR'; message: string }
+  | { type: 'PUNCTUALITY_OK'; punctuality: PunctualityResponse }
+  | { type: 'PUNCTUALITY_ERROR'; message: string };
 
 export function createInitialState(): AppState {
   return {
@@ -55,6 +59,8 @@ export function createInitialState(): AppState {
     disruptionsError: null,
     history: null,
     historyError: null,
+    punctuality: null,
+    punctualityError: null,
   };
 }
 
@@ -64,7 +70,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, direction: action.direction };
 
     case 'SET_DAY_RANGE':
-      // History + stats are re-fetched on day-range change only.
+      // History + stats + punctuality are re-fetched on day-range change only.
       return {
         ...state,
         dayRange: action.dayRange,
@@ -72,6 +78,8 @@ export function reducer(state: AppState, action: Action): AppState {
         historyError: null,
         stats: null,
         statsError: null,
+        punctuality: null,
+        punctualityError: null,
       };
 
     case 'LIVE_OK':
@@ -102,5 +110,11 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'HISTORY_ERROR':
       return { ...state, historyError: action.message };
+
+    case 'PUNCTUALITY_OK':
+      return { ...state, punctuality: action.punctuality, punctualityError: null };
+
+    case 'PUNCTUALITY_ERROR':
+      return { ...state, punctualityError: action.message };
   }
 }

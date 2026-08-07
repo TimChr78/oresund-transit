@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DelayStats, Disruption, LiveStatus } from '@oresund/shared';
 import { createInitialState, reducer } from '../src/state';
-import type { HistoryResponse } from '../src/api';
+import type { HistoryResponse, PunctualityResponse } from '../src/api';
 
 const LIVE: LiveStatus = {
   status: 'amber',
@@ -51,10 +51,19 @@ const HISTORY: HistoryResponse = {
   date_from: '2026-07-31',
   date_to: '2026-08-06',
   total_disruptions: 1,
-  daily: [{ date: '2026-08-06', count: 1, cancellations: 0, delays: 1, alerts: 0 }],
-  by_line: [{ line: '801', count: 1 }],
+  daily: [{ date: '2026-08-06', count: 1, cancellations: 0, delays: 1, alerts: 0, avg_delay: 240 }],
+  by_line: [{ line: '801', count: 1, avg_delay: 240, max_delay: 240 }],
   by_cause: [{ cause: 'Signalfel', count: 1 }],
-  by_hour: [{ hour: 21, count: 1 }],
+  by_hour: [{ hour: 21, count: 1, avg_delay: 240 }],
+};
+
+const PUNCTUALITY: PunctualityResponse = {
+  days: 7,
+  date_from: '2026-07-31',
+  date_to: '2026-08-06',
+  daily: [
+    { date: '2026-08-06', total: 10, on_time: 9, delayed: 1, canceled: 0, on_time_pct: 90, avg_delay_seconds: 65 },
+  ],
 };
 
 describe('app state reducer', () => {
@@ -67,6 +76,8 @@ describe('app state reducer', () => {
     expect(s.liveError).toBeNull();
     expect(s.stats).toBeNull();
     expect(s.history).toBeNull();
+    expect(s.punctuality).toBeNull();
+    expect(s.punctualityError).toBeNull();
     expect(s.disruptions).toEqual([]);
     expect(s.lastRefresh).toBe(0);
   });
@@ -78,13 +89,16 @@ describe('app state reducer', () => {
     expect(next.live).toBe(LIVE);
   });
 
-  it('SET_DAY_RANGE sets the range and clears history + stats for refetch', () => {
+  it('SET_DAY_RANGE sets the range and clears history + stats + punctuality for refetch', () => {
     let s = reducer(createInitialState(), { type: 'HISTORY_OK', history: HISTORY });
     s = reducer(s, { type: 'STATS_OK', stats: STATS });
+    s = reducer(s, { type: 'PUNCTUALITY_OK', punctuality: PUNCTUALITY });
     const next = reducer(s, { type: 'SET_DAY_RANGE', dayRange: 14 });
     expect(next.dayRange).toBe(14);
     expect(next.history).toBeNull();
     expect(next.stats).toBeNull();
+    expect(next.punctuality).toBeNull();
+    expect(next.punctualityError).toBeNull();
   });
 
   it('LIVE_OK stores the snapshot and records the refresh time', () => {
@@ -142,5 +156,19 @@ describe('app state reducer', () => {
     s = reducer(s, { type: 'STATS_OK', stats: STATS });
     expect(s.stats).toBe(STATS);
     expect(s.statsError).toBeNull();
+  });
+
+  it('PUNCTUALITY_OK populates punctuality and clears the error', () => {
+    let s = reducer(createInitialState(), { type: 'PUNCTUALITY_ERROR', message: 'boom' });
+    s = reducer(s, { type: 'PUNCTUALITY_OK', punctuality: PUNCTUALITY });
+    expect(s.punctuality).toBe(PUNCTUALITY);
+    expect(s.punctualityError).toBeNull();
+  });
+
+  it('PUNCTUALITY_ERROR marks the error and keeps prior data', () => {
+    let s = reducer(createInitialState(), { type: 'PUNCTUALITY_OK', punctuality: PUNCTUALITY });
+    s = reducer(s, { type: 'PUNCTUALITY_ERROR', message: 'boom' });
+    expect(s.punctuality).toBe(PUNCTUALITY);
+    expect(s.punctualityError).toBe('boom');
   });
 });
