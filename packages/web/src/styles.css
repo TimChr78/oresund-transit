@@ -444,15 +444,38 @@ body::after {
 
 /* daily vertical bars */
 .bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
   height: 140px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 10px 8px 0;
   overflow-x: auto;
+}
+.bar-plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 100%;
+  min-width: 100%;
+}
+.trend-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 14px;
+  width: 100%;
+  height: calc(100% - 14px);
+  pointer-events: none;
+  overflow: visible;
+}
+.trend-line {
+  fill: none;
+  stroke: var(--indigo);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 .bar-group {
   flex: 1 0 14px;
@@ -517,6 +540,12 @@ body::after {
 }
 .dot-alert {
   background: var(--blue);
+}
+.dot-trend {
+  background: var(--indigo);
+  border-radius: 50%;
+  width: 5px;
+  height: 5px;
 }
 
 /* punctuality line chart */

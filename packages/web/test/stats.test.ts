@@ -8,6 +8,7 @@ import {
   hBarWidth,
   heatmapBuckets,
   heatmapIntensity,
+  movingAverage,
   sortNewestFirst,
   delayStatsRange,
 } from '../src/lib/stats';
@@ -88,6 +89,28 @@ describe('hBarWidth', () => {
   it('guards against max <= 0', () => {
     expect(hBarWidth(3, 0)).toBe(0);
     expect(hBarWidth(0, 10)).toBe(0);
+  });
+});
+
+describe('movingAverage', () => {
+  it('computes a centered 3-day average (edge days clamp the window)', () => {
+    expect(movingAverage([0, 0, 0, 3, 0, 0, 0], 3)).toEqual([0, 0, 1, 1, 1, 0, 0]);
+  });
+
+  it('smooths a steady ramp', () => {
+    expect(movingAverage([0, 1, 2, 3, 4], 3)).toEqual([0.5, 1, 2, 3, 3.5]);
+  });
+
+  it('a window of 1 is the identity', () => {
+    expect(movingAverage([2, 4, 6], 1)).toEqual([2, 4, 6]);
+  });
+
+  it('a window >= length averages everything', () => {
+    expect(movingAverage([2, 4, 6], 9)).toEqual([4, 4, 4]);
+  });
+
+  it('returns an empty array for empty input', () => {
+    expect(movingAverage([], 3)).toEqual([]);
   });
 });
 

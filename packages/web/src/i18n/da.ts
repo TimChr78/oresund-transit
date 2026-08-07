@@ -54,6 +54,7 @@ export const da: Dict = {
   hist_by_cause: 'Per årsag',
   hist_by_hour: 'Per time',
   hist_total: 'I alt: {n}',
+  trend_avg_3d: '3-dages gennemsnit',
   days_7: '7 dage',
   days_14: '14 dage',
   days_30: '30 dage',

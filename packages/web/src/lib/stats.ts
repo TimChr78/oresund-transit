@@ -77,6 +77,27 @@ export function svgLinePoints(values: readonly number[], width: number, height: 
     .join(' ');
 }
 
+/**
+ * Centered N-day moving average. Edge days clamp the window to the available
+ * neighbors (e.g. a 3-day average on day 0 averages days 0-1). Returns a new
+ * array of the same length; empty input → empty output.
+ */
+export function movingAverage(values: readonly number[], window: number): number[] {
+  if (window <= 0) return [...values];
+  const half = Math.floor(window / 2);
+  return values.map((_, i) => {
+    const from = Math.max(0, i - half);
+    const to = Math.min(values.length - 1, i + half);
+    let sum = 0;
+    let n = 0;
+    for (let j = from; j <= to; j += 1) {
+      sum += values[j] ?? 0;
+      n += 1;
+    }
+    return n > 0 ? sum / n : 0;
+  });
+}
+
 /** Sort disruptions newest-first by ISO timestamp (returns a new array). */
 export function sortNewestFirst<T extends { timestamp: string }>(list: readonly T[]): T[] {
   return [...list].sort((a, b) => b.timestamp.localeCompare(a.timestamp));

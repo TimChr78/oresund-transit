@@ -54,6 +54,7 @@ export const sv: Dict = {
   hist_by_cause: 'Per orsak',
   hist_by_hour: 'Per timme',
   hist_total: 'Totalt: {n}',
+  trend_avg_3d: '3-dagarsmedel',
   days_7: '7 dagar',
   days_14: '14 dagar',
   days_30: '30 dagar',

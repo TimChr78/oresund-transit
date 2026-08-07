@@ -6,6 +6,7 @@ import {
   hBarWidth,
   heatmapBuckets,
   heatmapIntensity,
+  movingAverage,
   type DayRange,
 } from '../lib/stats';
 import { renderPunctualityChart } from './PunctualityChart';
@@ -24,6 +25,7 @@ function legend(lang: Lang): string {
     ${item('dot-cancel', 'type_cancellation')}
     ${item('dot-delay', 'type_delay')}
     ${item('dot-alert', 'type_alert')}
+    <span class="legend-item"><span class="legend-dot dot-trend"></span>${translate('trend_avg_3d', lang)}</span>
   </div>`;
 }
 
@@ -72,6 +74,20 @@ export function renderHistoryCharts(
     })
     .join('');
 
+  // 3-day moving-average overlay, aligned to the bar x-centers (viewBox is
+  // n units wide × 100 tall, stretched over the bar plot area).
+  const n = history.daily.length;
+  const trend = movingAverage(history.daily.map((d) => d.count), 3);
+  const trendPoints =
+    max > 0 && n > 0
+      ? trend
+          .map((v, i) => `${(i + 0.5).toFixed(2)},${(100 - (v / max) * 100).toFixed(1)}`)
+          .join(' ')
+      : '';
+  const trendLayer = trendPoints
+    ? `<svg class="trend-layer" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${trendPoints}" class="trend-line" /></svg>`
+    : '';
+
   const buckets = heatmapBuckets(history.by_hour);
   const intensity = heatmapIntensity(buckets);
   const cells = buckets
@@ -102,7 +118,12 @@ export function renderHistoryCharts(
 
     <div class="chart">
       <h3 class="chart-title">${translate('hist_daily', lang)}</h3>
-      <div class="bars">${dayBars}</div>
+      <div class="bars">
+        <div class="bar-plot">
+          ${dayBars}
+          ${trendLayer}
+        </div>
+      </div>
       ${legend(lang)}
     </div>
 

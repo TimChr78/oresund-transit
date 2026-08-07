@@ -58,6 +58,7 @@ export interface Dict {
   hist_by_cause: string;
   hist_by_hour: string;
   hist_total: string;
+  trend_avg_3d: string;
   days_7: string;
   days_14: string;
   days_30: string;
