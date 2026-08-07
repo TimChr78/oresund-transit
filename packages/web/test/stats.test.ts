@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Disruption, LiveStatus } from '@oresund/shared';
+import type { Disruption } from '@oresund/shared';
 import {
   barHeights,
   dailyBarSegments,
