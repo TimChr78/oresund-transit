@@ -1,0 +1,81 @@
+# CodeRabbit review configuration — oresund-transit
+# Docs: https://docs.coderabbit.ai/reference/configuration
+
+language: en-US
+enable_free_tier: true
+
+reviews:
+  profile: chill            # balanced: real issues only, not nitpicks
+  poem: false
+  sequence_diagrams: false  # noise for a dashboard repo
+  related_issues: false
+  related_prs: false
+  suggested_reviewers: false   # solo project
+  suggested_labels: true
+  estimate_code_review_effort: false
+  assess_linked_issues: false  # PRs don't reference issues
+  high_level_summary: true     # our PR bodies are already detailed; this stays in walkthrough
+  high_level_summary_in_walkthrough: true
+  collapse_walkthrough: true
+  review_status: true
+  abort_on_close: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true   # review each push (harness commits per item)
+    drafts: false
+    ignore_title_keywords: ["wip", "chore(deps)", "dependabot"]
+    base_branches: []               # main only (default branch)
+
+  path_filters:
+    - "!**/dist/**"
+    - "!**/node_modules/**"
+    - "!bun.lockb"
+    - "!**/.wrangler/**"
+
+  path_instructions:
+    - path: "**/*.ts"
+      instructions: |
+        - TDD convention: any change to logic MUST be accompanied by tests
+          (vitest). Flag logic changes without tests as a blocker.
+        - No secrets, no API keys, no absolute paths in committed files.
+        - Use the existing code style: named exports, explicit types, no
+          `any` unless genuinely unavoidable.
+    - path: "packages/web/src/i18n/**"
+      instructions: |
+        - The three dictionaries (sv.ts, da.ts, en.ts) MUST have identical key
+          sets — this is test-enforced. Any key added to one must be added to
+          all three. Flag mismatches.
+    - path: "packages/web/src/components/**"
+      instructions: |
+        - Hand-rolled CSS/SVG only. No chart libraries, no frameworks.
+        - All user-facing text must go through i18n (translate()).
+        - Design conventions: no right-aligned labels in charts; dark theme
+          consistent with existing vars; tabular-nums for numeric columns.
+        - SVG overlays must set vector-effect="non-scaling-stroke" when using
+          preserveAspectRatio="none" (distorted stroke bug).
+    - path: "packages/collector/src/**"
+      instructions: |
+        - Runs on Cloudflare Workers with D1 (db.ts, index.ts). Keep the
+          collection pipeline (runScheduled) stable; API handlers are
+          fetch()-routed, CORS on all /api/* paths.
+        - Timestamps are naive local time strings; date-range filters are
+          half-open [from, to) intervals — flag off-by-one range bugs.
+        - queries use the D1Like interface so tests run on FakeD1.
+    - path: ".github/workflows/**"
+      instructions: |
+        - CI must run: root typecheck, web typecheck, web build, vitest, and
+          eslint --max-warnings 0 (root tsconfig excludes packages/web, so web
+          needs its own steps). Flag missing checks.
+
+tools:
+  ast-grep:
+    enabled: true
+  eslint:
+    enabled: true
+  markdownlint:
+    enabled: true
+  shellcheck:
+    enabled: true
+  ruff:
+    enabled: false          # no Python in this repo
