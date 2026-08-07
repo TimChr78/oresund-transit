@@ -3,6 +3,7 @@ import { translate, type Key, type Lang } from '../i18n';
 import { causeLabel } from '../lib/causes';
 import { formatDelaySeconds, formatPct } from '../i18n/format';
 import {
+  barHeightPct,
   byWeekday,
   dailyBarSegments,
   dailyLabelPlan,
@@ -11,6 +12,8 @@ import {
   heatmapBuckets,
   heatmapShare,
   movingAverage,
+  segHeightPct,
+  yAxisTicks,
   type DayRange,
 } from '../lib/stats';
 import { renderPunctualityChart } from './PunctualityChart';
@@ -114,7 +117,10 @@ export function renderHistoryCharts(
 ): string {
   const segments = dailyBarSegments(history.daily);
   const max = Math.max(0, ...history.daily.map((d) => d.count));
-  const pct = (v: number): number => (max > 0 ? (v / max) * 100 : 0);
+  // Real y-axis: clean ticks from yAxisTicks; the TOP TICK is the axis
+  // ceiling — bars, gridlines, trend and axis labels all scale against it.
+  const ticks = yAxisTicks(max);
+  const topTick = ticks[ticks.length - 1] ?? 0;
 
   // X-axis labels: localized month names, month starts always labeled, bare
   // day-of-month elsewhere; long ranges stride so labels never crowd.
@@ -125,40 +131,56 @@ export function renderHistoryCharts(
   const dayBars = history.daily
     .map((d, i) => {
       const seg = segments[i] ?? { cancellations: 0, delays: 0, alerts: 0 };
-      const stackHeight = d.count > 0 ? Math.max(pct(d.count), 4) : 0;
+      const dayFrac = max > 0 ? d.count / max : 0;
+      const stackHeight = d.count > 0 ? Math.max(barHeightPct(d.count, topTick), 4) : 0;
       return `
     <div class="bar-group" title="${d.date}: ${d.count}">
       <div class="bar-stack" style="height:${stackHeight.toFixed(1)}%">
-        <span class="seg seg-cancel" style="height:${pct(seg.cancellations).toFixed(1)}%"></span>
-        <span class="seg seg-delay" style="height:${pct(seg.delays).toFixed(1)}%"></span>
-        <span class="seg seg-alert" style="height:${pct(seg.alerts).toFixed(1)}%"></span>
+        <span class="seg seg-cancel" style="height:${segHeightPct(seg.cancellations, dayFrac).toFixed(1)}%"></span>
+        <span class="seg seg-delay" style="height:${segHeightPct(seg.delays, dayFrac).toFixed(1)}%"></span>
+        <span class="seg seg-alert" style="height:${segHeightPct(seg.alerts, dayFrac).toFixed(1)}%"></span>
       </div>
-      <span class="bar-label">${esc(labelTexts.get(i) ?? '')}</span>
     </div>`;
     })
     .join('');
 
-  // Horizontal gridlines at 25/50/75% of the plot, behind the bars.
+  // X-axis labels live in their own strip below the plot, so bars, gridlines
+  // and the axis column share ONE scale against the plot band.
+  const xLabels = history.daily
+    .map((_, i) => `<span class="bar-label">${esc(labelTexts.get(i) ?? '')}</span>`)
+    .join('');
+
+  // Horizontal gridlines at every y-axis tick, behind the bars, scaled
+  // against the top tick so the top gridline is the axis ceiling.
   const n = history.daily.length;
   const grid =
-    n > 0
-      ? `<svg class="daily-grid" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true">${[25, 50, 75]
-          .map(
-            (g) =>
-              `<line x1="0" y1="${100 - g}" x2="${n}" y2="${100 - g}" vector-effect="non-scaling-stroke" />`,
-          )
+    n > 0 && topTick > 0
+      ? `<svg class="daily-grid" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true">${ticks
+          .map((t) => {
+            const y = 100 - (t / topTick) * 100;
+            return `<line x1="0" y1="${y.toFixed(1)}" x2="${n}" y2="${y.toFixed(1)}" vector-effect="non-scaling-stroke" />`;
+          })
           .join('')}</svg>`
       : '';
-  const maxLabel =
-    max > 0 ? `<span class="plot-max">${esc(translate('hist_daily_max', lang, { n: max }))}</span>` : '';
+
+  // Left axis column: numeric tick labels at the same stops as the gridlines
+  // (fixed-width flex sibling of the plot, not text floating over it).
+  const axisLabels = ticks
+    .map((t) => {
+      const top = topTick > 0 ? 100 - (t / topTick) * 100 : 0;
+      return `<span class="daily-tick" style="top:${top.toFixed(1)}%">${t}</span>`;
+    })
+    .join('');
+  const axis = `<div class="daily-axis" aria-hidden="true"><div class="axis-inner">${axisLabels}</div></div>`;
 
   // 3-day moving-average overlay, aligned to the bar x-centers (viewBox is
-  // n units wide × 100 tall, stretched over the bar plot area).
+  // n units wide × 100 tall, stretched over the plot band; scaled against
+  // the top tick so it sits inside the axis).
   const trend = movingAverage(history.daily.map((d) => d.count), 3);
   const trendPoints =
     max > 0 && n > 0
       ? trend
-          .map((v, i) => `${(i + 0.5).toFixed(2)},${(100 - (v / max) * 100).toFixed(1)}`)
+          .map((v, i) => `${(i + 0.5).toFixed(2)},${(100 - (v / topTick) * 100).toFixed(1)}`)
           .join(' ')
       : '';
   const trendLayer = trendPoints
@@ -212,12 +234,15 @@ export function renderHistoryCharts(
     <div class="chart">
       <h3 class="chart-title">${translate('hist_daily', lang)}</h3>
       <div class="bars">
+        ${axis}
         <div class="bar-plot">
+          <div class="plot-band">
         ${grid}
         ${dayBars}
         ${trendLayer}
-        ${maxLabel}
-      </div>
+          </div>
+          <div class="x-labels">${xLabels}</div>
+        </div>
       </div>
       ${legend(lang)}
     </div>

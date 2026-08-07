@@ -21,6 +21,10 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.trend-line \{[^}]*vector-effect:\s*non-scaling-stroke/);
   });
 
+  it('raises daily-grid line opacity so the tick gridlines actually guide the eye', () => {
+    expect(css).toMatch(/\.daily-grid line \{[^}]*rgba\(255,\s*255,\s*255,\s*0\.14\)/);
+  });
+
   it('left-aligns hbar-count and hbar-meta while keeping tabular numerals', () => {
     expect(css).toMatch(/\.hbar-count \{[^}]*text-align:\s*left/);
     expect(css).toMatch(/\.hbar-count \{[^}]*font-variant-numeric:\s*tabular-nums/);

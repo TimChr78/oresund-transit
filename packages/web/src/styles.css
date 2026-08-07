@@ -482,62 +482,81 @@ body::after {
 
 /* daily vertical bars */
 .bars {
+  display: flex;
+  gap: 6px;
   height: 140px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 10px 8px 0;
-  overflow-x: auto;
+}
+/* fixed-width left axis column: numeric tick labels at the gridline stops;
+   its inner box mirrors the plot band so labels line up with gridlines */
+.daily-axis {
+  flex: 0 0 34px;
+  position: relative;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.axis-inner {
+  position: absolute;
+  top: 12px; /* skip the per-bar value-label strip above the plot */
+  bottom: 14px; /* stop at the x-label strip below the plot */
+  left: 0;
+  right: 0;
+}
+.daily-tick {
+  position: absolute;
+  right: 2px; /* numbers abut the plot, inside their own fixed-width column */
+  transform: translateY(-50%);
+  line-height: 1;
+  white-space: nowrap;
 }
 .bar-plot {
+  flex: 1 1 auto;
+  min-width: 0; /* let the axis column stay fixed while the plot scrolls */
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.plot-band {
   position: relative;
   z-index: 0; /* stacking context so .daily-grid can sit behind the bars */
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  height: 100%;
-  min-width: 100%;
+  padding-top: 12px; /* strip above the plot for per-bar value labels */
+  box-sizing: border-box;
 }
 .daily-grid {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  bottom: 14px;
+  top: 12px;
+  bottom: 0;
   width: 100%;
-  height: calc(100% - 14px);
+  height: calc(100% - 12px);
   z-index: -1;
   pointer-events: none;
 }
 .daily-grid line {
-  stroke: rgba(255, 255, 255, 0.06);
+  stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 1;
   /* guard: the grid SVG is stretched with preserveAspectRatio="none" —
      keep strokes at their true width instead of ballooning like the trend line */
   vector-effect: non-scaling-stroke;
 }
-.plot-max {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  z-index: 1;
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-  background: var(--surface);
-  border-radius: 3px;
-  padding: 0 4px;
-  line-height: 1.4;
-}
 .trend-layer {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  bottom: 14px;
-  width: 100%;
-  height: calc(100% - 14px);
+  top: 12px;
+  bottom: 0;
   pointer-events: none;
   overflow: visible;
 }
@@ -555,6 +574,7 @@ body::after {
 .bar-group {
   flex: 1 0 14px;
   min-width: 8px;
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -583,11 +603,19 @@ body::after {
   background: var(--blue);
 }
 .bar-label {
+  flex: 1 0 14px;
+  min-width: 0;
+  text-align: center;
   font-family: var(--mono);
   font-size: 9px;
   color: var(--faint);
-  margin-top: 3px;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+.x-labels {
+  flex: 0 0 14px;
+  display: flex;
+  gap: 3px;
 }
 
 /* legend */

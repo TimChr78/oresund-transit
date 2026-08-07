@@ -58,7 +58,6 @@ export const sv: Dict = {
   hist_by_weekday: 'Per veckodag',
   hist_line_delay: 'snitt {a} · max {b}',
   hist_total: 'Totalt: {n}',
-  hist_daily_max: 'max {n}',
   trend_avg_3d: '3-dagarsmedel',
   punct_data_since: 'data från {date}',
   // Short month names

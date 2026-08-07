@@ -137,16 +137,43 @@ describe('renderHistoryCharts — daily axis legibility', () => {
     expect(html).toContain('daily-grid');
     expect(html).toContain('<line');
   });
+});
 
-  it('shows a subtle max-count label at the top-left of the plot', () => {
-    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // max = 6 on 2026-08-06
-    expect(html).toContain('plot-max');
-    expect(html).toContain('max 6');
+describe('renderHistoryCharts — real y-axis (Item 2)', () => {
+  it('renders a fixed-width left axis column with numeric tick labels (max 6 -> 0,2,4,6)', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toContain('daily-axis');
+    expect(html).toContain('axis-inner');
+    for (const label of ['0', '2', '4', '6']) {
+      expect(html).toMatch(new RegExp(`class="daily-tick"[^>]*>${label}<`));
+    }
   });
 
-  it('omits the max label when every day is zero', () => {
+  it('places the top tick at the axis ceiling (top:0%) and 0 at the baseline (top:100%)', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // ticks 0,2,4,6
+    expect(html).toMatch(/class="daily-tick" style="top:0\.0%">6</);
+    expect(html).toMatch(/class="daily-tick" style="top:100\.0%">0</);
+  });
+
+  it('draws a gridline at every y-axis tick, scaled against the top tick', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // ticks 0,2,4,6, n=7
+    expect(html).toMatch(/<line x1="0" y1="0\.0" x2="7" y2="0\.0"/); // top tick = ceiling
+    expect(html).toMatch(/<line x1="0" y1="100\.0" x2="7" y2="100\.0"/); // 0 = baseline
+    expect(html).toMatch(/<line[^>]*y1="33\.3"/); // tick 4
+    expect(html).toMatch(/<line[^>]*y1="66\.7"/); // tick 2
+  });
+
+  it('removes the floating "max N" chip — the axis replaces it', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).not.toContain('plot-max');
+    expect(html).not.toContain('max 6');
+  });
+
+  it('still shows a bare 0 tick (and no chip) when every day is zero', () => {
     const zero: HistoryResponse = { ...HISTORY, daily: HISTORY.daily.map((d) => ({ ...d, count: 0 })) };
     const html = renderHistoryCharts(zero, null, 7, 'en');
+    expect(html).toContain('daily-axis');
+    expect(html).toMatch(/class="daily-tick"[^>]*>0</);
     expect(html).not.toContain('plot-max');
   });
 });

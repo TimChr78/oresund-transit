@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Disruption } from '@oresund/shared';
 import {
   barHeights,
+  barHeightPct,
   dailyBarSegments,
   dailyLabelPlan,
   filterByDirection,
@@ -12,11 +13,13 @@ import {
   movingAverage,
   peakVsOffPeak,
   punctualitySeries,
+  segHeightPct,
   sortNewestFirst,
   delayStatsRange,
   weekOverWeek,
   weekdayIndex,
   byWeekday,
+  yAxisTicks,
 } from '../src/lib/stats';
 
 describe('barHeights', () => {
@@ -30,6 +33,76 @@ describe('barHeights', () => {
 
   it('returns an empty array for empty input', () => {
     expect(barHeights([])).toEqual([]);
+  });
+});
+
+describe('yAxisTicks', () => {
+  it('picks a clean step from [1,2,5,10,20,25,50,100] yielding 3-5 ticks incl. 0, top tick >= max', () => {
+    expect(yAxisTicks(7)).toEqual([0, 2, 4, 6, 8]); // step 2
+    expect(yAxisTicks(54)).toEqual([0, 20, 40, 60]); // step 20
+    expect(yAxisTicks(120)).toEqual([0, 50, 100, 150]); // step 50
+    expect(yAxisTicks(250)).toEqual([0, 100, 200, 300]); // step 100
+    expect(yAxisTicks(3)).toEqual([0, 1, 2, 3]); // step 1
+  });
+
+  it('always includes 0 and the top tick is >= max (property check across magnitudes)', () => {
+    for (const max of [2, 5, 6, 9, 12, 27, 55, 88, 130, 480, 999]) {
+      const ticks = yAxisTicks(max);
+      expect(ticks[0]).toBe(0);
+      expect(ticks[ticks.length - 1]!).toBeGreaterThanOrEqual(max);
+      expect(ticks.length).toBeGreaterThanOrEqual(3);
+      expect(ticks.length).toBeLessThanOrEqual(5);
+      // evenly spaced by a single step
+      const step = ticks[1]! - ticks[0]!;
+      for (let i = 2; i < ticks.length; i += 1) {
+        expect(ticks[i]! - ticks[i - 1]!).toBe(step);
+      }
+    }
+  });
+
+  it('returns just [0] for zero or negative maxima, and unit steps for tiny maxima', () => {
+    expect(yAxisTicks(0)).toEqual([0]);
+    expect(yAxisTicks(-4)).toEqual([0]);
+    expect(yAxisTicks(1)).toEqual([0, 1]);
+  });
+});
+
+describe('barHeightPct — top-tick scaling', () => {
+  it('maps a value against the axis ceiling (top tick), not the raw max', () => {
+    expect(barHeightPct(6, 8)).toBe(75);
+    expect(barHeightPct(54, 60)).toBe(90);
+    expect(barHeightPct(6, 6)).toBe(100); // max == top tick fills the plot
+  });
+
+  it('a bar at the max value reaches (max/topTick)*100%', () => {
+    expect(barHeightPct(7, 8)).toBe(87.5);
+    expect(barHeightPct(120, 150)).toBe(80);
+  });
+
+  it('guards zero counts and zero ceilings', () => {
+    expect(barHeightPct(0, 8)).toBe(0);
+    expect(barHeightPct(5, 0)).toBe(0);
+  });
+});
+
+describe('segHeightPct — stacked segments fill the bar', () => {
+  it('scales a window-max segment fraction to a percent of its day bar', () => {
+    // day count 5 of window max 10 -> dayFrac 0.5; cancellations seg 0.2 (=2 of 5)
+    expect(segHeightPct(0.2, 0.5)).toBe(40);
+    expect(segHeightPct(0.2, 0.5)).toBe(40);
+    expect(segHeightPct(0.1, 0.5)).toBe(20);
+  });
+
+  it('a full day fills its bar exactly (segments sum to 100)', () => {
+    const dayFrac = 0.5; // count 5 of max 10
+    const segs = [0.2, 0.2, 0.1]; // cancellations 2, delays 2, alerts 1
+    const pcts = segs.map((s) => segHeightPct(s, dayFrac));
+    expect(pcts.reduce((a, b) => a + b, 0)).toBe(100);
+  });
+
+  it('guards zero segments and zero day fractions', () => {
+    expect(segHeightPct(0, 0.5)).toBe(0);
+    expect(segHeightPct(0.2, 0)).toBe(0);
   });
 });
 

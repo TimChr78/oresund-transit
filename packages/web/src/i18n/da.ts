@@ -58,7 +58,6 @@ export const da: Dict = {
   hist_by_weekday: 'Per ugedag',
   hist_line_delay: 'gns. {a} · maks {b}',
   hist_total: 'I alt: {n}',
-  hist_daily_max: 'maks {n}',
   trend_avg_3d: '3-dages gennemsnit',
   punct_data_since: 'data siden {date}',
   // Short month names
