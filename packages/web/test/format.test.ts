@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDelaySeconds, formatPct, formatTime } from '../src/i18n/format';
+import { formatDate, formatDelaySeconds, formatPct, formatTime, normalizeTs } from '../src/i18n/format';
 
 describe('formatDate', () => {
   it('formats SV/EN dates as YYYY-MM-DD', () => {
@@ -41,6 +41,28 @@ describe('formatTime', () => {
   it('rejects impossible times and unparseable input', () => {
     expect(formatTime('25:99', 'sv')).toBe('');
     expect(formatTime('', 'sv')).toBe('');
+  });
+
+  it('parses the space-separated timestamp format (2026-08-06 15:35:11)', () => {
+    expect(formatTime('2026-08-06 15:35:11', 'sv')).toBe('15:35');
+    expect(formatTime('2026-08-06 15:35:11', 'da')).toBe('15.35');
+  });
+});
+
+describe('normalizeTs', () => {
+  it('converts the space-separated format to ISO-T', () => {
+    expect(normalizeTs('2026-08-06 15:35:11')).toBe('2026-08-06T15:35:11');
+    expect(normalizeTs('2026-08-06 15:35')).toBe('2026-08-06T15:35');
+  });
+
+  it('leaves ISO-T timestamps unchanged', () => {
+    expect(normalizeTs('2026-08-06T15:35:11')).toBe('2026-08-06T15:35:11');
+  });
+
+  it('returns an empty string for unparseable input', () => {
+    expect(normalizeTs('')).toBe('');
+    expect(normalizeTs('not-a-date')).toBe('');
+    expect(normalizeTs('15:35')).toBe('');
   });
 });
 

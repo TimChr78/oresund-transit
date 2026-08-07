@@ -19,9 +19,21 @@ export function formatDate(value: string, lang: Lang): string {
   return lang === 'da' ? `${day}-${month}-${year}` : `${year}-${month}-${day}`;
 }
 
+/**
+ * Normalize a timestamp to ISO-T form ("2026-08-06T15:35:11"). The API data
+ * carries BOTH the space-separated ("2026-08-06 15:35:11") and ISO-T formats;
+ * normalizing the separator in one place keeps formatTime/formatDate simple.
+ * Empty string when unparseable (bare "21:59" included — callers fall back).
+ */
+export function normalizeTs(ts: string): string {
+  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)$/.exec(ts);
+  return m ? `${m[1]}T${m[2]}` : '';
+}
+
 /** Render an HH:MM time per locale (DA uses a dot separator). Empty when unparseable. */
 export function formatTime(value: string, lang: Lang): string {
-  const m = /(?:^|T)(\d{2}):(\d{2})/.exec(value);
+  const normalized = normalizeTs(value) || value;
+  const m = /(?:^|T)(\d{2}):(\d{2})/.exec(normalized);
   const hour = m?.[1];
   const minute = m?.[2];
   if (!hour || !minute) return '';
