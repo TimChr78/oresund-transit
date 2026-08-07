@@ -1,0 +1,22 @@
+{
+  // Web dashboard: a browser app, so it typechecks against the DOM lib.
+  // The repo-root tsconfig (lib: ES2022 + WebWorker, for the collector)
+  // excludes packages/web — DOM and WebWorker libs cannot be combined.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "useDefineForClassFields": true
+  },
+  "include": ["src", "test", "vite.config.ts"]
+}

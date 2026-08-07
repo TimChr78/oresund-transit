@@ -1,0 +1,124 @@
+import type { HistoryResponse } from '../api';
+import { translate, type Lang } from '../i18n';
+import {
+  dailyBarSegments,
+  hBarWidth,
+  heatmapBuckets,
+  heatmapIntensity,
+  type DayRange,
+} from '../lib/stats';
+import { esc } from '../lib/html';
+
+/** Day-of-month tick label ("06") for the daily bars. */
+function dayLabel(date: string): string {
+  return /^\d{4}-\d{2}-(\d{2})$/.exec(date)?.[1] ?? date;
+}
+
+function legend(lang: Lang): string {
+  const item = (cls: string, key: 'type_cancellation' | 'type_delay' | 'type_alert'): string => `
+    <span class="legend-item"><span class="legend-dot ${cls}"></span>${translate(key, lang)}</span>`;
+  return `
+  <div class="legend">
+    ${item('dot-cancel', 'type_cancellation')}
+    ${item('dot-delay', 'type_delay')}
+    ${item('dot-alert', 'type_alert')}
+  </div>`;
+}
+
+function hbars(items: { label: string; count: number }[], lang: Lang): string {
+  const max = Math.max(0, ...items.map((i) => i.count));
+  if (items.length === 0) return `<div class="empty">${translate('empty_disruptions', lang)}</div>`;
+  return items
+    .map(
+      (it) => `
+    <div class="hbar">
+      <span class="hbar-label" title="${esc(it.label)}">${esc(it.label)}</span>
+      <span class="hbar-track"><span class="hbar-fill" style="width:${(hBarWidth(it.count, max) * 100).toFixed(1)}%"></span></span>
+      <span class="hbar-count">${it.count}</span>
+    </div>`,
+    )
+    .join('');
+}
+
+/**
+ * All hand-rolled CSS bars — the math (heights, segments, heatmap intensity)
+ * lives in src/lib/stats.ts so it stays unit-testable.
+ */
+export function renderHistoryCharts(history: HistoryResponse, dayRange: DayRange, lang: Lang): string {
+  const segments = dailyBarSegments(history.daily);
+  const max = Math.max(0, ...history.daily.map((d) => d.count));
+  const pct = (v: number): number => (max > 0 ? (v / max) * 100 : 0);
+
+  const dayBars = history.daily
+    .map((d, i) => {
+      const seg = segments[i];
+      const stackHeight = d.count > 0 ? Math.max(pct(d.count), 4) : 0;
+      return `
+    <div class="bar-group" title="${d.date}: ${d.count}">
+      <div class="bar-stack" style="height:${stackHeight.toFixed(1)}%">
+        <span class="seg seg-cancel" style="height:${pct(seg.cancellations).toFixed(1)}%"></span>
+        <span class="seg seg-delay" style="height:${pct(seg.delays).toFixed(1)}%"></span>
+        <span class="seg seg-alert" style="height:${pct(seg.alerts).toFixed(1)}%"></span>
+      </div>
+      <span class="bar-label">${esc(dayLabel(d.date))}</span>
+    </div>`;
+    })
+    .join('');
+
+  const buckets = heatmapBuckets(history.by_hour);
+  const intensity = heatmapIntensity(buckets);
+  const cells = buckets
+    .map((count, hour) => {
+      const value = intensity[hour] ?? 0;
+      return `<span class="cell" style="--i:${value.toFixed(3)}" title="${String(hour).padStart(2, '0')}:00 — ${count}"></span>`;
+    })
+    .join('');
+
+  const ranges: DayRange[] = [7, 14, 30];
+  const toggles = ranges
+    .map(
+      (r) => `
+    <button type="button" class="day-toggle-btn${r === dayRange ? ' active' : ''}"
+      data-action="set-days" data-value="${r}" aria-pressed="${r === dayRange}">
+      ${translate(r === 7 ? 'days_7' : r === 14 ? 'days_14' : 'days_30', lang)}
+    </button>`,
+    )
+    .join('');
+
+  return `
+  <section class="history">
+    <header class="section-head">
+      <h2 class="section-title">${translate('section_history', lang)}</h2>
+      <span class="total-chip">${translate('hist_total', lang, { n: history.total_disruptions })}</span>
+      <div class="day-toggle" role="group" aria-label="range">${toggles}</div>
+    </header>
+
+    <div class="chart">
+      <h3 class="chart-title">${translate('hist_daily', lang)}</h3>
+      <div class="bars">${dayBars}</div>
+      ${legend(lang)}
+    </div>
+
+    <div class="chart">
+      <h3 class="chart-title">${translate('hist_by_line', lang)}</h3>
+      <div class="hbars">${hbars(
+        history.by_line.map((l) => ({ label: l.line === 'unknown' ? '—' : l.line, count: l.count })),
+        lang,
+      )}</div>
+    </div>
+
+    <div class="chart">
+      <h3 class="chart-title">${translate('hist_by_cause', lang)}</h3>
+      <div class="hbars">${hbars(
+        history.by_cause.map((c) => ({ label: c.cause === 'unknown' ? '—' : c.cause, count: c.count })),
+        lang,
+      )}</div>
+    </div>
+
+    <div class="chart">
+      <h3 class="chart-title">${translate('hist_by_hour', lang)}</h3>
+      <div class="heatmap">${cells}</div>
+      <div class="heat-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
+    </div>
+  </section>`;
+}

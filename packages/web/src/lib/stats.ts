@@ -1,0 +1,84 @@
+import type { Disruption, LiveStatus } from '@oresund/shared';
+
+/**
+ * Pure chart/table math for the dashboard. Components stay thin: they call
+ * these functions and turn the resulting 0..1 fractions into inline styles.
+ */
+
+export type Direction = 'to_denmark' | 'to_sweden' | 'all';
+export type DayRange = 7 | 14 | 30;
+
+/** Normalize counts to fractions of the max (0..1). Zero max -> zeros, not NaN. */
+export function barHeights(counts: readonly number[]): number[] {
+  const max = Math.max(0, ...counts);
+  if (max <= 0) return counts.map(() => 0);
+  return counts.map((c) => c / max);
+}
+
+export interface DailySegments {
+  cancellations: number;
+  delays: number;
+  alerts: number;
+}
+
+/**
+ * Stacked daily bar segments (cancellations/delays/alerts), each as a
+ * fraction of the window's max total count. Zero data -> zero segments.
+ */
+export function dailyBarSegments(
+  daily: readonly { count: number; cancellations: number; delays: number; alerts: number }[],
+): DailySegments[] {
+  const max = Math.max(0, ...daily.map((d) => d.count));
+  if (max <= 0) return daily.map(() => ({ cancellations: 0, delays: 0, alerts: 0 }));
+  return daily.map((d) => ({
+    cancellations: d.cancellations / max,
+    delays: d.delays / max,
+    alerts: d.alerts / max,
+  }));
+}
+
+/** Bucket hour -> count into a fixed 24-cell array indexed 0-23 (gaps are 0). */
+export function heatmapBuckets(hours: readonly { hour: number; count: number }[]): number[] {
+  const buckets = new Array<number>(24).fill(0);
+  for (const { hour, count } of hours) {
+    if (hour >= 0 && hour <= 23) buckets[hour] = (buckets[hour] ?? 0) + count;
+  }
+  return buckets;
+}
+
+/** Normalize the 24 buckets to 0..1 cell intensity. Zero max -> zeros, not NaN. */
+export function heatmapIntensity(buckets: readonly number[]): number[] {
+  const max = Math.max(0, ...buckets);
+  if (max <= 0) return buckets.map(() => 0);
+  return buckets.map((b) => b / max);
+}
+
+/** Horizontal bar width as a 0..1 fraction of the max. */
+export function hBarWidth(count: number, max: number): number {
+  if (max <= 0 || count <= 0) return 0;
+  return Math.min(1, count / max);
+}
+
+/** Sort disruptions newest-first by ISO timestamp (returns a new array). */
+export function sortNewestFirst<T extends { timestamp: string }>(list: readonly T[]): T[] {
+  return [...list].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+/** Filter disruptions by direction; the all filter keeps everything. */
+export function filterByDirection<T extends { direction: Disruption['direction'] }>(
+  list: readonly T[],
+  direction: Direction,
+): T[] {
+  if (direction === 'all') return [...list];
+  return list.filter((d) => d.direction === direction);
+}
+
+/** Departure count for a tab: the direction count, or the sum for "all". */
+export function departureCountFor(
+  live: Pick<LiveStatus, 'departure_counts'>,
+  direction: Direction,
+): number {
+  const counts = live.departure_counts;
+  if (direction === 'all') return counts.to_denmark + counts.to_sweden + counts.bus;
+  return counts[direction];
+}
