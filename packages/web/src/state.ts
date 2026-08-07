@@ -25,6 +25,9 @@ export interface AppState {
   disruptionsError: string | null;
   history: HistoryResponse | null;
   historyError: string | null;
+  /** Separate 30-day history for the by-hour heatmap (stable baseline, NOT cleared by the range toggle). */
+  heatmapHistory: HistoryResponse | null;
+  heatmapError: string | null;
   punctuality: PunctualityResponse | null;
   punctualityError: string | null;
 }
@@ -41,6 +44,8 @@ export type Action =
   | { type: 'DISRUPTIONS_ERROR'; message: string }
   | { type: 'HISTORY_OK'; history: HistoryResponse }
   | { type: 'HISTORY_ERROR'; message: string }
+  | { type: 'HEATMAP_HISTORY_OK'; history: HistoryResponse }
+  | { type: 'HEATMAP_HISTORY_ERROR'; message: string }
   | { type: 'PUNCTUALITY_OK'; punctuality: PunctualityResponse }
   | { type: 'PUNCTUALITY_ERROR'; message: string };
 
@@ -59,6 +64,8 @@ export function createInitialState(): AppState {
     disruptionsError: null,
     history: null,
     historyError: null,
+    heatmapHistory: null,
+    heatmapError: null,
     punctuality: null,
     punctualityError: null,
   };
@@ -110,6 +117,12 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'HISTORY_ERROR':
       return { ...state, historyError: action.message };
+
+    case 'HEATMAP_HISTORY_OK':
+      return { ...state, heatmapHistory: action.history, heatmapError: null };
+
+    case 'HEATMAP_HISTORY_ERROR':
+      return { ...state, heatmapError: action.message };
 
     case 'PUNCTUALITY_OK':
       return { ...state, punctuality: action.punctuality, punctualityError: null };

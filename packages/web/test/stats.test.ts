@@ -6,8 +6,10 @@ import {
   dailyLabelPlan,
   filterByDirection,
   hBarWidth,
+  heatColor,
   heatmapBuckets,
   heatmapIntensity,
+  heatmapShare,
   movingAverage,
   peakVsOffPeak,
   punctualitySeries,
@@ -346,8 +348,7 @@ describe('dailyLabelPlan', () => {
   });
 });
 
-describe('punctualitySeries', () => {
-  it('keeps only days with departures and reports the no-data count', () => {
+describe('punctualitySeries', () => {  it('keeps only days with departures and reports the no-data count', () => {
     const daily = [
       { date: '2026-07-01', total: 0, on_time_pct: 0 },
       { date: '2026-08-06', total: 10, on_time_pct: 90 },
@@ -378,5 +379,55 @@ describe('punctualitySeries', () => {
       indices: [0],
       noDataCount: 0,
     });
+  });
+});
+
+describe('heatmapShare', () => {
+  it('computes each hour share of the window total (sums to ~100)', () => {
+    const share = heatmapShare([
+      { hour: 6, count: 25 },
+      { hour: 12, count: 25 },
+      { hour: 18, count: 50 },
+    ]);
+    expect(share).toHaveLength(24);
+    expect(share[6]).toBe(25);
+    expect(share[12]).toBe(25);
+    expect(share[18]).toBe(50);
+    expect(share[0]).toBe(0);
+    expect(share.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 0);
+  });
+
+  it('rounds to one decimal without drifting far from 100', () => {
+    const share = heatmapShare([
+      { hour: 0, count: 1 },
+      { hour: 1, count: 1 },
+      { hour: 2, count: 1 },
+    ]);
+    expect(share[0]).toBe(33.3);
+    expect(share[1]).toBe(33.3);
+    expect(share[2]).toBe(33.3);
+    expect(share.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 0);
+  });
+
+  it('is zero-safe (empty or all-zero input -> 24 zeros)', () => {
+    expect(heatmapShare([])).toEqual(new Array<number>(24).fill(0));
+    expect(heatmapShare([{ hour: 7, count: 0 }])).toEqual(new Array<number>(24).fill(0));
+  });
+});
+
+describe('heatColor', () => {
+  it('maps low share to green (#10b981) and high share to red (#ef4444)', () => {
+    expect(heatColor(0, 100)).toBe('rgb(16, 185, 129)');
+    expect(heatColor(100, 100)).toBe('rgb(239, 68, 68)');
+  });
+
+  it('interpolates at the midpoint', () => {
+    expect(heatColor(50, 100)).toBe('rgb(128, 127, 99)');
+  });
+
+  it('clamps out-of-range shares and handles a zero max', () => {
+    expect(heatColor(150, 100)).toBe('rgb(239, 68, 68)');
+    expect(heatColor(-5, 100)).toBe('rgb(16, 185, 129)');
+    expect(heatColor(10, 0)).toBe('rgb(16, 185, 129)');
   });
 });

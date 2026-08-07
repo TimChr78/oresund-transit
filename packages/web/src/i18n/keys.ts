@@ -57,6 +57,8 @@ export interface Dict {
   hist_by_line: string;
   hist_by_cause: string;
   hist_by_hour: string;
+  heat_tooltip: string;
+  heat_caption: string;
   hist_by_weekday: string;
   hist_line_delay: string;
   hist_total: string;

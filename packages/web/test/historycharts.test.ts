@@ -140,3 +140,47 @@ describe('renderHistoryCharts — daily axis legibility', () => {
     expect(html).not.toContain('plot-max');
   });
 });
+
+describe('renderHistoryCharts — by-hour heatmap (share %, 30-day baseline)', () => {
+  const byHour = [
+    { hour: 6, count: 10, avg_delay: null },
+    { hour: 18, count: 30, avg_delay: null },
+  ];
+
+  it('colors cells with the red→green share palette (max hour = red)', () => {
+    const html = renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en');
+    expect(html).toContain('background-color:rgb(');
+    expect(html).toContain('rgb(239, 68, 68)'); // 18:00 is the max share -> red
+    expect(html).not.toContain('--i:'); // no indigo-alpha ramp anymore
+  });
+
+  it('tooltips show the share % and the raw count ("06:00 — 25.0% (10)")', () => {
+    const html = renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en');
+    expect(html).toContain('06:00 — 25.0% (10)');
+    expect(html).toContain('18:00 — 75.0% (30)');
+  });
+
+  it('uses the separate 30-day heatmap history when provided', () => {
+    const heatmapHistory: HistoryResponse = {
+      ...HISTORY,
+      by_hour: [{ hour: 7, count: 1, avg_delay: null }],
+    };
+    const html = renderHistoryCharts(
+      { ...HISTORY, by_hour: [{ hour: 18, count: 99, avg_delay: null }] },
+      null,
+      7,
+      'en',
+      heatmapHistory,
+    );
+    expect(html).toContain('07:00 — 100.0% (1)');
+    expect(html).not.toContain('(99)'); // main history's 18:00 count is not used
+  });
+
+  it('adds the trilingual "last 30 days" caption', () => {
+    expect(renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en')).toContain(
+      'Share of disruptions by hour — last 30 days',
+    );
+    expect(renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'sv')).toContain('senaste 30 dagarna');
+    expect(renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'da')).toContain('sidste 30 dage');
+  });
+});

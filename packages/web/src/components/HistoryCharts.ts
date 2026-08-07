@@ -1,14 +1,15 @@
 import type { HistoryResponse, PunctualityResponse } from '../api';
 import { translate, type Key, type Lang } from '../i18n';
 import { causeLabel } from '../lib/causes';
-import { formatDelaySeconds } from '../i18n/format';
+import { formatDelaySeconds, formatPct } from '../i18n/format';
 import {
   byWeekday,
   dailyBarSegments,
   dailyLabelPlan,
   hBarWidth,
+  heatColor,
   heatmapBuckets,
-  heatmapIntensity,
+  heatmapShare,
   movingAverage,
   type DayRange,
 } from '../lib/stats';
@@ -97,14 +98,19 @@ function byWeekdayBars(daily: HistoryResponse['daily'], lang: Lang): string {
 }
 
 /**
- * All hand-rolled CSS bars — the math (heights, segments, heatmap intensity)
+ * All hand-rolled CSS bars — the math (heights, segments, heatmap shares)
  * lives in src/lib/stats.ts so it stays unit-testable.
+ *
+ * `heatmapHistory` is the separate 30-day baseline for the by-hour heatmap
+ * (stable across the 7/14/30/90 toggle). When null the main history's own
+ * by_hour data is used as a fallback.
  */
 export function renderHistoryCharts(
   history: HistoryResponse,
   punctuality: PunctualityResponse | null,
   dayRange: DayRange,
   lang: Lang,
+  heatmapHistory: HistoryResponse | null = null,
 ): string {
   const segments = dailyBarSegments(history.daily);
   const max = Math.max(0, ...history.daily.map((d) => d.count));
@@ -156,12 +162,23 @@ export function renderHistoryCharts(
     ? `<svg class="trend-layer" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${trendPoints}" class="trend-line" /></svg>`
     : '';
 
-  const buckets = heatmapBuckets(history.by_hour);
-  const intensity = heatmapIntensity(buckets);
+  // By-hour heatmap: SHARE of the window total per hour (not raw counts),
+  // colored green (low) → red (high). Drawn from the stable 30-day baseline
+  // when available, independent of the range toggle.
+  const heatmapSource = heatmapHistory ?? history;
+  const buckets = heatmapBuckets(heatmapSource.by_hour);
+  const shares = heatmapShare(heatmapSource.by_hour);
+  const maxShare = Math.max(0, ...shares);
   const cells = buckets
     .map((count, hour) => {
-      const value = intensity[hour] ?? 0;
-      return `<span class="cell" style="--i:${value.toFixed(3)}" title="${String(hour).padStart(2, '0')}:00 — ${count}"></span>`;
+      const share = shares[hour] ?? 0;
+      const ratio = maxShare > 0 ? share / maxShare : 0;
+      const title = translate('heat_tooltip', lang, {
+        hour: String(hour).padStart(2, '0'),
+        pct: formatPct(share, lang),
+        n: count,
+      });
+      return `<span class="cell" style="background-color:${heatColor(share, maxShare)};opacity:${(0.35 + 0.65 * ratio).toFixed(3)}" title="${esc(title)}"></span>`;
     })
     .join('');
 
@@ -223,6 +240,7 @@ export function renderHistoryCharts(
       <h3 class="chart-title">${translate('hist_by_hour', lang)}</h3>
       <div class="heatmap">${cells}</div>
       <div class="heat-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
+      <div class="heat-caption">${translate('heat_caption', lang)}</div>
     </div>
   </section>`;
 }

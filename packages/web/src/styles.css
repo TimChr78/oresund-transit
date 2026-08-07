@@ -773,7 +773,6 @@ body::after {
   aspect-ratio: 1;
   min-width: 6px;
   border-radius: 3px;
-  background-color: rgba(99, 102, 241, var(--i, 0));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
 }
 .heat-ticks {
@@ -783,6 +782,11 @@ body::after {
   font-size: 9px;
   color: var(--faint);
   padding: 4px 8px 0;
+}
+.heat-caption {
+  font-size: 10px;
+  color: var(--faint);
+  padding: 4px 2px 0;
 }
 
 /* ------------------------------------------------------- empty/loading */

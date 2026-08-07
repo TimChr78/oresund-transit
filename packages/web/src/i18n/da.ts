@@ -53,6 +53,8 @@ export const da: Dict = {
   hist_by_line: 'Per linje',
   hist_by_cause: 'Per årsag',
   hist_by_hour: 'Per time',
+  heat_tooltip: '{hour}:00 — {pct} ({n})',
+  heat_caption: 'Andel af forstyrrelser pr. time — sidste 30 dage',
   hist_by_weekday: 'Per ugedag',
   hist_line_delay: 'gns. {a} · maks {b}',
   hist_total: 'I alt: {n}',

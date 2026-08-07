@@ -171,4 +171,24 @@ describe('app state reducer', () => {
     expect(s.punctuality).toBe(PUNCTUALITY);
     expect(s.punctualityError).toBe('boom');
   });
+
+  it('starts with no heatmap baseline', () => {
+    const s = createInitialState();
+    expect(s.heatmapHistory).toBeNull();
+    expect(s.heatmapError).toBeNull();
+  });
+
+  it('HEATMAP_HISTORY_OK stores the 30-day baseline and clears its error', () => {
+    let s = reducer(createInitialState(), { type: 'HEATMAP_HISTORY_ERROR', message: 'boom' });
+    s = reducer(s, { type: 'HEATMAP_HISTORY_OK', history: HISTORY });
+    expect(s.heatmapHistory).toBe(HISTORY);
+    expect(s.heatmapError).toBeNull();
+  });
+
+  it('SET_DAY_RANGE does NOT clear the heatmap baseline (stable 30-day window)', () => {
+    let s = reducer(createInitialState(), { type: 'HEATMAP_HISTORY_OK', history: HISTORY });
+    s = reducer(s, { type: 'SET_DAY_RANGE', dayRange: 90 });
+    expect(s.heatmapHistory).toBe(HISTORY);
+    expect(s.history).toBeNull();
+  });
 });

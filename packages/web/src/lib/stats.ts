@@ -95,6 +95,29 @@ export function heatmapIntensity(buckets: readonly number[]): number[] {
   return buckets.map((b) => b / max);
 }
 
+/**
+ * Per-hour SHARE of all disruptions in the window (count / total * 100),
+ * rounded to one decimal, summed to ~100. Zero-safe: no disruptions -> 24
+ * zeros. Raw counts were misleading ("fewer trains = better"), shares are
+ * directly comparable across windows.
+ */
+export function heatmapShare(hours: readonly { hour: number; count: number }[]): number[] {
+  const buckets = heatmapBuckets(hours);
+  const total = buckets.reduce((sum, b) => sum + b, 0);
+  return buckets.map((b) => (total > 0 ? Math.round((b / total) * 1000) / 10 : 0));
+}
+
+/**
+ * Heat-cell color on a red↔green scale: LOW share = green (good) -> HIGH
+ * share = red (bad). Interpolates #10b981 (16,185,129) -> #ef4444
+ * (239,68,68) by share/max and returns an rgb() string. Zero max -> green.
+ */
+export function heatColor(sharePct: number, maxPct: number): string {
+  const r = maxPct > 0 ? Math.min(1, Math.max(0, sharePct / maxPct)) : 0;
+  const lerp = (a: number, b: number): number => Math.round(a + (b - a) * r);
+  return `rgb(${lerp(16, 239)}, ${lerp(185, 68)}, ${lerp(129, 68)})`;
+}
+
 /** Horizontal bar width as a 0..1 fraction of the max. */
 export function hBarWidth(count: number, max: number): number {
   if (max <= 0 || count <= 0) return 0;
