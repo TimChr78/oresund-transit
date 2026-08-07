@@ -10,6 +10,7 @@ import {
   type DayRange,
 } from '../lib/stats';
 import { renderPunctualityChart } from './PunctualityChart';
+import { renderInsightCards } from './InsightCards';
 import { esc } from '../lib/html';
 
 /** Day-of-month tick label ("06") for the daily bars. */
@@ -115,6 +116,8 @@ export function renderHistoryCharts(
       <span class="total-chip">${translate('hist_total', lang, { n: history.total_disruptions })}</span>
       <div class="day-toggle" role="group" aria-label="range">${toggles}</div>
     </header>
+
+    ${renderInsightCards(history, lang)}
 
     <div class="chart">
       <h3 class="chart-title">${translate('hist_daily', lang)}</h3>

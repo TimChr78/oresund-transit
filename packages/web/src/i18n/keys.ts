@@ -59,6 +59,14 @@ export interface Dict {
   hist_by_hour: string;
   hist_total: string;
   trend_avg_3d: string;
+  // Insight cards
+  insight_wow: string;
+  insight_wow_delta: string;
+  insight_wow_counts: string;
+  insight_avg_delay: string;
+  insight_peak: string;
+  insight_peak_share: string;
+  insight_peak_avg: string;
   days_7: string;
   days_14: string;
   days_30: string;

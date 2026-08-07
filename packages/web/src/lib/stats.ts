@@ -59,6 +59,92 @@ export function hBarWidth(count: number, max: number): number {
   return Math.min(1, count / max);
 }
 
+/** Weighted average delay over rows (weight = count); null when no non-null avg. */
+function weightedAvgDelay(rows: readonly { count: number; avg_delay: number | null }[]): number | null {
+  const withAvg = rows.filter((r) => r.avg_delay != null && r.count > 0);
+  if (withAvg.length === 0) return null;
+  const total = withAvg.reduce((sum, r) => sum + r.count, 0);
+  const weighted = withAvg.reduce((sum, r) => sum + r.count * (r.avg_delay ?? 0), 0);
+  return total > 0 ? Math.round(weighted / total) : null;
+}
+
+export interface WeekComparison {
+  prevCount: number;
+  currCount: number;
+  /** % change, rounded; null when the previous week had no disruptions. */
+  changePct: number | null;
+  prevAvgDelay: number | null;
+  currAvgDelay: number | null;
+}
+
+/**
+ * Week-over-week insight from the history daily array. Requires at least 14
+ * daily rows: the last 7 are the current week, the 7 before that the
+ * previous. Returns null when there are fewer than 14 days.
+ */
+export function weekOverWeek(
+  daily: readonly { count: number; avg_delay: number | null }[],
+): WeekComparison | null {
+  if (daily.length < 14) return null;
+  const prev = daily.slice(daily.length - 14, daily.length - 7);
+  const curr = daily.slice(daily.length - 7);
+  const countOf = (rows: readonly { count: number }[]): number => rows.reduce((sum, r) => sum + r.count, 0);
+  const prevCount = countOf(prev);
+  const currCount = countOf(curr);
+  const changePct = prevCount > 0 ? Math.round(((currCount - prevCount) / prevCount) * 100) : null;
+  return {
+    prevCount,
+    currCount,
+    changePct,
+    prevAvgDelay: weightedAvgDelay(prev),
+    currAvgDelay: weightedAvgDelay(curr),
+  };
+}
+
+export interface PeakComparison {
+  rushCount: number;
+  offPeakCount: number;
+  totalCount: number;
+  /** Share of disruptions during rush hours, rounded to a whole percent. */
+  rushSharePct: number;
+  rushAvgDelay: number | null;
+  offPeakAvgDelay: number | null;
+}
+
+/** Rush hours: 07–09 and 16–18 (inclusive). */
+const RUSH_HOURS = new Set([7, 8, 9, 16, 17, 18]);
+
+/**
+ * Peak vs off-peak insight from the history by_hour array (with avg_delay).
+ * Rush hours are 07–09 and 16–18; everything else counts as off-peak.
+ */
+export function peakVsOffPeak(
+  hours: readonly { hour: number; count: number; avg_delay: number | null }[],
+): PeakComparison {
+  const rush: { count: number; avg_delay: number | null }[] = [];
+  const offPeak: { count: number; avg_delay: number | null }[] = [];
+  let rushCount = 0;
+  let offPeakCount = 0;
+  for (const h of hours) {
+    if (RUSH_HOURS.has(h.hour)) {
+      rushCount += h.count;
+      rush.push(h);
+    } else {
+      offPeakCount += h.count;
+      offPeak.push(h);
+    }
+  }
+  const total = rushCount + offPeakCount;
+  return {
+    rushCount,
+    offPeakCount,
+    totalCount: total,
+    rushSharePct: total > 0 ? Math.round((rushCount / total) * 100) : 0,
+    rushAvgDelay: weightedAvgDelay(rush),
+    offPeakAvgDelay: weightedAvgDelay(offPeak),
+  };
+}
+
 /** Clamped y coordinate for a 0..100 value on an SVG of the given height (100 → top). */
 export function svgY(value: number, height: number): number {
   const clamped = Math.max(0, Math.min(100, value));

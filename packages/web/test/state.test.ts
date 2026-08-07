@@ -51,10 +51,10 @@ const HISTORY: HistoryResponse = {
   date_from: '2026-07-31',
   date_to: '2026-08-06',
   total_disruptions: 1,
-  daily: [{ date: '2026-08-06', count: 1, cancellations: 0, delays: 1, alerts: 0 }],
-  by_line: [{ line: '801', count: 1 }],
+  daily: [{ date: '2026-08-06', count: 1, cancellations: 0, delays: 1, alerts: 0, avg_delay: 240 }],
+  by_line: [{ line: '801', count: 1, avg_delay: 240, max_delay: 240 }],
   by_cause: [{ cause: 'Signalfel', count: 1 }],
-  by_hour: [{ hour: 21, count: 1 }],
+  by_hour: [{ hour: 21, count: 1, avg_delay: 240 }],
 };
 
 const PUNCTUALITY: PunctualityResponse = {

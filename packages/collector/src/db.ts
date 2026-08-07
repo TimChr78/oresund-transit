@@ -290,7 +290,7 @@ export interface HistoryStats {
   date_from: string;
   date_to: string;
   total_disruptions: number;
-  daily: { date: string; count: number; cancellations: number; delays: number; alerts: number }[];
+  daily: { date: string; count: number; cancellations: number; delays: number; alerts: number; avg_delay: number | null }[];
   by_line: { line: string; count: number; avg_delay: number | null; max_delay: number | null }[];
   by_cause: { cause: string; count: number }[];
   by_hour: { hour: number; count: number; avg_delay: number | null }[];
@@ -316,7 +316,7 @@ function addDaysStr(dateStr: string, days: number): string {
 }
 
 const HISTORY_DAILY_SQL =
-  'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';const HISTORY_LINE_SQL =
+  'SELECT date(timestamp) AS date, type, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';const HISTORY_LINE_SQL =
   'SELECT line, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay, MAX(delay_seconds) AS max_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
 const HISTORY_CAUSE_SQL =
   'SELECT cause, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
@@ -329,7 +329,10 @@ export async function queryHistory(db: D1Like, days: number, now: Date = new Dat
   const toExclusive = addDaysStr(to, 1);
 
   const [dailyRows, lineRows, causeRows, hourRows] = await Promise.all([
-    db.prepare(HISTORY_DAILY_SQL).bind(from, toExclusive).all<{ date: string; type: string | null; count: number }>(),
+    db
+      .prepare(HISTORY_DAILY_SQL)
+      .bind(from, toExclusive)
+      .all<{ date: string; type: string | null; count: number; avg_delay: number | null }>(),
     db
       .prepare(HISTORY_LINE_SQL)
       .bind(from, toExclusive)
@@ -345,10 +348,11 @@ export async function queryHistory(db: D1Like, days: number, now: Date = new Dat
   const daily: HistoryStats['daily'] = [];
   const byDate = new Map<string, HistoryStats['daily'][number]>();
   for (let d = from; d <= to; d = addDaysStr(d, 1)) {
-    const entry = { date: d, count: 0, cancellations: 0, delays: 0, alerts: 0 };
+    const entry = { date: d, count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null as number | null };
     daily.push(entry);
     byDate.set(d, entry);
   }
+  const delaySum = new Map<string, { sum: number; n: number }>();
   for (const r of dailyRows.results) {
     const entry = byDate.get(r.date);
     if (!entry) continue;
@@ -356,6 +360,16 @@ export async function queryHistory(db: D1Like, days: number, now: Date = new Dat
     if (r.type === 'cancellation') entry.cancellations += r.count;
     else if (r.type === 'delay') entry.delays += r.count;
     else if (r.type === 'alert') entry.alerts += r.count;
+    if (r.avg_delay != null) {
+      const acc = delaySum.get(r.date) ?? { sum: 0, n: 0 };
+      acc.sum += r.count * r.avg_delay;
+      acc.n += r.count;
+      delaySum.set(r.date, acc);
+    }
+  }
+  for (const entry of daily) {
+    const acc = delaySum.get(entry.date);
+    entry.avg_delay = acc && acc.n > 0 ? Math.round(acc.sum / acc.n) : null;
   }
 
   return {

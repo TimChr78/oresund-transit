@@ -334,7 +334,7 @@ describe('handleFetch — /api/transit/disruptions', () => {
 
 describe('handleFetch — /api/transit/history', () => {
   const DAILY_SQL =
-    'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
+    'SELECT date(timestamp) AS date, type, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
   const LINE_SQL =
     'SELECT line, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay, MAX(delay_seconds) AS max_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
   const CAUSE_SQL =
@@ -350,10 +350,10 @@ describe('handleFetch — /api/transit/history', () => {
     vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
     const db = new FakeD1();
     db.stubAll(DAILY_SQL, [
-      { date: '2026-08-06', type: 'delay', count: 3 },
-      { date: '2026-08-06', type: 'alert', count: 1 },
-      { date: '2026-08-05', type: 'cancellation', count: 1 },
-      { date: '2026-08-05', type: 'delay', count: 2 },
+      { date: '2026-08-06', type: 'delay', count: 3, avg_delay: 650 },
+      { date: '2026-08-06', type: 'alert', count: 1, avg_delay: null },
+      { date: '2026-08-05', type: 'cancellation', count: 1, avg_delay: 0 },
+      { date: '2026-08-05', type: 'delay', count: 2, avg_delay: 300 },
     ]);
     db.stubAll(LINE_SQL, [
       { line: '804', count: 5, avg_delay: 260, max_delay: 650 },
@@ -376,13 +376,13 @@ describe('handleFetch — /api/transit/history', () => {
       date_to: '2026-08-06',
       total_disruptions: 7,
       daily: [
-        { date: '2026-07-31', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-01', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-02', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-03', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-04', count: 0, cancellations: 0, delays: 0, alerts: 0 },
-        { date: '2026-08-05', count: 3, cancellations: 1, delays: 2, alerts: 0 },
-        { date: '2026-08-06', count: 4, cancellations: 0, delays: 3, alerts: 1 },
+        { date: '2026-07-31', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-01', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-02', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-03', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-04', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-05', count: 3, cancellations: 1, delays: 2, alerts: 0, avg_delay: 200 },
+        { date: '2026-08-06', count: 4, cancellations: 0, delays: 3, alerts: 1, avg_delay: 650 },
       ],
       by_line: [
         { line: '804', count: 5, avg_delay: 260, max_delay: 650 },

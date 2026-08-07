@@ -9,8 +9,10 @@ import {
   heatmapBuckets,
   heatmapIntensity,
   movingAverage,
+  peakVsOffPeak,
   sortNewestFirst,
   delayStatsRange,
+  weekOverWeek,
 } from '../src/lib/stats';
 
 describe('barHeights', () => {
@@ -111,6 +113,95 @@ describe('movingAverage', () => {
 
   it('returns an empty array for empty input', () => {
     expect(movingAverage([], 3)).toEqual([]);
+  });
+});
+
+describe('weekOverWeek', () => {
+  const day = (count: number, avg_delay: number | null = null) => ({ count, avg_delay });
+
+  it('splits 14 daily rows into prior 7 vs last 7 with % change', () => {
+    // prev week: 10 disruptions, this week: 12
+    const prevCounts = [0, 2, 2, 2, 2, 1, 1]; // 10
+    const daily = [
+      ...prevCounts.map((c) => day(c, 60)),
+      ...Array.from({ length: 7 }, (_, i) => day(i === 0 ? 6 : 1, 90)), // curr: 6,1,1,1,1,1,1 = 12
+    ];
+    const wow = weekOverWeek(daily);
+    expect(wow).toEqual({
+      prevCount: 10,
+      currCount: 12,
+      changePct: 20,
+      prevAvgDelay: 60,
+      currAvgDelay: 90,
+    });
+  });
+
+  it('reports a negative change when this week is lighter', () => {
+    const daily = [
+      ...Array.from({ length: 7 }, () => day(4, 100)),
+      ...Array.from({ length: 7 }, () => day(1, 50)),
+    ];
+    const wow = weekOverWeek(daily);
+    expect(wow?.prevCount).toBe(28);
+    expect(wow?.currCount).toBe(7);
+    expect(wow?.changePct).toBe(-75);
+  });
+
+  it('returns null change when the previous week had no disruptions', () => {
+    const daily = [
+      ...Array.from({ length: 7 }, () => day(0, null)),
+      ...Array.from({ length: 7 }, () => day(2, 40)),
+    ];
+    const wow = weekOverWeek(daily);
+    expect(wow?.changePct).toBeNull();
+    expect(wow?.prevAvgDelay).toBeNull();
+  });
+
+  it('returns null when there are fewer than 14 days', () => {
+    expect(weekOverWeek([day(1), day(1)])).toBeNull();
+    expect(weekOverWeek([])).toBeNull();
+  });
+});
+
+describe('peakVsOffPeak', () => {
+  it('splits rush hours 07-09 + 16-18 from the rest and computes share + avg delays', () => {
+    const hours = [
+      { hour: 7, count: 10, avg_delay: 600 },
+      { hour: 8, count: 20, avg_delay: 300 },
+      { hour: 17, count: 10, avg_delay: 600 },
+      { hour: 12, count: 40, avg_delay: 100 },
+      { hour: 21, count: 20, avg_delay: 200 },
+    ];
+    const peak = peakVsOffPeak(hours);
+    expect(peak.rushCount).toBe(40);
+    expect(peak.offPeakCount).toBe(60);
+    expect(peak.totalCount).toBe(100);
+    expect(peak.rushSharePct).toBe(40);
+    expect(peak.rushAvgDelay).toBe(450); // (10*600 + 20*300 + 10*600)/40
+    expect(peak.offPeakAvgDelay).toBe(133); // (40*100 + 20*200)/60 = 8000/60 ≈ 133.3
+  });
+
+  it('treats hour 9 and 18 as rush (inclusive ranges)', () => {
+    const peak = peakVsOffPeak([
+      { hour: 9, count: 5, avg_delay: 100 },
+      { hour: 18, count: 5, avg_delay: 100 },
+      { hour: 10, count: 5, avg_delay: 100 },
+    ]);
+    expect(peak.rushCount).toBe(10);
+    expect(peak.offPeakCount).toBe(5);
+    expect(peak.rushSharePct).toBe(67);
+  });
+
+  it('zeroes out when there are no rows', () => {
+    const peak = peakVsOffPeak([]);
+    expect(peak).toEqual({
+      rushCount: 0,
+      offPeakCount: 0,
+      totalCount: 0,
+      rushSharePct: 0,
+      rushAvgDelay: null,
+      offPeakAvgDelay: null,
+    });
   });
 });
 

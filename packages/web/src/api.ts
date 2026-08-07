@@ -12,10 +12,17 @@ export interface HistoryResponse {
   date_from: string;
   date_to: string;
   total_disruptions: number;
-  daily: { date: string; count: number; cancellations: number; delays: number; alerts: number }[];
-  by_line: { line: string; count: number }[];
+  daily: {
+    date: string;
+    count: number;
+    cancellations: number;
+    delays: number;
+    alerts: number;
+    avg_delay: number | null;
+  }[];
+  by_line: { line: string; count: number; avg_delay: number | null; max_delay: number | null }[];
   by_cause: { cause: string; count: number }[];
-  by_hour: { hour: number; count: number }[];
+  by_hour: { hour: number; count: number; avg_delay: number | null }[];
 }
 
 export type HistoryDays = 7 | 14 | 30;
