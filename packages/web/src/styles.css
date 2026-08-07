@@ -491,11 +491,41 @@ body::after {
 }
 .bar-plot {
   position: relative;
+  z-index: 0; /* stacking context so .daily-grid can sit behind the bars */
   display: flex;
   align-items: flex-end;
   gap: 3px;
   height: 100%;
   min-width: 100%;
+}
+.daily-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 14px;
+  width: 100%;
+  height: calc(100% - 14px);
+  z-index: -1;
+  pointer-events: none;
+}
+.daily-grid line {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+.plot-max {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 1;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 1.4;
 }
 .trend-layer {
   position: absolute;
@@ -588,15 +618,38 @@ body::after {
 
 /* punctuality line chart */
 .punct-chart {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 12px 10px 4px;
+  padding: 12px 10px 4px 26px; /* left pad leaves room for the y-axis % labels */
 }
 .punct-chart svg {
   display: block;
   width: 100%;
   height: auto;
+}
+.punct-ylabels {
+  position: absolute;
+  left: 6px;
+  top: 12px;
+  bottom: 4px;
+  width: 18px;
+  font-family: var(--mono);
+  font-size: 8px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.punct-ylabels span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  line-height: 1;
+}
+.punct-note {
+  font-size: 10px;
+  color: var(--faint);
+  padding: 4px 2px 0;
 }
 .punct-grid {
   stroke: rgba(255, 255, 255, 0.06);

@@ -15,6 +15,48 @@ export function barHeights(counts: readonly number[]): number[] {
   return counts.map((c) => c / max);
 }
 
+/** Default short month names used by dailyLabelPlan when none are given. */
+export const DEFAULT_MONTH_NAMES = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+export interface DailyLabel {
+  /** Index into the daily array the tick belongs to. */
+  index: number;
+  /** Tick text: "1 Aug" at month starts, bare day-of-month "06" otherwise. */
+  text: string;
+}
+
+/**
+ * X-axis label plan for the daily bars. Labels every bar at 7 days; at 14/30/90
+ * days labels on a stride (every ~2/5/7 bars) so long ranges never crowd, with
+ * month starts ALWAYS labeled ("1 Aug" style, localized via `monthNames`).
+ * Unparseable dates are skipped. Empty input -> empty plan.
+ */
+export function dailyLabelPlan(
+  dates: readonly string[],
+  range: DayRange,
+  monthNames: readonly string[] = DEFAULT_MONTH_NAMES,
+): DailyLabel[] {
+  const stride = range === 7 ? 1 : range === 14 ? 2 : range === 30 ? 5 : 7;
+  const labels: DailyLabel[] = [];
+  dates.forEach((date, index) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    if (!m) return;
+    const month = m[2]!;
+    const day = m[3]!;
+    // A month start is a bar on the 1st of a month (the daily array is a
+    // continuous date range, so day 01 is always present at a boundary).
+    const isMonthStart = day === '01';
+    if (isMonthStart || index % stride === 0) {
+      const name = monthNames[Number(month) - 1] ?? '';
+      labels.push({ index, text: isMonthStart ? `${Number(day)} ${name}` : day });
+    }
+  });
+  return labels;
+}
+
 export interface DailySegments {
   cancellations: number;
   delays: number;
@@ -208,6 +250,43 @@ export function svgLinePoints(values: readonly number[], width: number, height: 
   return values
     .map((v, i) => `${(i * step).toFixed(1)},${svgY(v, height).toFixed(1)}`)
     .join(' ');
+}
+
+export interface PunctualitySeriesDay {
+  date: string;
+  on_time_pct: number;
+}
+
+export interface PunctualitySeries {
+  /** Days that have departures (total > 0), in original order. */
+  days: PunctualitySeriesDay[];
+  /** Original index of each series day (gap-aware x placement). */
+  indices: number[];
+  /** Days with no departures (total === 0) — excluded, NOT rendered as 0%. */
+  noDataCount: number;
+}
+
+/**
+ * Filter a punctuality daily array down to days that actually have departures.
+ * Days with total === 0 are NO-DATA (no departures collected that day) and
+ * must not render as a misleading flat 0% line — callers draw the line only
+ * through the returned series and annotate the gap.
+ */
+export function punctualitySeries(
+  daily: readonly { date: string; total: number; on_time_pct: number }[],
+): PunctualitySeries {
+  const days: PunctualitySeriesDay[] = [];
+  const indices: number[] = [];
+  let noDataCount = 0;
+  daily.forEach((d, i) => {
+    if (d.total > 0) {
+      days.push({ date: d.date, on_time_pct: d.on_time_pct });
+      indices.push(i);
+    } else {
+      noDataCount += 1;
+    }
+  });
+  return { days, indices, noDataCount };
 }
 
 /**

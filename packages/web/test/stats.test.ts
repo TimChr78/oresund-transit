@@ -3,12 +3,14 @@ import type { Disruption, LiveStatus } from '@oresund/shared';
 import {
   barHeights,
   dailyBarSegments,
+  dailyLabelPlan,
   filterByDirection,
   hBarWidth,
   heatmapBuckets,
   heatmapIntensity,
   movingAverage,
   peakVsOffPeak,
+  punctualitySeries,
   sortNewestFirst,
   delayStatsRange,
   weekOverWeek,
@@ -297,5 +299,84 @@ describe('delayStatsRange', () => {
   it('from and to differ (never an empty range)', () => {
     const { from, to } = delayStatsRange();
     expect(from).not.toBe(to);
+  });
+});
+
+/** ISO dates spanning [start, start + count) in UTC — avoids TZ flakiness. */
+function isoDays(start: string, count: number): string[] {
+  const [y, m, d] = start.split('-').map(Number);
+  const base = Date.UTC(y!, m! - 1, d!);
+  return Array.from({ length: count }, (_, i) => new Date(base + i * 86_400_000).toISOString().slice(0, 10));
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+describe('dailyLabelPlan', () => {
+  it('labels every bar at 7 days; month starts get "day month" instead of bare day', () => {
+    const dates = ['2026-07-31', '2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06'];
+    const plan = dailyLabelPlan(dates, 7, MONTHS);
+    expect(plan.map((l) => l.index)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(plan.map((l) => l.text)).toEqual(['31', '1 Aug', '02', '03', '04', '05', '06']);
+  });
+
+  it('strides a 30-day range (~every 5 bars) but always labels month starts', () => {
+    const dates = isoDays('2026-07-08', 30); // 2026-07-08 .. 2026-08-06; Aug 1 = index 24
+    const plan = dailyLabelPlan(dates, 30, MONTHS);
+    expect(plan.map((l) => l.index)).toEqual([0, 5, 10, 15, 20, 24, 25]);
+    expect(plan.find((l) => l.index === 24)?.text).toBe('1 Aug');
+    expect(plan.find((l) => l.index === 0)?.text).toBe('08');
+  });
+
+  it('uses a wider stride at 90 days and still catches month starts', () => {
+    const dates = isoDays('2026-05-09', 90); // 2026-05-09 .. 2026-08-06; Jun 1 = 23, Jul 1 = 53, Aug 1 = 84
+    const plan = dailyLabelPlan(dates, 90, MONTHS);
+    expect(plan.map((l) => l.index)).toEqual([0, 7, 14, 21, 23, 28, 35, 42, 49, 53, 56, 63, 70, 77, 84]);
+    expect(plan.find((l) => l.index === 23)?.text).toBe('1 Jun');
+    expect(plan.find((l) => l.index === 84)?.text).toBe('1 Aug');
+  });
+
+  it('honors localized month names', () => {
+    const plan = dailyLabelPlan(['2026-08-01'], 7, ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']);
+    expect(plan[0]?.text).toBe('1 aug');
+  });
+
+  it('skips unparseable dates and returns an empty plan for empty input', () => {
+    expect(dailyLabelPlan(['nope', '2026-08-01'], 7, MONTHS)).toEqual([{ index: 1, text: '1 Aug' }]);
+    expect(dailyLabelPlan([], 7, MONTHS)).toEqual([]);
+  });
+});
+
+describe('punctualitySeries', () => {
+  it('keeps only days with departures and reports the no-data count', () => {
+    const daily = [
+      { date: '2026-07-01', total: 0, on_time_pct: 0 },
+      { date: '2026-08-06', total: 10, on_time_pct: 90 },
+      { date: '2026-08-07', total: 0, on_time_pct: 0 },
+      { date: '2026-08-08', total: 12, on_time_pct: 75 },
+    ];
+    expect(punctualitySeries(daily)).toEqual({
+      days: [
+        { date: '2026-08-06', on_time_pct: 90 },
+        { date: '2026-08-08', on_time_pct: 75 },
+      ],
+      indices: [1, 3],
+      noDataCount: 2,
+    });
+  });
+
+  it('returns an empty series when every day has no departures', () => {
+    expect(punctualitySeries([{ date: '2026-07-01', total: 0, on_time_pct: 0 }])).toEqual({
+      days: [],
+      indices: [],
+      noDataCount: 1,
+    });
+  });
+
+  it('keeps every day unchanged when all have departures', () => {
+    expect(punctualitySeries([{ date: '2026-08-06', total: 1, on_time_pct: 50 }])).toEqual({
+      days: [{ date: '2026-08-06', on_time_pct: 50 }],
+      indices: [0],
+      noDataCount: 0,
+    });
   });
 });

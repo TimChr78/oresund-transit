@@ -67,6 +67,58 @@ describe('renderPunctualityChart', () => {
     expect(renderPunctualityChart(PUNCTUALITY, 'da')).toContain('Punktlighed');
   });
 
+  it('renders y-axis % labels on the left (mono, faint)', () => {
+    const html = renderPunctualityChart(PUNCTUALITY, 'en');
+    expect(html).toContain('punct-ylabels');
+    for (const label of ['0', '25', '50', '75', '100']) {
+      expect(html).toContain(`>${label}%<`);
+    }
+  });
+
+  it('draws the line only through days that have departures and explains the gap', () => {
+    const gapped = {
+      days: 7,
+      date_from: '2026-07-31',
+      date_to: '2026-08-06',
+      daily: [
+        { date: '2026-07-31', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+        { date: '2026-08-01', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+        { date: '2026-08-02', total: 10, on_time: 9, delayed: 1, canceled: 0, on_time_pct: 90, avg_delay_seconds: 60 },
+        { date: '2026-08-03', total: 10, on_time: 8, delayed: 2, canceled: 0, on_time_pct: 80, avg_delay_seconds: 120 },
+        { date: '2026-08-04', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+        { date: '2026-08-05', total: 12, on_time: 11, delayed: 1, canceled: 0, on_time_pct: 91.7, avg_delay_seconds: 40 },
+        { date: '2026-08-06', total: 12, on_time: 11, delayed: 1, canceled: 0, on_time_pct: 91.7, avg_delay_seconds: 40 },
+      ],
+    };
+    const html = renderPunctualityChart(gapped, 'en');
+    // Two contiguous data runs -> two polyline segments, no flat-0% fake line.
+    expect(html.match(/class="punct-line"/g)).toHaveLength(2);
+    expect(html).toContain('data since 2026-08-02');
+    // No-data days get no dots.
+    expect(html).not.toContain('<title>2026-08-04');
+  });
+
+  it('renders grid + note but no line when every day has no departures', () => {
+    const zero = {
+      days: 7,
+      date_from: '2026-07-31',
+      date_to: '2026-08-06',
+      daily: PUNCTUALITY.daily.map((d) => ({
+        date: d.date,
+        total: 0,
+        on_time: 0,
+        delayed: 0,
+        canceled: 0,
+        on_time_pct: 0,
+        avg_delay_seconds: null,
+      })),
+    };
+    const html = renderPunctualityChart(zero, 'en');
+    expect(html).toContain('<svg');
+    expect(html).toContain('punct-ylabels');
+    expect(html).not.toContain('punct-line');
+  });
+
   it('renders gracefully when every day is zero (sparse early data)', () => {
     const zero = {
       days: 7,
@@ -84,7 +136,8 @@ describe('renderPunctualityChart', () => {
     };
     const html = renderPunctualityChart(zero, 'en');
     expect(html).toContain('<svg');
-    expect(html).toContain('polyline');
+    // No departures collected -> no fake flat 0% line, just the empty grid.
+    expect(html).not.toContain('polyline');
   });
 
   it('renders an empty state instead of an SVG when there are no daily rows', () => {

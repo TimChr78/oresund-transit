@@ -98,3 +98,45 @@ describe('renderHistoryCharts — day-range toggles', () => {
     expect(html).toContain('90 days');
   });
 });
+
+describe('renderHistoryCharts — daily axis legibility', () => {
+  it('labels month boundaries with a localized day+month tick ("1 Aug")', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // 2026-07-31 .. 2026-08-06
+    expect(html).toContain('>1 Aug<');
+    expect(html).toContain('>31<'); // bare day-of-month elsewhere
+    // Localized month names: sv "1 aug", da "1 aug"
+    expect(renderHistoryCharts(HISTORY, null, 7, 'sv')).toContain('>1 aug<');
+    expect(renderHistoryCharts(HISTORY, null, 7, 'da')).toContain('>1 aug<');
+  });
+
+  it('omits non-month-start labels at a long range (stride) while keeping month starts', () => {
+    const longDaily = Array.from({ length: 30 }, (_, i) => ({
+      date: `2026-07-${String(i + 3).padStart(2, '0')}`,
+      count: 1,
+      cancellations: 0,
+      delays: 1,
+      alerts: 0,
+      avg_delay: null,
+    })).map((d, i) => (i === 29 ? { ...d, date: '2026-08-01' } : d));
+    const html = renderHistoryCharts({ ...HISTORY, daily: longDaily }, null, 30, 'en');
+    expect(html).toContain('>1 Aug<');
+  });
+
+  it('renders horizontal gridlines behind the daily bars', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toContain('daily-grid');
+    expect(html).toContain('<line');
+  });
+
+  it('shows a subtle max-count label at the top-left of the plot', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // max = 6 on 2026-08-06
+    expect(html).toContain('plot-max');
+    expect(html).toContain('max 6');
+  });
+
+  it('omits the max label when every day is zero', () => {
+    const zero: HistoryResponse = { ...HISTORY, daily: HISTORY.daily.map((d) => ({ ...d, count: 0 })) };
+    const html = renderHistoryCharts(zero, null, 7, 'en');
+    expect(html).not.toContain('plot-max');
+  });
+});

@@ -5,6 +5,7 @@ import { formatDelaySeconds } from '../i18n/format';
 import {
   byWeekday,
   dailyBarSegments,
+  dailyLabelPlan,
   hBarWidth,
   heatmapBuckets,
   heatmapIntensity,
@@ -25,11 +26,6 @@ const LINE_ROUTES: Record<string, string> = {
 
 /** weekday_<key> translation suffix for Mon..Sun. */
 const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
-
-/** Day-of-month tick label ("06") for the daily bars. */
-function dayLabel(date: string): string {
-  return /^\d{4}-\d{2}-(\d{2})$/.exec(date)?.[1] ?? date;
-}
 
 function legend(lang: Lang): string {
   const item = (cls: string, key: 'type_cancellation' | 'type_delay' | 'type_alert'): string => `
@@ -114,6 +110,12 @@ export function renderHistoryCharts(
   const max = Math.max(0, ...history.daily.map((d) => d.count));
   const pct = (v: number): number => (max > 0 ? (v / max) * 100 : 0);
 
+  // X-axis labels: localized month names, month starts always labeled, bare
+  // day-of-month elsewhere; long ranges stride so labels never crowd.
+  const monthNames = Array.from({ length: 12 }, (_, i) => translate(`month_${i + 1}` as Key, lang));
+  const labelPlan = dailyLabelPlan(history.daily.map((d) => d.date), dayRange, monthNames);
+  const labelTexts = new Map(labelPlan.map((l) => [l.index, l.text]));
+
   const dayBars = history.daily
     .map((d, i) => {
       const seg = segments[i] ?? { cancellations: 0, delays: 0, alerts: 0 };
@@ -125,14 +127,24 @@ export function renderHistoryCharts(
         <span class="seg seg-delay" style="height:${pct(seg.delays).toFixed(1)}%"></span>
         <span class="seg seg-alert" style="height:${pct(seg.alerts).toFixed(1)}%"></span>
       </div>
-      <span class="bar-label">${esc(dayLabel(d.date))}</span>
+      <span class="bar-label">${esc(labelTexts.get(i) ?? '')}</span>
     </div>`;
     })
     .join('');
 
+  // Horizontal gridlines at 25/50/75% of the plot, behind the bars.
+  const n = history.daily.length;
+  const grid =
+    n > 0
+      ? `<svg class="daily-grid" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true">${[25, 50, 75]
+          .map((g) => `<line x1="0" y1="${100 - g}" x2="${n}" y2="${100 - g}" />`)
+          .join('')}</svg>`
+      : '';
+  const maxLabel =
+    max > 0 ? `<span class="plot-max">${esc(translate('hist_daily_max', lang, { n: max }))}</span>` : '';
+
   // 3-day moving-average overlay, aligned to the bar x-centers (viewBox is
   // n units wide × 100 tall, stretched over the bar plot area).
-  const n = history.daily.length;
   const trend = movingAverage(history.daily.map((d) => d.count), 3);
   const trendPoints =
     max > 0 && n > 0
@@ -178,9 +190,11 @@ export function renderHistoryCharts(
       <h3 class="chart-title">${translate('hist_daily', lang)}</h3>
       <div class="bars">
         <div class="bar-plot">
-          ${dayBars}
-          ${trendLayer}
-        </div>
+        ${grid}
+        ${dayBars}
+        ${trendLayer}
+        ${maxLabel}
+      </div>
       </div>
       ${legend(lang)}
     </div>
