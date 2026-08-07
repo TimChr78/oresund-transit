@@ -170,7 +170,7 @@ function classifyDeparture(
     severity: categorizeSeverity(dep.delay, dep.canceled, title, text),
     delay_seconds: Math.max(dep.delay ?? 0, 0),
     raw_text: text || title || null,
-    dep_key: row.dep_key,
+    dep_key: depKey(dep),
     first_seen: ts,
     last_updated: ts,
     direction: getDirection(row.line, row.destination),
