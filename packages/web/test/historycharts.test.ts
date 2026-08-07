@@ -141,8 +141,7 @@ describe('renderHistoryCharts — daily axis legibility', () => {
   });
 });
 
-describe('renderHistoryCharts — by-hour heatmap (share %, 30-day baseline)', () => {
-  const byHour = [
+describe('renderHistoryCharts — by-hour heatmap (share %, 30-day baseline)', () => {  const byHour = [
     { hour: 6, count: 10, avg_delay: null },
     { hour: 18, count: 30, avg_delay: null },
   ];
@@ -182,5 +181,29 @@ describe('renderHistoryCharts — by-hour heatmap (share %, 30-day baseline)', (
     );
     expect(renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'sv')).toContain('senaste 30 dagarna');
     expect(renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'da')).toContain('sidste 30 dage');
+  });
+});
+
+describe('renderHistoryCharts — hbar structure (de-right-align)', () => {
+  it('renders label → track → fill → count → meta in order for line rows', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    const lineRow = html.match(/<div class="hbar hbar-line">([\s\S]*?)<\/div>/)?.[1] ?? '';
+    const pos = (cls: string): number => lineRow.indexOf(cls);
+    expect(pos('hbar-label')).toBeGreaterThan(-1);
+    expect(pos('hbar-track')).toBeGreaterThan(pos('hbar-label'));
+    expect(pos('hbar-fill')).toBeGreaterThan(pos('hbar-track'));
+    expect(pos('hbar-count')).toBeGreaterThan(pos('hbar-fill'));
+    expect(pos('hbar-meta')).toBeGreaterThan(pos('hbar-count'));
+  });
+
+  it('renders the simple hbar rows with label, track, count and meta classes', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    const rows = html.match(/<div class="hbar">([\s\S]*?)<\/div>/g) ?? [];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows.slice(0, 3)) {
+      expect(row).toMatch(/hbar-label/);
+      expect(row).toMatch(/hbar-track/);
+      expect(row).toMatch(/hbar-count/);
+    }
   });
 });
