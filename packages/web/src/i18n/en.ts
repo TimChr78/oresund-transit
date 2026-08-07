@@ -76,6 +76,7 @@ export const en: Dict = {
   days_7: '7 days',
   days_14: '14 days',
   days_30: '30 days',
+  days_90: '90 days',
   // Sections
   section_disruptions: 'Disruptions',
   section_history: 'History',

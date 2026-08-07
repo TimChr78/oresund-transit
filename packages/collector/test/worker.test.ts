@@ -545,3 +545,20 @@ describe('handleFetch — CORS', () => {
     await expect(res.text()).resolves.toBe('');
   });
 });
+
+// 90-day window (KoDa backfill reach)
+describe('handleFetch — 90-day window', () => {
+  it('accepts days=90 on punctuality and history', async () => {
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/punctuality?days=90'), env(db));
+    expect(res.status).toBe(200);
+    const res2 = await handleFetch(new Request('https://oresund.live/api/transit/history?days=90'), env(db));
+    expect(res2.status).toBe(200);
+  });
+
+  it('rejects days=45', async () => {
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/punctuality?days=45'), env(db));
+    expect(res.status).toBe(400);
+  });
+});

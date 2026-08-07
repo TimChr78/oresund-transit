@@ -6,7 +6,7 @@ import type { Disruption, LiveStatus } from '@oresund/shared';
  */
 
 export type Direction = 'to_denmark' | 'to_sweden' | 'all';
-export type DayRange = 7 | 14 | 30;
+export type DayRange = 7 | 14 | 30 | 90;
 
 /** Normalize counts to fractions of the max (0..1). Zero max -> zeros, not NaN. */
 export function barHeights(counts: readonly number[]): number[] {
