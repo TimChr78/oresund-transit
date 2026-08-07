@@ -159,7 +159,7 @@ export function renderHistoryCharts(
       (r) => `
     <button type="button" class="day-toggle-btn${r === dayRange ? ' active' : ''}"
       data-action="set-days" data-value="${r}" aria-pressed="${r === dayRange}">
-      ${translate(r === 7 ? 'days_7' : r === 14 ? 'days_14' : 'days_30', lang)}
+      ${translate(r === 7 ? 'days_7' : r === 14 ? 'days_14' : r === 90 ? 'days_90' : 'days_30', lang)}
     </button>`,
     )
     .join('');
