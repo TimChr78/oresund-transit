@@ -48,6 +48,13 @@ export function formatDelaySeconds(seconds: number | null, lang: Lang): string {
   return lang === 'da' ? `${minutes} min.` : `${minutes} min`;
 }
 
+/** Render a positive delay as "+N min" ("+11 min", DA "+11 min."). Empty when not positive. */
+export function formatDelayPlus(seconds: number | null | undefined, lang: Lang): string {
+  if (seconds === null || seconds === undefined || seconds <= 0) return '';
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return lang === 'da' ? `+${minutes} min.` : `+${minutes} min`;
+}
+
 /** Render a percentage with one decimal, locale decimal separator. */
 export function formatPct(value: number, lang: Lang): string {
   if (!Number.isFinite(value)) return '—';

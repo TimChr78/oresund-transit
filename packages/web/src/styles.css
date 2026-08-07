@@ -352,6 +352,17 @@ body::after {
   background: rgba(59, 130, 246, 0.14);
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
+.badge-cause {
+  color: var(--dim);
+  background: rgba(154, 163, 178, 0.1);
+  border: 1px solid rgba(154, 163, 178, 0.24);
+  margin-left: 4px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
 .badge-sev-minor {
   color: var(--green);
   background: rgba(16, 185, 129, 0.12);

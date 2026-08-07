@@ -65,6 +65,26 @@ describe('i18n dictionaries', () => {
     }
   });
 
+  it('provides a translated label for every cause key in all languages', () => {
+    const causeKeys = [
+      'staffing',
+      'person_on_tracks',
+      'signal_failure',
+      'vehicle',
+      'police',
+      'infrastructure',
+      'congestion',
+      'weather',
+      'unknown',
+    ];
+    for (const lang of ALL_LANGS) {
+      for (const cause of causeKeys) {
+        const key = `cause_${cause}` as Key;
+        expect(DICTS[lang][key].trim().length, `${lang}.${key} is empty`).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it('translates the new privacy keys', () => {
     expect(translate('privacy_title', 'en')).toBe('Privacy');
     expect(translate('privacy_title', 'sv')).toBe('Integritet');

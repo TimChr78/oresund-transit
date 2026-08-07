@@ -35,6 +35,16 @@ export interface Dict {
   sev_minor: string;
   sev_moderate: string;
   sev_major: string;
+  // Causes (enum keys stored in D1 — see categorizeCause in the collector)
+  cause_staffing: string;
+  cause_person_on_tracks: string;
+  cause_signal_failure: string;
+  cause_vehicle: string;
+  cause_police: string;
+  cause_infrastructure: string;
+  cause_congestion: string;
+  cause_weather: string;
+  cause_unknown: string;
   // Stat labels
   stat_on_time: string;
   stat_delayed: string;

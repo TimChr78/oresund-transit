@@ -1,5 +1,6 @@
 import type { HistoryResponse } from '../api';
 import { translate, type Lang } from '../i18n';
+import { causeLabel } from '../lib/causes';
 import {
   dailyBarSegments,
   hBarWidth,
@@ -110,7 +111,7 @@ export function renderHistoryCharts(history: HistoryResponse, dayRange: DayRange
     <div class="chart">
       <h3 class="chart-title">${translate('hist_by_cause', lang)}</h3>
       <div class="hbars">${hbars(
-        history.by_cause.map((c) => ({ label: c.cause === 'unknown' ? '—' : c.cause, count: c.count })),
+        history.by_cause.map((c) => ({ label: causeLabel(c.cause, lang), count: c.count })),
         lang,
       )}</div>
     </div>

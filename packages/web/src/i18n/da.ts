@@ -31,6 +31,16 @@ export const da: Dict = {
   sev_minor: 'Mindre',
   sev_moderate: 'Moderat',
   sev_major: 'Alvorlig',
+  // Causes
+  cause_staffing: 'Mangel på personale',
+  cause_person_on_tracks: 'Person på sporet',
+  cause_signal_failure: 'Signalfejl',
+  cause_vehicle: 'Køretøjsfejl',
+  cause_police: 'Politi / udrykning',
+  cause_infrastructure: 'Infrastruktur',
+  cause_congestion: 'Togkø',
+  cause_weather: 'Vejr',
+  cause_unknown: 'Ukendt',
   // Stat labels
   stat_on_time: 'Til tiden',
   stat_delayed: 'Forsinkede',

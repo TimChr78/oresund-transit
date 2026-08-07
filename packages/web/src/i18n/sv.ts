@@ -31,6 +31,16 @@ export const sv: Dict = {
   sev_minor: 'Mindre',
   sev_moderate: 'Måttlig',
   sev_major: 'Allvarlig',
+  // Causes (Swedish reference — matches the private board)
+  cause_staffing: 'Personalbrist',
+  cause_person_on_tracks: 'Person på spår',
+  cause_signal_failure: 'Signalfel',
+  cause_vehicle: 'Fordonsfel',
+  cause_police: 'Polis/larm',
+  cause_infrastructure: 'Infrastruktur',
+  cause_congestion: 'Tågkö',
+  cause_weather: 'Väder',
+  cause_unknown: 'Okänt',
   // Stat labels
   stat_on_time: 'I tid',
   stat_delayed: 'Försenade',

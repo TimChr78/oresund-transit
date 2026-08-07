@@ -31,6 +31,16 @@ export const en: Dict = {
   sev_minor: 'Minor',
   sev_moderate: 'Moderate',
   sev_major: 'Major',
+  // Causes
+  cause_staffing: 'Staffing shortage',
+  cause_person_on_tracks: 'Person on tracks',
+  cause_signal_failure: 'Signal failure',
+  cause_vehicle: 'Vehicle fault',
+  cause_police: 'Police / emergency',
+  cause_infrastructure: 'Infrastructure',
+  cause_congestion: 'Train queue',
+  cause_weather: 'Weather',
+  cause_unknown: 'Unknown',
   // Stat labels
   stat_on_time: 'On time',
   stat_delayed: 'Delayed',
