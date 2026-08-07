@@ -116,7 +116,7 @@ describe('runScheduled — disruption classification', () => {
     expect(rows[0]!.dep_key).toBe('804_21:59_Østerport');
     expect(rows[0]!.direction).toBe('to_denmark');
     // the departure row itself is marked canceled
-    expect(depRow(db, '2026-08-07_804_21:59_Østerport').status).toBe('canceled');
+    expect(depRow(db, '2026-08-07_804_10:59_Østerport').status).toBe('canceled');
   });
 
   it('creates a delay disruption for a delay >= 600s', async () => {
@@ -146,7 +146,7 @@ describe('runScheduled — disruption classification', () => {
     const dep = { ...realDeparture, delay: 0, canceled: false };
     await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
 
-    const row = depRow(db, '2026-08-07_804_21:59_Østerport');
+    const row = depRow(db, '2026-08-07_804_10:59_Østerport');
     expect(row.status).toBe('on_time');
     expect(row.delay_seconds).toBe(0);
     expect(row.canceled).toBe(0);
@@ -158,7 +158,7 @@ describe('runScheduled — disruption classification', () => {
     const dep = { ...realDeparture, delay: 299 };
     await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
 
-    expect(depRow(db, '2026-08-07_804_21:59_Østerport').status).toBe('delayed');
+    expect(depRow(db, '2026-08-07_804_10:59_Østerport').status).toBe('delayed');
     expect(disruptionRows(db)).toHaveLength(0);
   });
 });
