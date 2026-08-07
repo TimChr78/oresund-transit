@@ -836,6 +836,34 @@ body::after {
   color: var(--faint);
   padding: 4px 2px 0;
 }
+/* color-scale legend: green (low share) -> red (high share), matching the
+   heatColor endpoints so the encoding explains itself */
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--faint);
+  padding: 6px 2px 0;
+}
+.heat-swatch {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.heat-low {
+  background: #10b981;
+}
+.heat-high {
+  background: #ef4444;
+}
+.heat-scale {
+  flex: 0 0 60px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #10b981, #ef4444);
+}
 
 /* ------------------------------------------------------- empty/loading */
 

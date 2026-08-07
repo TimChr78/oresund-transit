@@ -55,6 +55,8 @@ export const sv: Dict = {
   hist_by_hour: 'Per timme',
   heat_tooltip: '{hour}:00 — {pct} ({n})',
   heat_caption: 'Andel av störningar per timme — senaste 30 dagarna',
+  heat_low: 'låg',
+  heat_high: 'hög',
   hist_by_weekday: 'Per veckodag',
   hist_line_delay: 'snitt {a} · max {b}',
   hist_total: 'Totalt: {n}',

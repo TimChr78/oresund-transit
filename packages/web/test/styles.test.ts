@@ -39,6 +39,13 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.bar-value \{[^}]*position:\s*absolute/);
   });
 
+  it('styles the heatmap color-scale legend (green-to-red gradient row)', () => {
+    expect(css).toMatch(/\.heat-legend \{[^}]*display:\s*flex/);
+    expect(css).toMatch(/\.heat-scale \{[^}]*linear-gradient\(to right,\s*#10b981,\s*#ef4444\)/);
+    expect(css).toMatch(/\.heat-low \{[^}]*#10b981/);
+    expect(css).toMatch(/\.heat-high \{[^}]*#ef4444/);
+  });
+
   it('left-aligns hbar-count and hbar-meta while keeping tabular numerals', () => {
     expect(css).toMatch(/\.hbar-count \{[^}]*text-align:\s*left/);
     expect(css).toMatch(/\.hbar-count \{[^}]*font-variant-numeric:\s*tabular-nums/);

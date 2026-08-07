@@ -55,6 +55,8 @@ export const en: Dict = {
   hist_by_hour: 'By hour',
   heat_tooltip: '{hour}:00 — {pct} ({n})',
   heat_caption: 'Share of disruptions by hour — last 30 days',
+  heat_low: 'low',
+  heat_high: 'high',
   hist_by_weekday: 'By weekday',
   hist_line_delay: 'avg {a} · max {b}',
   hist_total: 'Total: {n}',

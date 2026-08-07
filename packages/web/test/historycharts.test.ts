@@ -275,6 +275,36 @@ describe('renderHistoryCharts — by-hour heatmap (share %, 30-day baseline)', (
     // the caption never claims a 30-day window the chart is not showing.
     expect(renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en')).not.toContain('heat-caption');
   });
+
+  it('renders a color-scale legend under the heatmap (green low -> red high)', () => {
+    const html = renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en');
+    expect(html).toContain('heat-legend');
+    expect(html).toContain('heat-scale');
+    expect(html).toMatch(/heat-swatch[^>]*heat-low/);
+    expect(html).toMatch(/heat-swatch[^>]*heat-high/);
+    // green/red endpoints match the heatColor palette
+    expect(html).toMatch(/heat-low/);
+    expect(html).toMatch(/heat-high/);
+  });
+
+  it('translates the low/high legend labels in all three languages', () => {
+    const base = { ...HISTORY, by_hour: byHour };
+    const en = renderHistoryCharts(base, null, 7, 'en');
+    expect(en).toMatch(/heat-legend[\s\S]*>low</);
+    expect(en).toMatch(/heat-legend[\s\S]*>high</);
+    const sv = renderHistoryCharts(base, null, 7, 'sv');
+    expect(sv).toMatch(/heat-legend[\s\S]*>låg</);
+    expect(sv).toMatch(/heat-legend[\s\S]*>hög</);
+    const da = renderHistoryCharts(base, null, 7, 'da');
+    expect(da).toMatch(/heat-legend[\s\S]*>lav</);
+    expect(da).toMatch(/heat-legend[\s\S]*>høj</);
+  });
+
+  it('shows the legend even without the 30-day baseline caption', () => {
+    const html = renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en');
+    expect(html).toContain('heat-legend');
+    expect(html).not.toContain('heat-caption');
+  });
 });
 
 describe('renderHistoryCharts — hbar structure (de-right-align)', () => {

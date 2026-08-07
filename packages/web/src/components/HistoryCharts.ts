@@ -277,6 +277,11 @@ export function renderHistoryCharts(
       <div class="heatmap">${cells}</div>
       <div class="heat-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
       ${heatmapHistory ? `<div class="heat-caption">${translate('heat_caption', lang)}</div>` : ''}
+      <div class="heat-legend" aria-hidden="true">
+        <span class="heat-swatch heat-low"></span><span class="heat-label">${translate('heat_low', lang)}</span>
+        <span class="heat-scale"></span>
+        <span class="heat-swatch heat-high"></span><span class="heat-label">${translate('heat_high', lang)}</span>
+      </div>
     </div>
   </section>`;
 }
