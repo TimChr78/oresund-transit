@@ -655,8 +655,51 @@ body::after {
   gap: 8px;
 }
 
-/* ---------------------------------------------------------------- footer */
+/* -------------------------------------------------------------- privacy */
 
+.privacy-wrap {
+  max-width: 720px;
+}
+.privacy-back {
+  color: var(--dim);
+  font-size: 12px;
+  text-decoration: none;
+}
+.privacy-back:hover {
+  color: var(--text);
+}
+.privacy {
+  padding: 8px 2px 0;
+}
+.privacy-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin: 0 0 18px;
+}
+.privacy p {
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0 0 16px;
+  max-width: 64ch;
+}
+.privacy .privacy-lead {
+  color: var(--text);
+}
+.privacy a {
+  color: var(--indigo);
+  text-decoration: none;
+}
+.privacy a:hover {
+  text-decoration: underline;
+}
+.privacy .privacy-contact {
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------- footer */
 .footer {
   margin-top: 28px;
   padding-top: 14px;

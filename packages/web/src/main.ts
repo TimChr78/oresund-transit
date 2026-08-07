@@ -1,7 +1,9 @@
 import './styles.css';
 import { ApiError, fetchDelayStats, fetchDisruptions, fetchHistory, fetchLiveStatus } from './api';
-import { detectLang, saveLang, type Lang } from './i18n';
+import { detectLang, getDict, saveLang, translate, type Lang } from './i18n';
 import { renderApp, type ConsentState } from './components/App';
+import { renderPrivacyPage } from './components/PrivacyPage';
+import { routePath } from './lib/route';
 import { createInitialState, reducer, type Action, type AppState } from './state';
 import type { DayRange, Direction } from './lib/stats';
 
@@ -47,9 +49,38 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** Privacy page boot: static render + language switcher only. */
+function bootPrivacy(root: HTMLElement): void {
+  let lang: Lang = detectLang();
+  document.documentElement.lang = lang;
+
+  const render = (): void => {
+    document.title = `${translate('privacy_title', lang)} — Øresund.live`;
+    root.innerHTML = renderPrivacyPage(lang, getDict(lang));
+  };
+  render();
+
+  root.addEventListener('click', (event) => {
+    const target = event.target as Element | null;
+    const btn = target?.closest?.('[data-action]') as HTMLElement | null;
+    if (!btn || btn.dataset.action !== 'set-lang') return;
+    lang = btn.dataset.value as Lang;
+    document.documentElement.lang = lang;
+    saveLang(lang);
+    render();
+  });
+}
+
 export function boot(): void {
   const root = document.getElementById('app');
   if (!root) return;
+
+  // /privacy renders the privacy page instead of the dashboard. No data
+  // fetching, no consent banner — just the shell, footer and lang switcher.
+  if (routePath(window.location.pathname) === 'privacy') {
+    bootPrivacy(root);
+    return;
+  }
 
   let lang: Lang = detectLang();
   document.documentElement.lang = lang;
