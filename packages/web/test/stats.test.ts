@@ -9,6 +9,7 @@ import {
   heatmapBuckets,
   heatmapIntensity,
   sortNewestFirst,
+  delayStatsRange,
 } from '../src/lib/stats';
 
 describe('barHeights', () => {
@@ -130,5 +131,24 @@ describe('departureCountFor', () => {
 
   it('sums all directions for the all filter', () => {
     expect(departureCountFor(live, 'all')).toBe(12);
+  });
+});
+
+describe('delayStatsRange', () => {
+  it('returns [today, tomorrow) — the half-open API window', () => {
+    const { from, to } = delayStatsRange(new Date(2026, 7, 7, 12, 0, 0)); // 2026-08-07
+    expect(from).toBe('2026-08-07');
+    expect(to).toBe('2026-08-08');
+  });
+
+  it('rolls over the month boundary', () => {
+    const { from, to } = delayStatsRange(new Date(2026, 11, 31, 23, 59, 0)); // 2026-12-31
+    expect(from).toBe('2026-12-31');
+    expect(to).toBe('2027-01-01');
+  });
+
+  it('from and to differ (never an empty range)', () => {
+    const { from, to } = delayStatsRange();
+    expect(from).not.toBe(to);
   });
 });

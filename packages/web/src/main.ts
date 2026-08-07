@@ -5,7 +5,7 @@ import { renderApp, type ConsentState } from './components/App';
 import { renderPrivacyPage } from './components/PrivacyPage';
 import { routePath } from './lib/route';
 import { createInitialState, reducer, type Action, type AppState } from './state';
-import type { DayRange, Direction } from './lib/stats';
+import { delayStatsRange, type DayRange, type Direction } from './lib/stats';
 
 /**
  * Boot: read the saved language, render, then drive the board.
@@ -20,12 +20,6 @@ import type { DayRange, Direction } from './lib/stats';
 
 const REFRESH_MS = 120_000;
 const CONSENT_KEY = 'oresund-consent';
-
-/** Local calendar date as YYYY-MM-DD (for delay-stats today window). */
-function localDateIso(now: Date = new Date()): string {
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
-}
 
 function readConsent(): ConsentState {
   try {
@@ -112,8 +106,8 @@ export function boot(): void {
 
   const refreshStats = async (): Promise<void> => {
     try {
-      const today = localDateIso();
-      const stats = await fetchDelayStats(today, today);
+      const { from, to } = delayStatsRange();
+      const stats = await fetchDelayStats(from, to);
       dispatch({ type: 'STATS_OK', stats });
     } catch (err) {
       dispatch({ type: 'STATS_ERROR', message: messageOf(err) });
