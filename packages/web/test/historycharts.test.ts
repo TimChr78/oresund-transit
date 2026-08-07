@@ -87,3 +87,14 @@ describe('renderHistoryCharts — By Weekday', () => {
     expect(html).toContain('4 min');
   });
 });
+
+
+describe('renderHistoryCharts — day-range toggles', () => {
+  it('renders all four ranges with correct labels (90 days not mislabeled 30)', () => {
+    const html = renderHistoryCharts(HISTORY, null, 90, 'en');
+    expect(html).toContain('7 days');
+    expect(html).toContain('14 days');
+    expect(html).toContain('30 days');
+    expect(html).toContain('90 days');
+  });
+});
