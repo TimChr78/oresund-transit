@@ -1,4 +1,4 @@
-import type { HistoryResponse } from '../api';
+import type { HistoryResponse, PunctualityResponse } from '../api';
 import { translate, type Lang } from '../i18n';
 import { causeLabel } from '../lib/causes';
 import {
@@ -8,6 +8,7 @@ import {
   heatmapIntensity,
   type DayRange,
 } from '../lib/stats';
+import { renderPunctualityChart } from './PunctualityChart';
 import { esc } from '../lib/html';
 
 /** Day-of-month tick label ("06") for the daily bars. */
@@ -45,7 +46,12 @@ function hbars(items: { label: string; count: number }[], lang: Lang): string {
  * All hand-rolled CSS bars — the math (heights, segments, heatmap intensity)
  * lives in src/lib/stats.ts so it stays unit-testable.
  */
-export function renderHistoryCharts(history: HistoryResponse, dayRange: DayRange, lang: Lang): string {
+export function renderHistoryCharts(
+  history: HistoryResponse,
+  punctuality: PunctualityResponse | null,
+  dayRange: DayRange,
+  lang: Lang,
+): string {
   const segments = dailyBarSegments(history.daily);
   const max = Math.max(0, ...history.daily.map((d) => d.count));
   const pct = (v: number): number => (max > 0 ? (v / max) * 100 : 0);
@@ -99,6 +105,8 @@ export function renderHistoryCharts(history: HistoryResponse, dayRange: DayRange
       <div class="bars">${dayBars}</div>
       ${legend(lang)}
     </div>
+
+    ${punctuality ? renderPunctualityChart(punctuality, lang) : ''}
 
     <div class="chart">
       <h3 class="chart-title">${translate('hist_by_line', lang)}</h3>

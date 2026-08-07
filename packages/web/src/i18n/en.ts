@@ -49,6 +49,7 @@ export const en: Dict = {
   stat_departures: 'Departures',
   // History
   hist_daily: 'Daily',
+  hist_punctuality: 'Punctuality',
   hist_by_line: 'By line',
   hist_by_cause: 'By cause',
   hist_by_hour: 'By hour',

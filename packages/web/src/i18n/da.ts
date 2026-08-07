@@ -49,6 +49,7 @@ export const da: Dict = {
   stat_departures: 'Afgange',
   // History
   hist_daily: 'Per dag',
+  hist_punctuality: 'Punktlighed',
   hist_by_line: 'Per linje',
   hist_by_cause: 'Per årsag',
   hist_by_hour: 'Per time',

@@ -519,6 +519,57 @@ body::after {
   background: var(--blue);
 }
 
+/* punctuality line chart */
+.punct-chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 10px 4px;
+}
+.punct-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.punct-grid {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+.punct-area {
+  fill: rgba(16, 185, 129, 0.12);
+}
+.punct-line {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.punct-dot {
+  fill: var(--surface);
+  stroke: var(--green);
+  stroke-width: 1.5;
+}
+.punct-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--faint);
+  padding: 4px 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+.dot-punct {
+  background: var(--green);
+  border-radius: 50%;
+}
+.punct-latest {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
 /* by_line / by_cause horizontal bars */
 .hbars {
   display: flex;

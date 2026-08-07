@@ -76,6 +76,45 @@ export function fetchHistory(days: HistoryDays = 7): Promise<HistoryResponse> {
   return request('history', parseHistoryResponse, { days });
 }
 
+/** One calendar day of punctuality stats (the /api/transit/punctuality contract). */
+export interface PunctualityDay {
+  date: string;
+  total: number;
+  on_time: number;
+  delayed: number;
+  canceled: number;
+  on_time_pct: number;
+  avg_delay_seconds: number | null;
+}
+
+/** The /api/transit/punctuality response shape — delay-% over time. */
+export interface PunctualityResponse {
+  days: number;
+  date_from: string;
+  date_to: string;
+  daily: PunctualityDay[];
+}
+
+export function fetchPunctuality(days: HistoryDays = 7): Promise<PunctualityResponse> {
+  return request('punctuality', parsePunctualityResponse, { days });
+}
+
+/** Guarded parse of the /api/transit/punctuality JSON shape. */
+export function parsePunctualityResponse(json: unknown): PunctualityResponse {
+  const body = json as Partial<PunctualityResponse> | null;
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    typeof body.days !== 'number' ||
+    typeof body.date_from !== 'string' ||
+    typeof body.date_to !== 'string' ||
+    !Array.isArray(body.daily)
+  ) {
+    throw new TypeError('invalid /api/transit/punctuality response shape');
+  }
+  return body as PunctualityResponse;
+}
+
 /** /api/transit/disruptions wraps its list in { disruptions: [...] }. */
 export function parseDisruptionsResponse(json: unknown): Disruption[] {
   const body = json as { disruptions?: unknown } | null;

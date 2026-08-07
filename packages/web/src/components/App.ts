@@ -48,7 +48,7 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
       : placeholder('loading', lang);
 
   const history = state.history
-    ? renderHistoryCharts(state.history, state.dayRange, lang)
+    ? renderHistoryCharts(state.history, state.punctuality, state.dayRange, lang)
     : state.historyError
       ? placeholder('error', lang, 'retry-history')
       : placeholder('loading', lang);

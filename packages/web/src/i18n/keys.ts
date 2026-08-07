@@ -53,6 +53,7 @@ export interface Dict {
   stat_departures: string;
   // History
   hist_daily: string;
+  hist_punctuality: string;
   hist_by_line: string;
   hist_by_cause: string;
   hist_by_hour: string;

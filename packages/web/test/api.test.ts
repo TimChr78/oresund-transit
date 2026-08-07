@@ -7,6 +7,7 @@ import {
   fetchDisruptions,
   fetchHistory,
   fetchLiveStatus,
+  fetchPunctuality,
   type FetchLike,
 } from '../src/api';
 
@@ -118,8 +119,50 @@ describe('api client', () => {
     expect(result.days).toBe(7);
   });
 
-  it('throws ApiError with the status on non-2xx (503)', async () => {
-    const fetchMock = vi
+  it('fetchPunctuality GETs /api/transit/punctuality?days=7 and parses the response', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(
+      jsonResponse({
+        days: 7,
+        date_from: '2026-07-31',
+        date_to: '2026-08-06',
+        daily: [
+          {
+            date: '2026-07-31',
+            total: 0,
+            on_time: 0,
+            delayed: 0,
+            canceled: 0,
+            on_time_pct: 0,
+            avg_delay_seconds: null,
+          },
+          {
+            date: '2026-08-06',
+            total: 10,
+            on_time: 9,
+            delayed: 1,
+            canceled: 0,
+            on_time_pct: 90,
+            avg_delay_seconds: 65,
+          },
+        ],
+      }),
+    );
+    configureFetch(fetchMock);
+    const result = await fetchPunctuality(7);
+    expect(fetchMock).toHaveBeenCalledWith('/api/transit/punctuality?days=7', { method: 'GET' });
+    expect(result.days).toBe(7);
+    expect(result.daily).toHaveLength(2);
+    expect(result.daily[1]?.on_time_pct).toBe(90);
+    expect(result.daily[1]?.avg_delay_seconds).toBe(65);
+  });
+
+  it('rejects a malformed punctuality payload', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ days: 7 }));
+    configureFetch(fetchMock);
+    await expect(fetchPunctuality(7)).rejects.toThrow(TypeError);
+  });
+
+  it('throws ApiError with the status on non-2xx (503)', async () => {    const fetchMock = vi
       .fn<FetchLike>()
       .mockResolvedValue(jsonResponse({ error: 'no live status snapshot yet' }, 503));
     configureFetch(fetchMock);

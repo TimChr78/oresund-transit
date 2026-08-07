@@ -59,6 +59,24 @@ export function hBarWidth(count: number, max: number): number {
   return Math.min(1, count / max);
 }
 
+/** Clamped y coordinate for a 0..100 value on an SVG of the given height (100 → top). */
+export function svgY(value: number, height: number): number {
+  const clamped = Math.max(0, Math.min(100, value));
+  return height - (clamped / 100) * height;
+}
+
+/**
+ * Space-separated "x,y" point pairs for an SVG polyline over `values` (on a
+ * 0..100 scale), spread evenly across the given width. Empty when no points.
+ */
+export function svgLinePoints(values: readonly number[], width: number, height: number): string {
+  if (values.length === 0) return '';
+  const step = values.length > 1 ? width / (values.length - 1) : 0;
+  return values
+    .map((v, i) => `${(i * step).toFixed(1)},${svgY(v, height).toFixed(1)}`)
+    .join(' ');
+}
+
 /** Sort disruptions newest-first by ISO timestamp (returns a new array). */
 export function sortNewestFirst<T extends { timestamp: string }>(list: readonly T[]): T[] {
   return [...list].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
