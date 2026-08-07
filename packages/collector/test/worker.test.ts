@@ -3,7 +3,7 @@ import type { LiveStatus } from '@oresund/shared';
 import hyllieRaw from './fixtures/hyllie-raw.json';
 import kobenhavnHRaw from './fixtures/kobenhavn-h-raw.json';
 import type { TrafiklabDeparture } from '@oresund/shared';
-import { runScheduled, handleFetch, type Env, type FetchLike } from '../src/index.js';
+import { runScheduled, handleFetch, departureKey, type Env, type FetchLike } from '../src/index.js';
 import { FakeD1 } from './fake-d1.js';
 
 // Real fixture SiteIds (from the fixtures' query.query) — the same values the
@@ -116,7 +116,7 @@ describe('runScheduled — disruption classification', () => {
     expect(rows[0]!.dep_key).toBe('804_21:59_Østerport');
     expect(rows[0]!.direction).toBe('to_denmark');
     // the departure row itself is marked canceled
-    expect(depRow(db, '804_21:59_Østerport').status).toBe('canceled');
+    expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('canceled');
   });
 
   it('creates a delay disruption for a delay >= 600s', async () => {
@@ -146,7 +146,7 @@ describe('runScheduled — disruption classification', () => {
     const dep = { ...realDeparture, delay: 0, canceled: false };
     await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
 
-    const row = depRow(db, '804_21:59_Østerport');
+    const row = depRow(db, '2026-08-06_804_21:59_Østerport');
     expect(row.status).toBe('on_time');
     expect(row.delay_seconds).toBe(0);
     expect(row.canceled).toBe(0);
@@ -158,7 +158,7 @@ describe('runScheduled — disruption classification', () => {
     const dep = { ...realDeparture, delay: 299 };
     await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
 
-    expect(depRow(db, '804_21:59_Østerport').status).toBe('delayed');
+    expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('delayed');
     expect(disruptionRows(db)).toHaveLength(0);
   });
 });
@@ -560,5 +560,22 @@ describe('handleFetch — 90-day window', () => {
     const db = new FakeD1();
     const res = await handleFetch(new Request('https://oresund.live/api/transit/punctuality?days=45'), env(db));
     expect(res.status).toBe(400);
+  });
+});
+
+describe('departureKey — date-scoped (punctuality history fix)', () => {
+  it('prefixes the departure key with the scheduled date', () => {
+    const dep = {
+      route: { designation: '804', direction: 'Østerport' },
+      scheduled: '2026-08-07T10:59:00',
+      delay: 0,
+      canceled: false,
+    } as unknown as Parameters<typeof departureKey>[0];
+    expect(departureKey(dep)).toBe('2026-08-07_804_10:59_Østerport');
+  });
+
+  it('falls back to the date-less key when scheduled is missing', () => {
+    const dep = { route: { designation: '804', direction: 'Østerport' } } as unknown as Parameters<typeof departureKey>[0];
+    expect(departureKey(dep)).toBe('804_?_Østerport');
   });
 });
