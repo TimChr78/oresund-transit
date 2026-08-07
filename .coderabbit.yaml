@@ -24,6 +24,7 @@ reviews:
     enabled: true
     auto_incremental_review: true   # review each push (harness commits per item)
     drafts: false
+    ignore_usernames: ["dependabot[bot]"]
     ignore_title_keywords: ["wip", "chore(deps)", "dependabot"]
     base_branches: []               # main only (default branch)
 
