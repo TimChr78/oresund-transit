@@ -84,3 +84,30 @@ export interface LineDelayStats {
   delayed_pct: number;
   avg_delay_seconds: number | null;
 }
+
+/**
+ * One departure as returned by the Trafiklab departure-board API
+ * (mirrors the raw fixture JSON in packages/collector/test/fixtures/*.json).
+ */
+export interface TrafiklabDeparture {
+  scheduled: string;
+  realtime: string;
+  delay: number;
+  canceled: boolean;
+  route: {
+    designation: string;
+    direction: string;
+    transport_mode: string;
+    transport_mode_code: number;
+    name: string;
+  };
+  trip: {
+    technical_number: number;
+  };
+  agency: {
+    id: string;
+    name: string;
+    operator: string;
+  };
+  alerts: unknown[];
+}

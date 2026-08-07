@@ -6,3 +6,4 @@ dist/
 .DS_Store
 seed/data/*.json
 !seed/data/*.example.json
+bun.lock
