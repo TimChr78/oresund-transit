@@ -6,7 +6,7 @@ compatibility_date = "2026-08-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "oresund-transit-db"
-database_id = "REPLACE_WITH_D1_ID"
+database_id = "d09c2122-93e1-4012-8183-e1c1d6851910"
 migrations_dir = "migrations"
 
 # Cron: poll every 5 minutes (aligned with the private monitor cadence)
