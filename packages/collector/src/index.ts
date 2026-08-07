@@ -107,6 +107,19 @@ export function depKey(dep: TrafiklabDeparture): string {
   return `${line}_${formatTime(dep.scheduled)}_${destination}`;
 }
 
+/**
+ * Date-scoped key for the departures table: {YYYY-MM-DD}_{line}_{HH:MM}_{dest}.
+ * The departures table drives delay%-over-time queries, so each day must get
+ * its own row — a date-less key lets the upsert clobber yesterday's data.
+ * Disruptions keep the date-less depKey() (deduped by dep_key + calendar day,
+ * and matching the private monitor's format for the A/B verification cron).
+ */
+export function departureKey(dep: TrafiklabDeparture): string {
+  const base = depKey(dep);
+  const d = dep.scheduled ? String(dep.scheduled).slice(0, 10) : '';
+  return d ? `${d}_${base}` : base;
+}
+
 function toDepartureRow(
   stop: { id: string; name: string },
   dep: TrafiklabDeparture,
@@ -125,7 +138,7 @@ function toDepartureRow(
     canceled,
     status: canceled === 1 ? 'canceled' : delayStatus(dep.delay ?? 0),
     technical_number: dep.trip?.technical_number != null ? String(dep.trip.technical_number) : null,
-    dep_key: depKey(dep),
+    dep_key: departureKey(dep),
     first_seen: formatLocalIso(now),
     last_updated: formatLocalIso(now),
   };
