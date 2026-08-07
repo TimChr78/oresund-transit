@@ -82,3 +82,16 @@ export function departureCountFor(
   if (direction === 'all') return counts.to_denmark + counts.to_sweden + counts.bus;
   return counts[direction];
 }
+
+/**
+ * Delay-stats query window. The API contract is half-open [from, to): a
+ * day's departures live in [today, tomorrow). Returning `to` == `from`
+ * (as the dashboard did at launch) yields an empty range and zero stats.
+ */
+export function delayStatsRange(now: Date = new Date()): { from: string; to: string } {
+  const p = (n: number): string => String(n).padStart(2, '0');
+  const from = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const to = `${tomorrow.getFullYear()}-${p(tomorrow.getMonth() + 1)}-${p(tomorrow.getDate())}`;
+  return { from, to };
+}
