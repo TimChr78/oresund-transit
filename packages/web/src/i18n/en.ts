@@ -91,6 +91,7 @@ export const en: Dict = {
   empty_error: 'Live data is unreachable right now.',
   empty_retry: 'Retry',
   empty_disruptions: 'No disruptions',
+  disruptions_none_today: 'All clear — no disruptions today.',
   // Privacy page
   privacy_title: 'Privacy',
   privacy_intro:

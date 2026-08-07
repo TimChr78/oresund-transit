@@ -1,4 +1,4 @@
-import type { Disruption, LiveStatus } from '@oresund/shared';
+import type { Disruption } from '@oresund/shared';
 
 /**
  * Pure chart/table math for the dashboard. Components stay thin: they call
@@ -243,16 +243,6 @@ export function filterByDirection<T extends { direction: Disruption['direction']
 ): T[] {
   if (direction === 'all') return [...list];
   return list.filter((d) => d.direction === direction);
-}
-
-/** Departure count for a tab: the direction count, or the sum for "all". */
-export function departureCountFor(
-  live: Pick<LiveStatus, 'departure_counts'>,
-  direction: Direction,
-): number {
-  const counts = live.departure_counts;
-  if (direction === 'all') return counts.to_denmark + counts.to_sweden + counts.bus;
-  return counts[direction];
 }
 
 /**

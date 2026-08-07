@@ -134,7 +134,11 @@ export function boot(): void {
 
   const refreshDisruptions = async (): Promise<void> => {
     try {
-      const disruptions = await fetchDisruptions(50);
+      // The live table shows ONLY today: half-open [today 00:00, tomorrow 00:00).
+      // Disruption timestamps are naive local "YYYY-MM-DD HH:MM:SS", so the
+      // date-only bounds from delayStatsRange() compare correctly.
+      const { from, to } = delayStatsRange();
+      const disruptions = await fetchDisruptions(50, from, to);
       dispatch({ type: 'DISRUPTIONS_OK', disruptions });
     } catch (err) {
       dispatch({ type: 'DISRUPTIONS_ERROR', message: messageOf(err) });

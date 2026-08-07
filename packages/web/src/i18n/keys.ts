@@ -95,6 +95,7 @@ export interface Dict {
   empty_error: string;
   empty_retry: string;
   empty_disruptions: string;
+  disruptions_none_today: string;
   // Privacy page
   privacy_title: string;
   privacy_intro: string;

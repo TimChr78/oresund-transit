@@ -91,6 +91,7 @@ export const sv: Dict = {
   empty_error: 'Trafikdata nås inte just nu.',
   empty_retry: 'Försök igen',
   empty_disruptions: 'Inga störningar',
+  disruptions_none_today: 'Inga störningar idag — allt flyter.',
   // Privacy page
   privacy_title: 'Integritet',
   privacy_intro:

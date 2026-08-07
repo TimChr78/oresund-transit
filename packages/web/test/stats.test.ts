@@ -3,7 +3,6 @@ import type { Disruption, LiveStatus } from '@oresund/shared';
 import {
   barHeights,
   dailyBarSegments,
-  departureCountFor,
   filterByDirection,
   hBarWidth,
   heatmapBuckets,
@@ -279,19 +278,6 @@ describe('filterByDirection', () => {
   it('filters to one direction', () => {
     expect(filterByDirection(disruptions, 'to_denmark').map((d) => d.id)).toEqual([1]);
     expect(filterByDirection(disruptions, 'to_sweden').map((d) => d.id)).toEqual([2]);
-  });
-});
-
-describe('departureCountFor', () => {
-  const live = { departure_counts: { to_denmark: 7, to_sweden: 5, bus: 0 } } as LiveStatus;
-
-  it('returns the direction count', () => {
-    expect(departureCountFor(live, 'to_denmark')).toBe(7);
-    expect(departureCountFor(live, 'to_sweden')).toBe(5);
-  });
-
-  it('sums all directions for the all filter', () => {
-    expect(departureCountFor(live, 'all')).toBe(12);
   });
 });
 

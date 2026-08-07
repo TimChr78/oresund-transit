@@ -60,7 +60,7 @@ function row(d: Disruption, lang: Lang): string {
 /** Dense departure-board table: Time / Line / Type / Severity / Delay / Direction / Reason. */
 export function renderDisruptionsTable(disruptions: Disruption[], lang: Lang): string {
   if (disruptions.length === 0) {
-    return `<div class="empty">${translate('empty_disruptions', lang)}</div>`;
+    return `<div class="empty">${translate('disruptions_none_today', lang)}</div>`;
   }
   const headers: Key[] = [
     'th_time',

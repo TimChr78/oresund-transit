@@ -91,6 +91,7 @@ export const da: Dict = {
   empty_error: 'Trafikdata er ikke tilgængelig lige nu.',
   empty_retry: 'Prøv igen',
   empty_disruptions: 'Ingen forstyrrelser',
+  disruptions_none_today: 'Ingen forstyrrelse i dag — alt kører.',
   // Privacy page
   privacy_title: 'Privatliv',
   privacy_intro:

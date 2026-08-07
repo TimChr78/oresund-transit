@@ -48,3 +48,16 @@ describe('renderDisruptionsTable — TIME cell', () => {
     expect(html).toContain('>15:35<');
   });
 });
+
+describe('renderDisruptionsTable — empty state (today only)', () => {
+  it('shows a calm all-clear message when today has zero disruptions', () => {
+    const html = renderDisruptionsTable([], 'en');
+    expect(html).not.toContain('<table');
+    expect(html).toContain('All clear');
+  });
+
+  it('uses the trilingual all-clear message', () => {
+    expect(renderDisruptionsTable([], 'sv')).toContain('störningar idag');
+    expect(renderDisruptionsTable([], 'da')).toContain('forstyrrelse i dag');
+  });
+});

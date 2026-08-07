@@ -76,7 +76,11 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
       ${stats}
       <section class="disruptions">
         <h2 class="section-title">${translate('section_disruptions', lang)}</h2>
-        ${renderDirectionTabs(state.live, state.direction, lang)}
+        ${renderDirectionTabs(
+          state.disruptionsState === 'ok' ? state.disruptions : null,
+          state.direction,
+          lang,
+        )}
         ${disruptions}
       </section>
       ${history}

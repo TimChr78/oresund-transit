@@ -100,6 +100,23 @@ describe('api client', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/transit/disruptions?limit=50', { method: 'GET' });
   });
 
+  it('fetchDisruptions passes the from/to today-window query params', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ disruptions: [] }));
+    configureFetch(fetchMock);
+    await fetchDisruptions(50, '2026-08-07', '2026-08-08');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/transit/disruptions?limit=50&from=2026-08-07&to=2026-08-08',
+      { method: 'GET' },
+    );
+  });
+
+  it('fetchDisruptions omits from/to when only a limit is given', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ disruptions: [] }));
+    configureFetch(fetchMock);
+    await fetchDisruptions(50);
+    expect(fetchMock).toHaveBeenCalledWith('/api/transit/disruptions?limit=50', { method: 'GET' });
+  });
+
   it('fetchHistory GETs /api/transit/history?days=7', async () => {
     const fetchMock = vi.fn<FetchLike>().mockResolvedValue(
       jsonResponse({
