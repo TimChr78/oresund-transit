@@ -8,7 +8,6 @@ import {
   hBarWidth,
   heatColor,
   heatmapBuckets,
-  heatmapIntensity,
   heatmapShare,
   movingAverage,
   peakVsOffPeak,
@@ -74,16 +73,6 @@ describe('heatmapBuckets', () => {
     const buckets = heatmapBuckets([]);
     expect(buckets).toHaveLength(24);
     expect(buckets.every((v) => v === 0)).toBe(true);
-  });
-});
-
-describe('heatmapIntensity', () => {
-  it('normalizes counts to 0..1 intensity', () => {
-    expect(heatmapIntensity([0, 5, 10])).toEqual([0, 0.5, 1]);
-  });
-
-  it('returns zeros for all-zero buckets (not NaN)', () => {
-    expect(heatmapIntensity([0, 0, 0])).toEqual([0, 0, 0]);
   });
 });
 

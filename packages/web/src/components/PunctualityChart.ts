@@ -76,7 +76,8 @@ export function renderPunctualityChart(punctuality: PunctualityResponse, lang: L
     (g) => `<line x1="0" y1="${svgY(g, H).toFixed(1)}" x2="${W}" y2="${svgY(g, H).toFixed(1)}" class="punct-grid" />`,
   ).join('');
   // Left-side y-axis % labels, aligned to the same stops as the gridlines.
-  const yLabels = Y_STOPS.map((g) => `<span style="top:${g}%">${g}%</span>`).join('');
+  // Gridline g sits (100 - g)% from the top (svgY: 100 -> top, 0 -> bottom).
+  const yLabels = Y_STOPS.map((g) => `<span style="top:${100 - g}%">${g}%</span>`).join('');
 
   const latest = series.days[series.days.length - 1] ?? null;
   const note =
@@ -95,9 +96,9 @@ export function renderPunctualityChart(punctuality: PunctualityResponse, lang: L
         ${lines}
         ${dots}
       </svg>
+      ${note}
+      <div class="punct-ticks">${ticks}</div>
     </div>
-    ${note}
-    <div class="punct-ticks">${ticks}</div>
     <div class="legend">
       <span class="legend-item"><span class="legend-dot dot-punct"></span>${translate('stat_on_time', lang)}</span>
       ${latest ? `<span class="legend-item punct-latest">${latest.on_time_pct}%</span>` : ''}

@@ -166,10 +166,12 @@ export function boot(): void {
   void refreshPunctuality();
   void refreshDisruptions();
 
-  // Refresh cycle: live + disruptions only.
+  // Refresh cycle: live + disruptions + heatmap baseline (keeps the
+  // "last 30 days" window current on long-lived tabs).
   setInterval(() => {
     void refreshLive();
     void refreshDisruptions();
+    void refreshHeatmapHistory();
   }, REFRESH_MS);
 
   // One delegated listener for every data-action button on the board.

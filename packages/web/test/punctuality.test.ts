@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { HistoryResponse, PunctualityResponse } from '../src/api';
 import { renderPunctualityChart } from '../src/components/PunctualityChart';
-import { svgLinePoints, svgY } from '../src/lib/stats';
+import { svgY } from '../src/lib/stats';
 
 const HISTORY: HistoryResponse = {
   days: 7,
@@ -25,7 +25,7 @@ const PUNCTUALITY: PunctualityResponse = {
   ],
 };
 
-describe('svgY / svgLinePoints', () => {
+describe('svgY', () => {
   it('maps 0..100 onto the SVG canvas with 100 at the top', () => {
     expect(svgY(100, 100)).toBe(0);
     expect(svgY(0, 100)).toBe(100);
@@ -35,14 +35,6 @@ describe('svgY / svgLinePoints', () => {
   it('clamps out-of-range values', () => {
     expect(svgY(150, 100)).toBe(0);
     expect(svgY(-5, 100)).toBe(100);
-  });
-
-  it('spreads points evenly across the width', () => {
-    expect(svgLinePoints([100, 50, 0], 100, 100)).toBe('0.0,0.0 50.0,50.0 100.0,100.0');
-  });
-
-  it('returns an empty string for no points', () => {
-    expect(svgLinePoints([], 100, 100)).toBe('');
   });
 });
 
@@ -73,6 +65,13 @@ describe('renderPunctualityChart', () => {
     for (const label of ['0', '25', '50', '75', '100']) {
       expect(html).toContain(`>${label}%<`);
     }
+  });
+
+  it('places the 100% label at the top and 0% at the bottom (not inverted)', () => {
+    const html = renderPunctualityChart(PUNCTUALITY, 'en');
+    expect(html).toContain('style="top:0%">100%<');
+    expect(html).toContain('style="top:100%">0%<');
+    expect(html).toContain('style="top:50%">50%<');
   });
 
   it('draws the line only through days that have departures and explains the gap', () => {

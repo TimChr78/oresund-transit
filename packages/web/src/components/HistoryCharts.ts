@@ -178,7 +178,10 @@ export function renderHistoryCharts(
         pct: formatPct(share, lang),
         n: count,
       });
-      return `<span class="cell" style="background-color:${heatColor(share, maxShare)};opacity:${(0.35 + 0.65 * ratio).toFixed(3)}" title="${esc(title)}"></span>`;
+      // share === 0 -> invisible cell ("no disruptions this hour"), so
+      // "none" is never read as a faint low-but-present green.
+      const opacity = share <= 0 ? 0 : 0.35 + 0.65 * ratio;
+      return `<span class="cell" style="background-color:${heatColor(share, maxShare)};opacity:${opacity.toFixed(3)}" title="${esc(title)}"></span>`;
     })
     .join('');
 
@@ -240,7 +243,7 @@ export function renderHistoryCharts(
       <h3 class="chart-title">${translate('hist_by_hour', lang)}</h3>
       <div class="heatmap">${cells}</div>
       <div class="heat-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
-      <div class="heat-caption">${translate('heat_caption', lang)}</div>
+      ${heatmapHistory ? `<div class="heat-caption">${translate('heat_caption', lang)}</div>` : ''}
     </div>
   </section>`;
 }

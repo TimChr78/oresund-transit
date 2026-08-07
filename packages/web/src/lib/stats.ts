@@ -88,13 +88,6 @@ export function heatmapBuckets(hours: readonly { hour: number; count: number }[]
   return buckets;
 }
 
-/** Normalize the 24 buckets to 0..1 cell intensity. Zero max -> zeros, not NaN. */
-export function heatmapIntensity(buckets: readonly number[]): number[] {
-  const max = Math.max(0, ...buckets);
-  if (max <= 0) return buckets.map(() => 0);
-  return buckets.map((b) => b / max);
-}
-
 /**
  * Per-hour SHARE of all disruptions in the window (count / total * 100),
  * rounded to one decimal, summed to ~100. Zero-safe: no disruptions -> 24
@@ -261,18 +254,6 @@ export function byWeekday(
 export function svgY(value: number, height: number): number {
   const clamped = Math.max(0, Math.min(100, value));
   return height - (clamped / 100) * height;
-}
-
-/**
- * Space-separated "x,y" point pairs for an SVG polyline over `values` (on a
- * 0..100 scale), spread evenly across the given width. Empty when no points.
- */
-export function svgLinePoints(values: readonly number[], width: number, height: number): string {
-  if (values.length === 0) return '';
-  const step = values.length > 1 ? width / (values.length - 1) : 0;
-  return values
-    .map((v, i) => `${(i * step).toFixed(1)},${svgY(v, height).toFixed(1)}`)
-    .join(' ');
 }
 
 export interface PunctualitySeriesDay {
