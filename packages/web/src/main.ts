@@ -123,6 +123,19 @@ export function boot(): void {
     }
   };
 
+  /**
+   * Heatmap baseline: a SEPARATE 30-day history fetched once, so the by-hour
+   * heatmap keeps a stable window no matter which range toggle is active.
+   */
+  const refreshHeatmapHistory = async (): Promise<void> => {
+    try {
+      const heatmapHistory = await fetchHistory(30);
+      dispatch({ type: 'HEATMAP_HISTORY_OK', history: heatmapHistory });
+    } catch (err) {
+      dispatch({ type: 'HEATMAP_HISTORY_ERROR', message: messageOf(err) });
+    }
+  };
+
   const refreshPunctuality = async (): Promise<void> => {
     try {
       const punctuality = await fetchPunctuality(state.dayRange);
@@ -134,7 +147,11 @@ export function boot(): void {
 
   const refreshDisruptions = async (): Promise<void> => {
     try {
-      const disruptions = await fetchDisruptions(50);
+      // The live table shows ONLY today: half-open [today 00:00, tomorrow 00:00).
+      // Disruption timestamps are naive local "YYYY-MM-DD HH:MM:SS", so the
+      // date-only bounds from delayStatsRange() compare correctly.
+      const { from, to } = delayStatsRange();
+      const disruptions = await fetchDisruptions(50, from, to);
       dispatch({ type: 'DISRUPTIONS_OK', disruptions });
     } catch (err) {
       dispatch({ type: 'DISRUPTIONS_ERROR', message: messageOf(err) });
@@ -145,13 +162,16 @@ export function boot(): void {
   void refreshLive();
   void refreshStats();
   void refreshHistory();
+  void refreshHeatmapHistory();
   void refreshPunctuality();
   void refreshDisruptions();
 
-  // Refresh cycle: live + disruptions only.
+  // Refresh cycle: live + disruptions + heatmap baseline (keeps the
+  // "last 30 days" window current on long-lived tabs).
   setInterval(() => {
     void refreshLive();
     void refreshDisruptions();
+    void refreshHeatmapHistory();
   }, REFRESH_MS);
 
   // One delegated listener for every data-action button on the board.

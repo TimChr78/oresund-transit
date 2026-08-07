@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type { Disruption, LiveStatus } from '@oresund/shared';
+import type { Disruption } from '@oresund/shared';
 import {
   barHeights,
   dailyBarSegments,
-  departureCountFor,
+  dailyLabelPlan,
   filterByDirection,
   hBarWidth,
+  heatColor,
   heatmapBuckets,
-  heatmapIntensity,
+  heatmapShare,
   movingAverage,
   peakVsOffPeak,
+  punctualitySeries,
   sortNewestFirst,
   delayStatsRange,
   weekOverWeek,
@@ -71,16 +73,6 @@ describe('heatmapBuckets', () => {
     const buckets = heatmapBuckets([]);
     expect(buckets).toHaveLength(24);
     expect(buckets.every((v) => v === 0)).toBe(true);
-  });
-});
-
-describe('heatmapIntensity', () => {
-  it('normalizes counts to 0..1 intensity', () => {
-    expect(heatmapIntensity([0, 5, 10])).toEqual([0, 0.5, 1]);
-  });
-
-  it('returns zeros for all-zero buckets (not NaN)', () => {
-    expect(heatmapIntensity([0, 0, 0])).toEqual([0, 0, 0]);
   });
 });
 
@@ -282,19 +274,6 @@ describe('filterByDirection', () => {
   });
 });
 
-describe('departureCountFor', () => {
-  const live = { departure_counts: { to_denmark: 7, to_sweden: 5, bus: 0 } } as LiveStatus;
-
-  it('returns the direction count', () => {
-    expect(departureCountFor(live, 'to_denmark')).toBe(7);
-    expect(departureCountFor(live, 'to_sweden')).toBe(5);
-  });
-
-  it('sums all directions for the all filter', () => {
-    expect(departureCountFor(live, 'all')).toBe(12);
-  });
-});
-
 describe('delayStatsRange', () => {
   it('returns [today, tomorrow) — the half-open API window', () => {
     const { from, to } = delayStatsRange(new Date(2026, 7, 7, 12, 0, 0)); // 2026-08-07
@@ -311,5 +290,133 @@ describe('delayStatsRange', () => {
   it('from and to differ (never an empty range)', () => {
     const { from, to } = delayStatsRange();
     expect(from).not.toBe(to);
+  });
+});
+
+/** ISO dates spanning [start, start + count) in UTC — avoids TZ flakiness. */
+function isoDays(start: string, count: number): string[] {
+  const [y, m, d] = start.split('-').map(Number);
+  const base = Date.UTC(y!, m! - 1, d!);
+  return Array.from({ length: count }, (_, i) => new Date(base + i * 86_400_000).toISOString().slice(0, 10));
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+describe('dailyLabelPlan', () => {
+  it('labels every bar at 7 days; month starts get "day month" instead of bare day', () => {
+    const dates = ['2026-07-31', '2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06'];
+    const plan = dailyLabelPlan(dates, 7, MONTHS);
+    expect(plan.map((l) => l.index)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(plan.map((l) => l.text)).toEqual(['31', '1 Aug', '02', '03', '04', '05', '06']);
+  });
+
+  it('strides a 30-day range (~every 5 bars) but always labels month starts', () => {
+    const dates = isoDays('2026-07-08', 30); // 2026-07-08 .. 2026-08-06; Aug 1 = index 24
+    const plan = dailyLabelPlan(dates, 30, MONTHS);
+    expect(plan.map((l) => l.index)).toEqual([0, 5, 10, 15, 20, 24, 25]);
+    expect(plan.find((l) => l.index === 24)?.text).toBe('1 Aug');
+    expect(plan.find((l) => l.index === 0)?.text).toBe('08');
+  });
+
+  it('uses a wider stride at 90 days and still catches month starts', () => {
+    const dates = isoDays('2026-05-09', 90); // 2026-05-09 .. 2026-08-06; Jun 1 = 23, Jul 1 = 53, Aug 1 = 84
+    const plan = dailyLabelPlan(dates, 90, MONTHS);
+    expect(plan.map((l) => l.index)).toEqual([0, 7, 14, 21, 23, 28, 35, 42, 49, 53, 56, 63, 70, 77, 84]);
+    expect(plan.find((l) => l.index === 23)?.text).toBe('1 Jun');
+    expect(plan.find((l) => l.index === 84)?.text).toBe('1 Aug');
+  });
+
+  it('honors localized month names', () => {
+    const plan = dailyLabelPlan(['2026-08-01'], 7, ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']);
+    expect(plan[0]?.text).toBe('1 aug');
+  });
+
+  it('skips unparseable dates and returns an empty plan for empty input', () => {
+    expect(dailyLabelPlan(['nope', '2026-08-01'], 7, MONTHS)).toEqual([{ index: 1, text: '1 Aug' }]);
+    expect(dailyLabelPlan([], 7, MONTHS)).toEqual([]);
+  });
+});
+
+describe('punctualitySeries', () => {  it('keeps only days with departures and reports the no-data count', () => {
+    const daily = [
+      { date: '2026-07-01', total: 0, on_time_pct: 0 },
+      { date: '2026-08-06', total: 10, on_time_pct: 90 },
+      { date: '2026-08-07', total: 0, on_time_pct: 0 },
+      { date: '2026-08-08', total: 12, on_time_pct: 75 },
+    ];
+    expect(punctualitySeries(daily)).toEqual({
+      days: [
+        { date: '2026-08-06', on_time_pct: 90 },
+        { date: '2026-08-08', on_time_pct: 75 },
+      ],
+      indices: [1, 3],
+      noDataCount: 2,
+    });
+  });
+
+  it('returns an empty series when every day has no departures', () => {
+    expect(punctualitySeries([{ date: '2026-07-01', total: 0, on_time_pct: 0 }])).toEqual({
+      days: [],
+      indices: [],
+      noDataCount: 1,
+    });
+  });
+
+  it('keeps every day unchanged when all have departures', () => {
+    expect(punctualitySeries([{ date: '2026-08-06', total: 1, on_time_pct: 50 }])).toEqual({
+      days: [{ date: '2026-08-06', on_time_pct: 50 }],
+      indices: [0],
+      noDataCount: 0,
+    });
+  });
+});
+
+describe('heatmapShare', () => {
+  it('computes each hour share of the window total (sums to ~100)', () => {
+    const share = heatmapShare([
+      { hour: 6, count: 25 },
+      { hour: 12, count: 25 },
+      { hour: 18, count: 50 },
+    ]);
+    expect(share).toHaveLength(24);
+    expect(share[6]).toBe(25);
+    expect(share[12]).toBe(25);
+    expect(share[18]).toBe(50);
+    expect(share[0]).toBe(0);
+    expect(share.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 0);
+  });
+
+  it('rounds to one decimal without drifting far from 100', () => {
+    const share = heatmapShare([
+      { hour: 0, count: 1 },
+      { hour: 1, count: 1 },
+      { hour: 2, count: 1 },
+    ]);
+    expect(share[0]).toBe(33.3);
+    expect(share[1]).toBe(33.3);
+    expect(share[2]).toBe(33.3);
+    expect(share.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 0);
+  });
+
+  it('is zero-safe (empty or all-zero input -> 24 zeros)', () => {
+    expect(heatmapShare([])).toEqual(new Array<number>(24).fill(0));
+    expect(heatmapShare([{ hour: 7, count: 0 }])).toEqual(new Array<number>(24).fill(0));
+  });
+});
+
+describe('heatColor', () => {
+  it('maps low share to green (#10b981) and high share to red (#ef4444)', () => {
+    expect(heatColor(0, 100)).toBe('rgb(16, 185, 129)');
+    expect(heatColor(100, 100)).toBe('rgb(239, 68, 68)');
+  });
+
+  it('interpolates at the midpoint', () => {
+    expect(heatColor(50, 100)).toBe('rgb(128, 127, 99)');
+  });
+
+  it('clamps out-of-range shares and handles a zero max', () => {
+    expect(heatColor(150, 100)).toBe('rgb(239, 68, 68)');
+    expect(heatColor(-5, 100)).toBe('rgb(16, 185, 129)');
+    expect(heatColor(10, 0)).toBe('rgb(16, 185, 129)');
   });
 });

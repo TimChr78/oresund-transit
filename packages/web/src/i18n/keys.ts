@@ -57,10 +57,27 @@ export interface Dict {
   hist_by_line: string;
   hist_by_cause: string;
   hist_by_hour: string;
+  heat_tooltip: string;
+  heat_caption: string;
   hist_by_weekday: string;
   hist_line_delay: string;
   hist_total: string;
+  hist_daily_max: string;
   trend_avg_3d: string;
+  punct_data_since: string;
+  // Short month names (month_1 = January)
+  month_1: string;
+  month_2: string;
+  month_3: string;
+  month_4: string;
+  month_5: string;
+  month_6: string;
+  month_7: string;
+  month_8: string;
+  month_9: string;
+  month_10: string;
+  month_11: string;
+  month_12: string;
   // Weekdays (Mon..Sun)
   weekday_mon: string;
   weekday_tue: string;
@@ -95,6 +112,7 @@ export interface Dict {
   empty_error: string;
   empty_retry: string;
   empty_disruptions: string;
+  disruptions_none_today: string;
   // Privacy page
   privacy_title: string;
   privacy_intro: string;

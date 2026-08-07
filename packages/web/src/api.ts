@@ -75,8 +75,12 @@ export function fetchDelayStats(from: string, to: string): Promise<DelayStats> {
   return request('delay-stats', (json) => json as DelayStats, { from, to });
 }
 
-export function fetchDisruptions(limit = 50): Promise<Disruption[]> {
-  return request('disruptions', parseDisruptionsResponse, { limit });
+export function fetchDisruptions(limit = 50, from?: string, to?: string): Promise<Disruption[]> {
+  return request('disruptions', parseDisruptionsResponse, {
+    limit,
+    ...(from !== undefined ? { from } : {}),
+    ...(to !== undefined ? { to } : {}),
+  });
 }
 
 export function fetchHistory(days: HistoryDays = 7): Promise<HistoryResponse> {

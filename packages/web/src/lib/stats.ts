@@ -1,4 +1,4 @@
-import type { Disruption, LiveStatus } from '@oresund/shared';
+import type { Disruption } from '@oresund/shared';
 
 /**
  * Pure chart/table math for the dashboard. Components stay thin: they call
@@ -13,6 +13,48 @@ export function barHeights(counts: readonly number[]): number[] {
   const max = Math.max(0, ...counts);
   if (max <= 0) return counts.map(() => 0);
   return counts.map((c) => c / max);
+}
+
+/** Default short month names used by dailyLabelPlan when none are given. */
+export const DEFAULT_MONTH_NAMES = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+export interface DailyLabel {
+  /** Index into the daily array the tick belongs to. */
+  index: number;
+  /** Tick text: "1 Aug" at month starts, bare day-of-month "06" otherwise. */
+  text: string;
+}
+
+/**
+ * X-axis label plan for the daily bars. Labels every bar at 7 days; at 14/30/90
+ * days labels on a stride (every ~2/5/7 bars) so long ranges never crowd, with
+ * month starts ALWAYS labeled ("1 Aug" style, localized via `monthNames`).
+ * Unparseable dates are skipped. Empty input -> empty plan.
+ */
+export function dailyLabelPlan(
+  dates: readonly string[],
+  range: DayRange,
+  monthNames: readonly string[] = DEFAULT_MONTH_NAMES,
+): DailyLabel[] {
+  const stride = range === 7 ? 1 : range === 14 ? 2 : range === 30 ? 5 : 7;
+  const labels: DailyLabel[] = [];
+  dates.forEach((date, index) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    if (!m) return;
+    const month = m[2]!;
+    const day = m[3]!;
+    // A month start is a bar on the 1st of a month (the daily array is a
+    // continuous date range, so day 01 is always present at a boundary).
+    const isMonthStart = day === '01';
+    if (isMonthStart || index % stride === 0) {
+      const name = monthNames[Number(month) - 1] ?? '';
+      labels.push({ index, text: isMonthStart ? `${Number(day)} ${name}` : day });
+    }
+  });
+  return labels;
 }
 
 export interface DailySegments {
@@ -46,11 +88,27 @@ export function heatmapBuckets(hours: readonly { hour: number; count: number }[]
   return buckets;
 }
 
-/** Normalize the 24 buckets to 0..1 cell intensity. Zero max -> zeros, not NaN. */
-export function heatmapIntensity(buckets: readonly number[]): number[] {
-  const max = Math.max(0, ...buckets);
-  if (max <= 0) return buckets.map(() => 0);
-  return buckets.map((b) => b / max);
+/**
+ * Per-hour SHARE of all disruptions in the window (count / total * 100),
+ * rounded to one decimal, summed to ~100. Zero-safe: no disruptions -> 24
+ * zeros. Raw counts were misleading ("fewer trains = better"), shares are
+ * directly comparable across windows.
+ */
+export function heatmapShare(hours: readonly { hour: number; count: number }[]): number[] {
+  const buckets = heatmapBuckets(hours);
+  const total = buckets.reduce((sum, b) => sum + b, 0);
+  return buckets.map((b) => (total > 0 ? Math.round((b / total) * 1000) / 10 : 0));
+}
+
+/**
+ * Heat-cell color on a red↔green scale: LOW share = green (good) -> HIGH
+ * share = red (bad). Interpolates #10b981 (16,185,129) -> #ef4444
+ * (239,68,68) by share/max and returns an rgb() string. Zero max -> green.
+ */
+export function heatColor(sharePct: number, maxPct: number): string {
+  const r = maxPct > 0 ? Math.min(1, Math.max(0, sharePct / maxPct)) : 0;
+  const lerp = (a: number, b: number): number => Math.round(a + (b - a) * r);
+  return `rgb(${lerp(16, 239)}, ${lerp(185, 68)}, ${lerp(129, 68)})`;
 }
 
 /** Horizontal bar width as a 0..1 fraction of the max. */
@@ -198,16 +256,41 @@ export function svgY(value: number, height: number): number {
   return height - (clamped / 100) * height;
 }
 
+export interface PunctualitySeriesDay {
+  date: string;
+  on_time_pct: number;
+}
+
+export interface PunctualitySeries {
+  /** Days that have departures (total > 0), in original order. */
+  days: PunctualitySeriesDay[];
+  /** Original index of each series day (gap-aware x placement). */
+  indices: number[];
+  /** Days with no departures (total === 0) — excluded, NOT rendered as 0%. */
+  noDataCount: number;
+}
+
 /**
- * Space-separated "x,y" point pairs for an SVG polyline over `values` (on a
- * 0..100 scale), spread evenly across the given width. Empty when no points.
+ * Filter a punctuality daily array down to days that actually have departures.
+ * Days with total === 0 are NO-DATA (no departures collected that day) and
+ * must not render as a misleading flat 0% line — callers draw the line only
+ * through the returned series and annotate the gap.
  */
-export function svgLinePoints(values: readonly number[], width: number, height: number): string {
-  if (values.length === 0) return '';
-  const step = values.length > 1 ? width / (values.length - 1) : 0;
-  return values
-    .map((v, i) => `${(i * step).toFixed(1)},${svgY(v, height).toFixed(1)}`)
-    .join(' ');
+export function punctualitySeries(
+  daily: readonly { date: string; total: number; on_time_pct: number }[],
+): PunctualitySeries {
+  const days: PunctualitySeriesDay[] = [];
+  const indices: number[] = [];
+  let noDataCount = 0;
+  daily.forEach((d, i) => {
+    if (d.total > 0) {
+      days.push({ date: d.date, on_time_pct: d.on_time_pct });
+      indices.push(i);
+    } else {
+      noDataCount += 1;
+    }
+  });
+  return { days, indices, noDataCount };
 }
 
 /**
@@ -243,16 +326,6 @@ export function filterByDirection<T extends { direction: Disruption['direction']
 ): T[] {
   if (direction === 'all') return [...list];
   return list.filter((d) => d.direction === direction);
-}
-
-/** Departure count for a tab: the direction count, or the sum for "all". */
-export function departureCountFor(
-  live: Pick<LiveStatus, 'departure_counts'>,
-  direction: Direction,
-): number {
-  const counts = live.departure_counts;
-  if (direction === 'all') return counts.to_denmark + counts.to_sweden + counts.bus;
-  return counts[direction];
 }
 
 /**

@@ -48,7 +48,7 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
       : placeholder('loading', lang);
 
   const history = state.history
-    ? renderHistoryCharts(state.history, state.punctuality, state.dayRange, lang)
+    ? renderHistoryCharts(state.history, state.punctuality, state.dayRange, lang, state.heatmapHistory)
     : state.historyError
       ? placeholder('error', lang, 'retry-history')
       : placeholder('loading', lang);
@@ -76,7 +76,11 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
       ${stats}
       <section class="disruptions">
         <h2 class="section-title">${translate('section_disruptions', lang)}</h2>
-        ${renderDirectionTabs(state.live, state.direction, lang)}
+        ${renderDirectionTabs(
+          state.disruptionsState === 'ok' ? state.disruptions : null,
+          state.direction,
+          lang,
+        )}
         ${disruptions}
       </section>
       ${history}
