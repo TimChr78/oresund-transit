@@ -38,6 +38,16 @@ describe('renderHistoryCharts — trend overlay', () => {
     expect(renderHistoryCharts(HISTORY, null, 7, 'da')).toContain('3-dages gennemsnit');
   });
 
+  it('marks the trend polyline non-scaling so the stretched SVG cannot balloon stroke width', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toMatch(/<polyline[^>]*vector-effect="non-scaling-stroke"/);
+  });
+
+  it('marks the stretched daily-grid lines non-scaling too (same distortion class)', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toMatch(/<line[^>]*vector-effect="non-scaling-stroke"/);
+  });
+
   it('omits the trend layer when every day is zero', () => {
     const zero: HistoryResponse = {
       ...HISTORY,

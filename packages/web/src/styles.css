@@ -512,6 +512,9 @@ body::after {
 .daily-grid line {
   stroke: rgba(255, 255, 255, 0.06);
   stroke-width: 1;
+  /* guard: the grid SVG is stretched with preserveAspectRatio="none" —
+     keep strokes at their true width instead of ballooning like the trend line */
+  vector-effect: non-scaling-stroke;
 }
 .plot-max {
   position: absolute;
@@ -544,6 +547,10 @@ body::after {
   stroke-width: 1.5;
   stroke-linejoin: round;
   stroke-linecap: round;
+  /* CSS guard for the SVG attribute: the trend layer is stretched over the
+     bars (viewBox "0 0 n 100" + preserveAspectRatio="none"), so without
+     non-scaling-stroke the 1.5px line balloons into a fat ribbon */
+  vector-effect: non-scaling-stroke;
 }
 .bar-group {
   flex: 1 0 14px;

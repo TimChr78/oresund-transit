@@ -47,6 +47,14 @@ describe('renderPunctualityChart', () => {
     expect(html).toContain('polygon'); // area fill
   });
 
+  it('audit: scales uniformly (fixed viewBox + width/height auto, no preserveAspectRatio="none") so strokes never distort', () => {
+    const html = renderPunctualityChart(PUNCTUALITY, 'en');
+    expect(html).toContain('<svg');
+    expect(html).not.toContain('preserveAspectRatio');
+    expect(html).toContain('punct-line');
+    expect(html).toContain('punct-grid');
+  });
+
   it('includes day tick labels and the latest on-time % inline', () => {
     const html = renderPunctualityChart(PUNCTUALITY, 'en');
     expect(html).toContain('07-31');

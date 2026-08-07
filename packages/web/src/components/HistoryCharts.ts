@@ -143,7 +143,10 @@ export function renderHistoryCharts(
   const grid =
     n > 0
       ? `<svg class="daily-grid" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true">${[25, 50, 75]
-          .map((g) => `<line x1="0" y1="${100 - g}" x2="${n}" y2="${100 - g}" />`)
+          .map(
+            (g) =>
+              `<line x1="0" y1="${100 - g}" x2="${n}" y2="${100 - g}" vector-effect="non-scaling-stroke" />`,
+          )
           .join('')}</svg>`
       : '';
   const maxLabel =
@@ -159,7 +162,7 @@ export function renderHistoryCharts(
           .join(' ')
       : '';
   const trendLayer = trendPoints
-    ? `<svg class="trend-layer" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${trendPoints}" class="trend-line" /></svg>`
+    ? `<svg class="trend-layer" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${trendPoints}" vector-effect="non-scaling-stroke" class="trend-line" /></svg>`
     : '';
 
   // By-hour heatmap: SHARE of the window total per hour (not raw counts),
