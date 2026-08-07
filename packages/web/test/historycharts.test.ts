@@ -16,7 +16,10 @@ const HISTORY: HistoryResponse = {
     { date: '2026-08-05', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
     { date: '2026-08-06', count: 6, cancellations: 0, delays: 6, alerts: 0, avg_delay: 480 },
   ],
-  by_line: [],
+  by_line: [
+    { line: '804', count: 6, avg_delay: 480, max_delay: 900 },
+    { line: 'unknown', count: 2, avg_delay: null, max_delay: null },
+  ],
   by_cause: [],
   by_hour: [],
 };
@@ -44,5 +47,43 @@ describe('renderHistoryCharts — trend overlay', () => {
     const html = renderHistoryCharts(zero, null, 7, 'en');
     expect(html).not.toContain('trend-layer');
     expect(html).not.toContain('polyline');
+  });
+});
+
+describe('renderHistoryCharts — enriched By Line', () => {
+  it('shows count + avg delay + max delay with a route label', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toContain('804');
+    expect(html).toContain('Øresundståg Malmö–København');
+    expect(html).toContain('8 min'); // avg 480 s
+    expect(html).toContain('15 min'); // max 900 s
+  });
+
+  it('renders an em dash for a line without delay data', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toContain('—');
+  });
+});
+
+describe('renderHistoryCharts — By Weekday', () => {
+  it('renders Mon–Sun bars with trilingual labels', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toContain('By weekday');
+    for (const label of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) {
+      expect(html).toContain(label);
+    }
+    const sv = renderHistoryCharts(HISTORY, null, 7, 'sv');
+    expect(sv).toContain('Per veckodag');
+    expect(sv).toContain('Mån');
+    expect(sv).toContain('Sön');
+    const da = renderHistoryCharts(HISTORY, null, 7, 'da');
+    expect(da).toContain('Per ugedag');
+  });
+
+  it('shows the weekday count and avg delay', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    // Monday 2026-08-03: 3 disruptions @ 4 min avg
+    expect(html).toContain('>3<');
+    expect(html).toContain('4 min');
   });
 });

@@ -145,6 +145,53 @@ export function peakVsOffPeak(
   };
 }
 
+/**
+ * Weekday index of an ISO date ("2026-08-06"): Monday = 0 … Sunday = 6.
+ * Returns -1 for unparseable input.
+ */
+export function weekdayIndex(date: string): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) return -1;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const dayOfMonth = Number(m[3]);
+  if (month < 1 || month > 12 || dayOfMonth < 1 || dayOfMonth > 31) return -1;
+  const day = new Date(Date.UTC(year, month - 1, dayOfMonth));
+  // Date.UTC rolls over invalid dates (e.g. 2026-13-40) — verify the round-trip.
+  if (day.getUTCFullYear() !== year || day.getUTCMonth() !== month - 1 || day.getUTCDate() !== dayOfMonth) return -1;
+  return (day.getUTCDay() + 6) % 7;
+}
+
+export interface WeekdayStats {
+  /** Mon..Sun disruption counts (index 0 = Monday). */
+  counts: number[];
+  /** Mon..Sun weighted avg delays; null when a weekday has no delay data. */
+  avgDelays: (number | null)[];
+}
+
+/**
+ * Bucket the history daily array into Mon..Sun (7 cells), summing counts and
+ * computing weighted avg delays per weekday from the daily avg_delay values.
+ */
+export function byWeekday(
+  daily: readonly { date: string; count: number; avg_delay: number | null }[],
+): WeekdayStats {
+  const counts = new Array<number>(7).fill(0);
+  const sums = new Array<number>(7).fill(0);
+  const ns = new Array<number>(7).fill(0);
+  for (const d of daily) {
+    const dow = weekdayIndex(d.date);
+    if (dow < 0) continue;
+    counts[dow] = (counts[dow] ?? 0) + d.count;
+    if (d.avg_delay != null) {
+      sums[dow] = (sums[dow] ?? 0) + d.count * d.avg_delay;
+      ns[dow] = (ns[dow] ?? 0) + d.count;
+    }
+  }
+  const avgDelays = sums.map((sum, i) => (ns[i]! > 0 ? Math.round(sum / ns[i]!) : null));
+  return { counts, avgDelays };
+}
+
 /** Clamped y coordinate for a 0..100 value on an SVG of the given height (100 → top). */
 export function svgY(value: number, height: number): number {
   const clamped = Math.max(0, Math.min(100, value));

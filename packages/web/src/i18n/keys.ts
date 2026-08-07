@@ -57,8 +57,18 @@ export interface Dict {
   hist_by_line: string;
   hist_by_cause: string;
   hist_by_hour: string;
+  hist_by_weekday: string;
+  hist_line_delay: string;
   hist_total: string;
   trend_avg_3d: string;
+  // Weekdays (Mon..Sun)
+  weekday_mon: string;
+  weekday_tue: string;
+  weekday_wed: string;
+  weekday_thu: string;
+  weekday_fri: string;
+  weekday_sat: string;
+  weekday_sun: string;
   // Insight cards
   insight_wow: string;
   insight_wow_delta: string;

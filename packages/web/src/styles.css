@@ -680,6 +680,31 @@ body::after {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+.hbar-meta {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.hbar-line .hbar-label {
+  flex-basis: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+.hbar-route {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--faint);
+  max-width: 118px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* by_hour 24-cell heatmap */
 .heatmap {
@@ -895,6 +920,31 @@ body::after {
 }
 
 /* -------------------------------------------------------------- desktop */
+
+@media (max-width: 719px) {
+  /* subtle edge-fade affordance on the horizontally scrolling table */
+  .table-wrap {
+    position: relative;
+  }
+  .table-wrap::before,
+  .table-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 26px;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .table-wrap::before {
+    left: 0;
+    background: linear-gradient(to right, var(--surface), transparent);
+  }
+  .table-wrap::after {
+    right: 0;
+    background: linear-gradient(to left, var(--surface), transparent);
+  }
+}
 
 @media (min-width: 720px) {
   .wrap {

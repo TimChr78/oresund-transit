@@ -53,8 +53,18 @@ export const en: Dict = {
   hist_by_line: 'By line',
   hist_by_cause: 'By cause',
   hist_by_hour: 'By hour',
+  hist_by_weekday: 'By weekday',
+  hist_line_delay: 'avg {a} · max {b}',
   hist_total: 'Total: {n}',
   trend_avg_3d: '3-day avg',
+  // Weekdays
+  weekday_mon: 'Mon',
+  weekday_tue: 'Tue',
+  weekday_wed: 'Wed',
+  weekday_thu: 'Thu',
+  weekday_fri: 'Fri',
+  weekday_sat: 'Sat',
+  weekday_sun: 'Sun',
   // Insight cards
   insight_wow: 'Week over week',
   insight_wow_delta: '{pct} vs previous week',

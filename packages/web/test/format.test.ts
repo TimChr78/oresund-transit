@@ -71,9 +71,14 @@ describe('formatDelaySeconds', () => {
     expect(formatDelaySeconds(null, 'sv')).toBe('—');
   });
 
-  it('renders minutes rounded to the nearest whole minute', () => {
-    expect(formatDelaySeconds(0, 'sv')).toBe('0 min');
-    expect(formatDelaySeconds(30, 'sv')).toBe('1 min');
+  it('renders sub-minute delays as seconds', () => {
+    expect(formatDelaySeconds(0, 'sv')).toBe('0 s');
+    expect(formatDelaySeconds(21, 'sv')).toBe('21 s');
+    expect(formatDelaySeconds(59, 'sv')).toBe('59 s');
+    expect(formatDelaySeconds(21, 'da')).toBe('21 sek.');
+  });
+
+  it('renders minute delays rounded to the nearest whole minute', () => {
     expect(formatDelaySeconds(240, 'sv')).toBe('4 min');
     expect(formatDelaySeconds(3590, 'sv')).toBe('60 min');
   });

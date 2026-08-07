@@ -41,10 +41,12 @@ export function formatTime(value: string, lang: Lang): string {
   return lang === 'da' ? `${hour}.${minute}` : `${hour}:${minute}`;
 }
 
-/** Render a delay in seconds as whole minutes ("4 min", DA "4 min."). */
+/** Render a delay in seconds: sub-minute values as seconds ("21 s"), the rest as whole minutes ("4 min", DA "4 min."). */
 export function formatDelaySeconds(seconds: number | null, lang: Lang): string {
   if (seconds === null) return '—';
-  const minutes = Math.max(0, Math.round(seconds / 60));
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return lang === 'da' ? `${s} sek.` : `${s} s`;
+  const minutes = Math.round(s / 60);
   return lang === 'da' ? `${minutes} min.` : `${minutes} min`;
 }
 

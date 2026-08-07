@@ -13,6 +13,8 @@ import {
   sortNewestFirst,
   delayStatsRange,
   weekOverWeek,
+  weekdayIndex,
+  byWeekday,
 } from '../src/lib/stats';
 
 describe('barHeights', () => {
@@ -160,6 +162,51 @@ describe('weekOverWeek', () => {
   it('returns null when there are fewer than 14 days', () => {
     expect(weekOverWeek([day(1), day(1)])).toBeNull();
     expect(weekOverWeek([])).toBeNull();
+  });
+});
+
+describe('weekdayIndex', () => {
+  it('maps Monday=0 .. Sunday=6', () => {
+    expect(weekdayIndex('2026-08-03')).toBe(0); // Monday
+    expect(weekdayIndex('2026-08-04')).toBe(1); // Tuesday
+    expect(weekdayIndex('2026-08-06')).toBe(3); // Thursday
+    expect(weekdayIndex('2026-08-09')).toBe(6); // Sunday
+  });
+
+  it('returns -1 for unparseable input', () => {
+    expect(weekdayIndex('')).toBe(-1);
+    expect(weekdayIndex('2026-13-40')).toBe(-1);
+    expect(weekdayIndex('not-a-date')).toBe(-1);
+  });
+});
+
+describe('byWeekday', () => {
+  it('buckets daily rows into Mon..Sun with avg delays', () => {
+    const daily = [
+      { date: '2026-08-03', count: 2, avg_delay: 300 }, // Mon
+      { date: '2026-08-04', count: 1, avg_delay: 600 }, // Tue
+      { date: '2026-08-06', count: 4, avg_delay: 150 }, // Thu
+      { date: '2026-08-09', count: 3, avg_delay: null }, // Sun
+    ];
+    const wd = byWeekday(daily);
+    expect(wd.counts).toEqual([2, 1, 0, 4, 0, 0, 3]);
+    expect(wd.avgDelays).toEqual([300, 600, null, 150, null, null, null]);
+  });
+
+  it('weights avg delay by count within a weekday', () => {
+    const daily = [
+      { date: '2026-08-03', count: 1, avg_delay: 100 }, // Mon
+      { date: '2026-08-10', count: 3, avg_delay: 300 }, // Mon (next week)
+    ];
+    const wd = byWeekday(daily);
+    expect(wd.counts[0]).toBe(4);
+    expect(wd.avgDelays[0]).toBe(250); // (1*100 + 3*300) / 4
+  });
+
+  it('skips unparseable dates', () => {
+    const wd = byWeekday([{ date: 'nope', count: 5, avg_delay: 100 }]);
+    expect(wd.counts).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(wd.avgDelays).toEqual([null, null, null, null, null, null, null]);
   });
 });
 

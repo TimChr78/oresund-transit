@@ -53,8 +53,18 @@ export const sv: Dict = {
   hist_by_line: 'Per linje',
   hist_by_cause: 'Per orsak',
   hist_by_hour: 'Per timme',
+  hist_by_weekday: 'Per veckodag',
+  hist_line_delay: 'snitt {a} · max {b}',
   hist_total: 'Totalt: {n}',
   trend_avg_3d: '3-dagarsmedel',
+  // Weekdays
+  weekday_mon: 'Mån',
+  weekday_tue: 'Tis',
+  weekday_wed: 'Ons',
+  weekday_thu: 'Tor',
+  weekday_fri: 'Fre',
+  weekday_sat: 'Lör',
+  weekday_sun: 'Sön',
   // Insight cards
   insight_wow: 'Vecka mot vecka',
   insight_wow_delta: '{pct} vs föregående vecka',
