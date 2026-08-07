@@ -16,6 +16,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - name: Typecheck web (DOM lib — excluded from root tsconfig)
+        run: npx tsc --noEmit -p packages/web/tsconfig.json
       - run: npm test
       - run: npm run lint
 
@@ -29,10 +31,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Phase 1: nothing to bundle yet (collector Worker = Phase 2, web = Phase 3).
-      # Typecheck in the test job is the current build gate. As packages gain
-      # real build targets (wrangler deploy --dry-run, vite build), add them here.
-      - name: Verify workspace typechecks
+      # npm workspace flag: run the web package's own "build" (vite build)
+      # from packages/web so index.html resolves. NOTE: `vite --config`
+      # from the repo root would fail (entry resolves relative to CWD), and
+      # `-w` means --watch under bun (use --filter there instead).
+      - name: Build web dashboard (vite)
+        run: npm run build -w @oresund/web
+      - name: Verify collector workspace typechecks
         run: npm run typecheck
       - name: Build shared types
         run: npx tsc --noEmit -p packages/shared || true

@@ -47,6 +47,32 @@ describe('i18n dictionaries', () => {
     expect(langFromLocale(null)).toBe('en');
   });
 
+  it('provides every privacy-page key in all languages', () => {
+    const privacyKeys = [
+      'privacy_title',
+      'privacy_intro',
+      'privacy_analytics',
+      'privacy_data_source',
+      'privacy_ads',
+      'privacy_contact',
+      'privacy_back',
+      'nav_privacy',
+    ] as Key[];
+    for (const lang of ALL_LANGS) {
+      for (const key of privacyKeys) {
+        expect(DICTS[lang][key].trim().length, `${lang}.${key} is empty`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('translates the new privacy keys', () => {
+    expect(translate('privacy_title', 'en')).toBe('Privacy');
+    expect(translate('privacy_title', 'sv')).toBe('Integritet');
+    expect(translate('privacy_title', 'da')).toBe('Privatliv');
+    expect(translate('privacy_back', 'en')).toBe('← Back to dashboard');
+    expect(translate('nav_privacy', 'sv')).toBe('Integritet');
+  });
+
   it('maps live status + shutdown to the right banner key', () => {
     expect(statusKeyFor({ status: 'green', service_shutdown: false })).toBe('status_normal');
     expect(statusKeyFor({ status: 'amber', service_shutdown: false })).toBe('status_delayed');

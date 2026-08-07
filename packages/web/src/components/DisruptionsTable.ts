@@ -26,6 +26,13 @@ function severityBadgeClass(severity: string | null): string {
   return 'badge-sev-moderate';
 }
 
+/** Disruptions have no destination field — show the affected direction instead. */
+function directionText(direction: string | null, lang: Lang): string {
+  if (direction === 'to_denmark') return translate('tab_to_denmark', lang);
+  if (direction === 'to_sweden') return translate('tab_to_sweden', lang);
+  return '—';
+}
+
 function row(d: Disruption, lang: Lang): string {
   const time = formatTime(d.sched_time ?? d.timestamp, lang);
   const delay = d.delay_seconds !== null ? formatDelaySeconds(d.delay_seconds, lang) : '—';
@@ -37,12 +44,12 @@ function row(d: Disruption, lang: Lang): string {
     <td><span class="badge ${badgeClass(d.type)}">${translate(typeKey(d.type), lang)}</span></td>
     <td><span class="badge ${severityBadgeClass(d.severity)}">${translate(severityKey(d.severity), lang)}</span></td>
     <td class="num">${esc(delay)}</td>
-    <td>${esc(d.destination ?? '—')}</td>
+    <td>${esc(directionText(d.direction, lang))}</td>
     <td class="reason" title="${esc(reason)}">${esc(reason)}</td>
   </tr>`;
 }
 
-/** Dense departure-board table: Time / Line / Type / Severity / Delay / Destination / Reason. */
+/** Dense departure-board table: Time / Line / Type / Severity / Delay / Direction / Reason. */
 export function renderDisruptionsTable(disruptions: Disruption[], lang: Lang): string {
   if (disruptions.length === 0) {
     return `<div class="empty">${translate('empty_disruptions', lang)}</div>`;
@@ -53,7 +60,7 @@ export function renderDisruptionsTable(disruptions: Disruption[], lang: Lang): s
     'th_type',
     'th_severity',
     'th_delay',
-    'th_destination',
+    'th_direction',
     'th_reason',
   ];
   return `

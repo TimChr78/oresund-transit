@@ -51,7 +51,7 @@ export function renderHistoryCharts(history: HistoryResponse, dayRange: DayRange
 
   const dayBars = history.daily
     .map((d, i) => {
-      const seg = segments[i];
+      const seg = segments[i] ?? { cancellations: 0, delays: 0, alerts: 0 };
       const stackHeight = d.count > 0 ? Math.max(pct(d.count), 4) : 0;
       return `
     <div class="bar-group" title="${d.date}: ${d.count}">

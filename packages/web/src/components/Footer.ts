@@ -14,6 +14,8 @@ export function renderFooter(lang: Lang): string {
       <p class="links">
         <a href="https://www.trafiklab.se" target="_blank" rel="noopener">Trafiklab.se</a>
         <span class="sep">·</span>
+        <a href="/privacy">${esc(translate('nav_privacy', lang))}</a>
+        <span class="sep">·</span>
         <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">${esc(translate('footer_license', lang))}</a>
       </p>
       <p class="note">${esc(translate('footer_disclaimer', lang))}</p>

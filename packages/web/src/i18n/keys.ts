@@ -25,7 +25,7 @@ export interface Dict {
   th_type: string;
   th_severity: string;
   th_delay: string;
-  th_destination: string;
+  th_direction: string;
   th_reason: string;
   // Disruption types
   type_delay: string;
@@ -64,6 +64,15 @@ export interface Dict {
   empty_error: string;
   empty_retry: string;
   empty_disruptions: string;
+  // Privacy page
+  privacy_title: string;
+  privacy_intro: string;
+  privacy_analytics: string;
+  privacy_data_source: string;
+  privacy_ads: string;
+  privacy_contact: string;
+  privacy_back: string;
+  nav_privacy: string;
   // Footer
   footer_attribution: string;
   footer_disclaimer: string;

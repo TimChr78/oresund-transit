@@ -21,7 +21,7 @@ export const da: Dict = {
   th_type: 'Type',
   th_severity: 'Alvorlighed',
   th_delay: 'Forsinkelse',
-  th_destination: 'Destination',
+  th_direction: 'Retning',
   th_reason: 'Årsag',
   // Disruption types
   type_delay: 'Forsinkelse',
@@ -60,6 +60,18 @@ export const da: Dict = {
   empty_error: 'Trafikdata er ikke tilgængelig lige nu.',
   empty_retry: 'Prøv igen',
   empty_disruptions: 'Ingen forstyrrelser',
+  // Privacy page
+  privacy_title: 'Privatliv',
+  privacy_intro:
+    'Denne side viser live- og historisk togstatus over Øresund. Det eneste, vi gemmer om dig, er dit sprogvalg i browserens localStorage.',
+  privacy_analytics:
+    'Vi bruger Umami analytics til at tælle besøg anonymt. Umami bruger ingen cookies, indsamler ingen personlige data og sporer dig ikke på tværs af websteder.',
+  privacy_data_source:
+    'Live- og historiske data leveres af Trafiklab under en CC-BY 4.0-licens. Kilde:',
+  privacy_ads: 'Denne side viser ingen annoncer.',
+  privacy_contact: 'Spørgsmål eller feedback? Skriv til os på',
+  privacy_back: '← Tilbage til oversigten',
+  nav_privacy: 'Privatliv',
   // Footer
   footer_attribution: 'Data fra Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligge ~10–15 min. efter officielle apps; aflyste afgange kan blive overset.',

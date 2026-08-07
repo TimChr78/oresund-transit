@@ -21,7 +21,7 @@ export const sv: Dict = {
   th_type: 'Typ',
   th_severity: 'Allvarlighet',
   th_delay: 'Försening',
-  th_destination: 'Destination',
+  th_direction: 'Riktning',
   th_reason: 'Orsak',
   // Disruption types
   type_delay: 'Försening',
@@ -60,6 +60,18 @@ export const sv: Dict = {
   empty_error: 'Trafikdata nås inte just nu.',
   empty_retry: 'Försök igen',
   empty_disruptions: 'Inga störningar',
+  // Privacy page
+  privacy_title: 'Integritet',
+  privacy_intro:
+    'Den här sidan visar live- och historisk tågstatus över Öresund. Det enda vi sparar om dig är ditt språkval, i webbläsarens localStorage.',
+  privacy_analytics:
+    'Vi använder Umami analytics för att räkna besök anonymt. Umami använder inga cookies, samlar ingen personlig data och spårar dig inte mellan webbplatser.',
+  privacy_data_source:
+    'Live- och historisk data tillhandahålls av Trafiklab under licensen CC-BY 4.0. Källa:',
+  privacy_ads: 'Den här sidan visar inga annonser.',
+  privacy_contact: 'Frågor eller feedback? Mejla oss på',
+  privacy_back: '← Tillbaka till översikten',
+  nav_privacy: 'Integritet',
   // Footer
   footer_attribution: 'Data från Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligga ~10–15 min efter officiella appar; inställda avgångar kan missas.',
