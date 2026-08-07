@@ -13,5 +13,11 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"]
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"],
+  "exclude": [
+    // packages/web typechecks against the DOM lib via its own tsconfig
+    // (packages/web/tsconfig.json); this root lib stays ES2022 + WebWorker
+    // for the collector, since DOM and WebWorker libs cannot be combined.
+    "packages/web"
+  ]
 }
