@@ -336,11 +336,11 @@ describe('handleFetch — /api/transit/history', () => {
   const DAILY_SQL =
     'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
   const LINE_SQL =
-    'SELECT line, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
+    'SELECT line, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay, MAX(delay_seconds) AS max_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
   const CAUSE_SQL =
     'SELECT cause, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
   const HOUR_SQL =
-    "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY hour ORDER BY hour ASC";
+    "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY hour ORDER BY hour ASC";
 
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -356,16 +356,16 @@ describe('handleFetch — /api/transit/history', () => {
       { date: '2026-08-05', type: 'delay', count: 2 },
     ]);
     db.stubAll(LINE_SQL, [
-      { line: '804', count: 5 },
-      { line: null, count: 2 },
+      { line: '804', count: 5, avg_delay: 260, max_delay: 650 },
+      { line: null, count: 2, avg_delay: null, max_delay: null },
     ]);
     db.stubAll(CAUSE_SQL, [
       { cause: 'signal_failure', count: 4 },
       { cause: null, count: 3 },
     ]);
     db.stubAll(HOUR_SQL, [
-      { hour: 21, count: 5 },
-      { hour: 7, count: 2 },
+      { hour: 21, count: 5, avg_delay: 260 },
+      { hour: 7, count: 2, avg_delay: 120 },
     ]);
 
     const res = await handleFetch(new Request('https://oresund.live/api/transit/history?days=7'), env(db));
@@ -385,16 +385,16 @@ describe('handleFetch — /api/transit/history', () => {
         { date: '2026-08-06', count: 4, cancellations: 0, delays: 3, alerts: 1 },
       ],
       by_line: [
-        { line: '804', count: 5 },
-        { line: 'unknown', count: 2 },
+        { line: '804', count: 5, avg_delay: 260, max_delay: 650 },
+        { line: 'unknown', count: 2, avg_delay: null, max_delay: null },
       ],
       by_cause: [
         { cause: 'signal_failure', count: 4 },
         { cause: 'unknown', count: 3 },
       ],
       by_hour: [
-        { hour: 7, count: 2 },
-        { hour: 21, count: 5 },
+        { hour: 7, count: 2, avg_delay: 120 },
+        { hour: 21, count: 5, avg_delay: 260 },
       ],
     });
     // the range bound is [date_from, date_to + 1 day)

@@ -291,9 +291,9 @@ export interface HistoryStats {
   date_to: string;
   total_disruptions: number;
   daily: { date: string; count: number; cancellations: number; delays: number; alerts: number }[];
-  by_line: { line: string; count: number }[];
+  by_line: { line: string; count: number; avg_delay: number | null; max_delay: number | null }[];
   by_cause: { cause: string; count: number }[];
-  by_hour: { hour: number; count: number }[];
+  by_hour: { hour: number; count: number; avg_delay: number | null }[];
 }
 
 /** Disruption timestamps are stored as naive local time — mirror index.ts. */
@@ -317,11 +317,11 @@ function addDaysStr(dateStr: string, days: number): string {
 
 const HISTORY_DAILY_SQL =
   'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';const HISTORY_LINE_SQL =
-  'SELECT line, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
+  'SELECT line, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay, MAX(delay_seconds) AS max_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
 const HISTORY_CAUSE_SQL =
   'SELECT cause, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
 const HISTORY_HOUR_SQL =
-  "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY hour ORDER BY hour ASC";
+  "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY hour ORDER BY hour ASC";
 
 export async function queryHistory(db: D1Like, days: number, now: Date = new Date()): Promise<HistoryStats> {
   const to = localDateOnly(now);
@@ -330,9 +330,15 @@ export async function queryHistory(db: D1Like, days: number, now: Date = new Dat
 
   const [dailyRows, lineRows, causeRows, hourRows] = await Promise.all([
     db.prepare(HISTORY_DAILY_SQL).bind(from, toExclusive).all<{ date: string; type: string | null; count: number }>(),
-    db.prepare(HISTORY_LINE_SQL).bind(from, toExclusive).all<{ line: string | null; count: number }>(),
+    db
+      .prepare(HISTORY_LINE_SQL)
+      .bind(from, toExclusive)
+      .all<{ line: string | null; count: number; avg_delay: number | null; max_delay: number | null }>(),
     db.prepare(HISTORY_CAUSE_SQL).bind(from, toExclusive).all<{ cause: string | null; count: number }>(),
-    db.prepare(HISTORY_HOUR_SQL).bind(from, toExclusive).all<{ hour: number; count: number }>(),
+    db
+      .prepare(HISTORY_HOUR_SQL)
+      .bind(from, toExclusive)
+      .all<{ hour: number; count: number; avg_delay: number | null }>(),
   ]);
 
   // One entry per day in the range, zero-filled (charts need the full axis).
@@ -359,12 +365,19 @@ export async function queryHistory(db: D1Like, days: number, now: Date = new Dat
     total_disruptions: daily.reduce((sum, e) => sum + e.count, 0),
     daily,
     by_line: lineRows.results
-      .map((r) => ({ line: r.line ?? 'unknown', count: r.count }))
+      .map((r) => ({
+        line: r.line ?? 'unknown',
+        count: r.count,
+        avg_delay: r.avg_delay === null ? null : Math.round(r.avg_delay),
+        max_delay: r.max_delay,
+      }))
       .sort((a, b) => b.count - a.count),
     by_cause: causeRows.results
       .map((r) => ({ cause: r.cause ?? 'unknown', count: r.count }))
       .sort((a, b) => b.count - a.count),
-    by_hour: hourRows.results.map((r) => ({ hour: r.hour, count: r.count })).sort((a, b) => a.hour - b.hour),
+    by_hour: hourRows.results
+      .map((r) => ({ hour: r.hour, count: r.count, avg_delay: r.avg_delay === null ? null : Math.round(r.avg_delay) }))
+      .sort((a, b) => a.hour - b.hour),
   };
 }
 
