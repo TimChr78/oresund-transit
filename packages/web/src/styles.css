@@ -482,59 +482,81 @@ body::after {
 
 /* daily vertical bars */
 .bars {
-  height: 140px;
+  display: flex;
+  gap: 6px;
+  height: 180px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 10px 8px 0;
-  overflow-x: auto;
+}
+/* fixed-width left axis column: numeric tick labels at the gridline stops;
+   its inner box mirrors the plot band so labels line up with gridlines */
+.daily-axis {
+  flex: 0 0 34px;
+  position: relative;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.axis-inner {
+  position: absolute;
+  top: 12px; /* skip the per-bar value-label strip above the plot */
+  bottom: 14px; /* stop at the x-label strip below the plot */
+  left: 0;
+  right: 0;
+}
+.daily-tick {
+  position: absolute;
+  right: 2px; /* numbers abut the plot, inside their own fixed-width column */
+  transform: translateY(-50%);
+  line-height: 1;
+  white-space: nowrap;
 }
 .bar-plot {
+  flex: 1 1 auto;
+  min-width: 0; /* let the axis column stay fixed while the plot scrolls */
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.plot-band {
   position: relative;
   z-index: 0; /* stacking context so .daily-grid can sit behind the bars */
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  height: 100%;
-  min-width: 100%;
+  padding-top: 12px; /* strip above the plot for per-bar value labels */
+  box-sizing: border-box;
 }
 .daily-grid {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  bottom: 14px;
+  top: 12px;
+  bottom: 0;
   width: 100%;
-  height: calc(100% - 14px);
+  height: calc(100% - 12px);
   z-index: -1;
   pointer-events: none;
 }
 .daily-grid line {
-  stroke: rgba(255, 255, 255, 0.06);
+  stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 1;
-}
-.plot-max {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  z-index: 1;
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-  background: var(--surface);
-  border-radius: 3px;
-  padding: 0 4px;
-  line-height: 1.4;
+  /* guard: the grid SVG is stretched with preserveAspectRatio="none" —
+     keep strokes at their true width instead of ballooning like the trend line */
+  vector-effect: non-scaling-stroke;
 }
 .trend-layer {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  bottom: 14px;
-  width: 100%;
-  height: calc(100% - 14px);
+  top: 12px;
+  bottom: 0;
   pointer-events: none;
   overflow: visible;
 }
@@ -544,10 +566,15 @@ body::after {
   stroke-width: 1.5;
   stroke-linejoin: round;
   stroke-linecap: round;
+  /* CSS guard for the SVG attribute: the trend layer is stretched over the
+     bars (viewBox "0 0 n 100" + preserveAspectRatio="none"), so without
+     non-scaling-stroke the 1.5px line balloons into a fat ribbon */
+  vector-effect: non-scaling-stroke;
 }
 .bar-group {
   flex: 1 0 14px;
   min-width: 8px;
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -556,7 +583,7 @@ body::after {
 }
 .bar-stack {
   width: 100%;
-  max-width: 22px;
+  max-width: 34px;
   display: flex;
   flex-direction: column-reverse;
   border-radius: 3px 3px 0 0;
@@ -576,11 +603,32 @@ body::after {
   background: var(--blue);
 }
 .bar-label {
+  flex: 1 0 14px;
+  min-width: 0;
+  text-align: center;
   font-family: var(--mono);
   font-size: 9px;
   color: var(--faint);
-  margin-top: 3px;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+/* direct count label above each bar, parked in the plot-band's top strip */
+.bar-value {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--dim);
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.x-labels {
+  flex: 0 0 14px;
+  display: flex;
+  gap: 3px;
 }
 
 /* legend */
@@ -787,6 +835,34 @@ body::after {
   font-size: 10px;
   color: var(--faint);
   padding: 4px 2px 0;
+}
+/* color-scale legend: green (low share) -> red (high share), matching the
+   heatColor endpoints so the encoding explains itself */
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--faint);
+  padding: 6px 2px 0;
+}
+.heat-swatch {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.heat-low {
+  background: #10b981;
+}
+.heat-high {
+  background: #ef4444;
+}
+.heat-scale {
+  flex: 0 0 60px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #10b981, #ef4444);
 }
 
 /* ------------------------------------------------------- empty/loading */

@@ -15,6 +15,53 @@ export function barHeights(counts: readonly number[]): number[] {
   return counts.map((c) => c / max);
 }
 
+/** Candidate y-axis steps (nice round numbers), tried in order. */
+const AXIS_STEPS = [1, 2, 5, 10, 20, 25, 50, 100] as const;
+
+/**
+ * Clean y-axis tick values for the daily-count plot: a step from AXIS_STEPS
+ * (scaled by powers of ten for larger maxima) that yields 3-5 ticks from 0
+ * up to (at least) max. Always includes 0; the top tick is >= max so it can
+ * serve as the axis ceiling. Zero/negative max -> just [0]; maxima too small
+ * for 3 ticks fall back to unit steps.
+ */
+export function yAxisTicks(max: number): number[] {
+  const ceiling = Math.max(0, max);
+  if (ceiling === 0) return [0];
+  for (let scale = 1; scale <= ceiling; scale *= 10) {
+    for (const step of AXIS_STEPS) {
+      const s = step * scale;
+      const count = Math.ceil(ceiling / s) + 1; // includes the 0 tick
+      if (count >= 3 && count <= 5) {
+        return Array.from({ length: count }, (_, i) => i * s);
+      }
+    }
+  }
+  // e.g. max = 1: no step yields 3 ticks, so fall back to unit steps.
+  return Array.from({ length: Math.ceil(ceiling) + 1 }, (_, i) => i);
+}
+
+/**
+ * Bar height as a percent of the plot (0..100), scaled against the y-axis
+ * ceiling (the top tick) instead of the raw max, so the top gridline is the
+ * axis ceiling. Zero count or ceiling -> 0.
+ */
+export function barHeightPct(count: number, ceiling: number): number {
+  if (ceiling <= 0 || count <= 0) return 0;
+  return Math.min(100, (count / ceiling) * 100);
+}
+
+/**
+ * Stacked-segment height as a percent of its day's bar (0..100), so the
+ * segments fill the whole bar. `seg` is the window-max fraction from
+ * dailyBarSegments and `dayFrac` the day's count as a window-max fraction
+ * (count/max); seg/dayFrac = segmentCount/dayCount.
+ */
+export function segHeightPct(seg: number, dayFrac: number): number {
+  if (dayFrac <= 0 || seg <= 0) return 0;
+  return Math.min(100, (seg / dayFrac) * 100);
+}
+
 /** Default short month names used by dailyLabelPlan when none are given. */
 export const DEFAULT_MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

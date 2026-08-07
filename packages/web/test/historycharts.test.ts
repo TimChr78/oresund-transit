@@ -38,6 +38,16 @@ describe('renderHistoryCharts — trend overlay', () => {
     expect(renderHistoryCharts(HISTORY, null, 7, 'da')).toContain('3-dages gennemsnit');
   });
 
+  it('marks the trend polyline non-scaling so the stretched SVG cannot balloon stroke width', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toMatch(/<polyline[^>]*vector-effect="non-scaling-stroke"/);
+  });
+
+  it('marks the stretched daily-grid lines non-scaling too (same distortion class)', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toMatch(/<line[^>]*vector-effect="non-scaling-stroke"/);
+  });
+
   it('omits the trend layer when every day is zero', () => {
     const zero: HistoryResponse = {
       ...HISTORY,
@@ -127,17 +137,91 @@ describe('renderHistoryCharts — daily axis legibility', () => {
     expect(html).toContain('daily-grid');
     expect(html).toContain('<line');
   });
+});
 
-  it('shows a subtle max-count label at the top-left of the plot', () => {
-    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // max = 6 on 2026-08-06
-    expect(html).toContain('plot-max');
-    expect(html).toContain('max 6');
+describe('renderHistoryCharts — real y-axis (Item 2)', () => {  it('renders a fixed-width left axis column with numeric tick labels (max 6 -> 0,2,4,6)', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toContain('daily-axis');
+    expect(html).toContain('axis-inner');
+    for (const label of ['0', '2', '4', '6']) {
+      expect(html).toMatch(new RegExp(`class="daily-tick"[^>]*>${label}<`));
+    }
   });
 
-  it('omits the max label when every day is zero', () => {
+  it('places the top tick at the axis ceiling (top:0%) and 0 at the baseline (top:100%)', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // ticks 0,2,4,6
+    expect(html).toMatch(/class="daily-tick" style="top:0\.0%">6</);
+    expect(html).toMatch(/class="daily-tick" style="top:100\.0%">0</);
+  });
+
+  it('draws a gridline at every y-axis tick, scaled against the top tick', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // ticks 0,2,4,6, n=7
+    expect(html).toMatch(/<line x1="0" y1="0\.0" x2="7" y2="0\.0"/); // top tick = ceiling
+    expect(html).toMatch(/<line x1="0" y1="100\.0" x2="7" y2="100\.0"/); // 0 = baseline
+    expect(html).toMatch(/<line[^>]*y1="33\.3"/); // tick 4
+    expect(html).toMatch(/<line[^>]*y1="66\.7"/); // tick 2
+  });
+
+  it('removes the floating "max N" chip — the axis replaces it', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).not.toContain('plot-max');
+    expect(html).not.toContain('max 6');
+  });
+
+  it('still shows a bare 0 tick (and no chip) when every day is zero', () => {
     const zero: HistoryResponse = { ...HISTORY, daily: HISTORY.daily.map((d) => ({ ...d, count: 0 })) };
     const html = renderHistoryCharts(zero, null, 7, 'en');
+    expect(html).toContain('daily-axis');
+    expect(html).toMatch(/class="daily-tick"[^>]*>0</);
     expect(html).not.toContain('plot-max');
+  });
+});
+
+describe('renderHistoryCharts — per-bar value labels (Item 3)', () => {
+  /** ISO date `start` + i days, computed in UTC so tests are TZ-stable. */
+  const iso = (start: string, i: number): string => {
+    const [y, m, d] = start.split('-').map(Number);
+    return new Date(Date.UTC(y!, m! - 1, d! + i)).toISOString().slice(0, 10);
+  };
+  const rows = (start: string, count: number, value = 1): HistoryResponse['daily'] =>
+    Array.from({ length: count }, (_, i) => ({
+      date: iso(start, i),
+      count: value,
+      cancellations: 0,
+      delays: value,
+      alerts: 0,
+      avg_delay: null,
+    }));
+  const valueLabelCount = (html: string): number => (html.match(/class="bar-value">/g) ?? []).length;
+
+  it('puts a direct count label above each non-zero bar at a 7-day range', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en'); // counts 0,0,0,3,0,0,6
+    expect(html).toMatch(/class="bar-value">6</); // max day 2026-08-06
+    expect(html).toMatch(/class="bar-value">3</); // 2026-08-03
+    expect(valueLabelCount(html)).toBe(2); // only the two non-zero days
+    expect(html).not.toMatch(/class="bar-value">0</); // zero days render nothing
+  });
+
+  it('labels every non-zero bar at a 14-day range', () => {
+    const daily = rows('2026-07-01', 14);
+    const html = renderHistoryCharts({ ...HISTORY, daily }, null, 14, 'en');
+    expect(valueLabelCount(html)).toBe(14);
+  });
+
+  it('shows value labels only at the x-label stride for 30/90-day ranges', () => {
+    // 30 days from 2026-07-08: label plan indices [0,5,10,15,20,24,25] -> 7 labels
+    const html30 = renderHistoryCharts({ ...HISTORY, daily: rows('2026-07-08', 30) }, null, 30, 'en');
+    expect(valueLabelCount(html30)).toBe(7);
+    // 90 days from 2026-05-09: plan has 15 labels
+    const html90 = renderHistoryCharts({ ...HISTORY, daily: rows('2026-05-09', 90) }, null, 90, 'en');
+    expect(valueLabelCount(html90)).toBe(15);
+  });
+
+  it('sits above the bar stack, inside its bar group', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    // the value label comes before the stack inside the same bar group
+    expect(html).toMatch(/class="bar-value">3<[\s\S]*?class="bar-stack"/);
+    expect(html).toMatch(/class="bar-value">6<[\s\S]*?class="bar-stack"/);
   });
 });
 
@@ -190,6 +274,36 @@ describe('renderHistoryCharts — by-hour heatmap (share %, 30-day baseline)', (
     // No baseline (fallback to the range-toggled history) -> no caption, so
     // the caption never claims a 30-day window the chart is not showing.
     expect(renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en')).not.toContain('heat-caption');
+  });
+
+  it('renders a color-scale legend under the heatmap (green low -> red high)', () => {
+    const html = renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en');
+    expect(html).toContain('heat-legend');
+    expect(html).toContain('heat-scale');
+    expect(html).toMatch(/heat-swatch[^>]*heat-low/);
+    expect(html).toMatch(/heat-swatch[^>]*heat-high/);
+    // green/red endpoints match the heatColor palette
+    expect(html).toMatch(/heat-low/);
+    expect(html).toMatch(/heat-high/);
+  });
+
+  it('translates the low/high legend labels in all three languages', () => {
+    const base = { ...HISTORY, by_hour: byHour };
+    const en = renderHistoryCharts(base, null, 7, 'en');
+    expect(en).toMatch(/heat-legend[\s\S]*>low</);
+    expect(en).toMatch(/heat-legend[\s\S]*>high</);
+    const sv = renderHistoryCharts(base, null, 7, 'sv');
+    expect(sv).toMatch(/heat-legend[\s\S]*>låg</);
+    expect(sv).toMatch(/heat-legend[\s\S]*>hög</);
+    const da = renderHistoryCharts(base, null, 7, 'da');
+    expect(da).toMatch(/heat-legend[\s\S]*>lav</);
+    expect(da).toMatch(/heat-legend[\s\S]*>høj</);
+  });
+
+  it('shows the legend even without the 30-day baseline caption', () => {
+    const html = renderHistoryCharts({ ...HISTORY, by_hour: byHour }, null, 7, 'en');
+    expect(html).toContain('heat-legend');
+    expect(html).not.toContain('heat-caption');
   });
 });
 

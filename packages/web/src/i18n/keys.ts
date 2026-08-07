@@ -59,10 +59,11 @@ export interface Dict {
   hist_by_hour: string;
   heat_tooltip: string;
   heat_caption: string;
+  heat_low: string;
+  heat_high: string;
   hist_by_weekday: string;
   hist_line_delay: string;
   hist_total: string;
-  hist_daily_max: string;
   trend_avg_3d: string;
   punct_data_since: string;
   // Short month names (month_1 = January)
