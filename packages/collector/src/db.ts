@@ -142,6 +142,34 @@ export async function logDisruption(db: D1Like, d: DisruptionInput): Promise<{ m
 }
 
 /**
+ * Recent disruptions, newest first. `limit` caps the result (the caller has
+ * already clamped it to [1, 200]); optional from/to filter on `timestamp`
+ * with the same half-open [from, to) convention as queryDelayStats.
+ */
+export async function queryRecentDisruptions(
+  db: D1Like,
+  opts: { limit: number; from?: string; to?: string },
+): Promise<Disruption[]> {
+  const clauses: string[] = [];
+  const binds: unknown[] = [];
+  if (opts.from !== undefined) {
+    clauses.push('timestamp >= ?');
+    binds.push(opts.from);
+  }
+  if (opts.to !== undefined) {
+    clauses.push('timestamp < ?');
+    binds.push(opts.to);
+  }
+  const sql =
+    clauses.length > 0
+      ? `SELECT * FROM disruptions WHERE ${clauses.join(' AND ')} ORDER BY timestamp DESC LIMIT ?`
+      : 'SELECT * FROM disruptions ORDER BY timestamp DESC LIMIT ?';
+  binds.push(opts.limit);
+  const { results } = await db.prepare(sql).bind(...binds).all<Disruption>();
+  return results;
+}
+
+/**
  * Persist the LiveStatus snapshot as a single row (id = 1) — documented
  * storage choice: D1 over KV. The collector worker and (Phase 3) web worker
  * share the existing D1 binding; KV would need a new namespace + wrangler.toml
@@ -248,4 +276,95 @@ function avgForLine(rows: { count: number; avg_delay: number | null }[]): number
     withAvg.reduce((sum, r) => sum + r.count * (r.avg_delay ?? 0), 0) /
       withAvg.reduce((sum, r) => sum + r.count, 0),
   );
+}
+
+/**
+ * Disruption-history aggregates for the dashboard charts. `days` is one of
+ * 7|14|30 (validated by the caller); the range is the last `days` calendar
+ * days in the worker's local timezone (Europe/Stockholm), half-open bound
+ * [date_from, date_to + 1 day) — `now` is injectable so tests are
+ * deterministic.
+ */
+export interface HistoryStats {
+  days: number;
+  date_from: string;
+  date_to: string;
+  total_disruptions: number;
+  daily: { date: string; count: number; cancellations: number; delays: number; alerts: number }[];
+  by_line: { line: string; count: number }[];
+  by_cause: { cause: string; count: number }[];
+  by_hour: { hour: number; count: number }[];
+}
+
+/** Disruption timestamps are stored as naive local time — mirror index.ts. */
+const LOCAL_TZ = 'Europe/Stockholm';
+
+/** Calendar date of a Date in the worker's local timezone ("2026-08-06"). */
+function localDateOnly(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: LOCAL_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+/** Add N calendar days to an ISO date string (DST-safe via UTC date math). */
+function addDaysStr(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d! + days)).toISOString().slice(0, 10);
+}
+
+const HISTORY_DAILY_SQL =
+  'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
+const HISTORY_LINE_SQL =
+  'SELECT line, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
+const HISTORY_CAUSE_SQL =
+  'SELECT cause, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
+const HISTORY_HOUR_SQL =
+  "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY hour ORDER BY hour ASC";
+
+export async function queryHistory(db: D1Like, days: number, now: Date = new Date()): Promise<HistoryStats> {
+  const to = localDateOnly(now);
+  const from = addDaysStr(to, -(days - 1));
+  const toExclusive = addDaysStr(to, 1);
+
+  const [dailyRows, lineRows, causeRows, hourRows] = await Promise.all([
+    db.prepare(HISTORY_DAILY_SQL).bind(from, toExclusive).all<{ date: string; type: string | null; count: number }>(),
+    db.prepare(HISTORY_LINE_SQL).bind(from, toExclusive).all<{ line: string | null; count: number }>(),
+    db.prepare(HISTORY_CAUSE_SQL).bind(from, toExclusive).all<{ cause: string | null; count: number }>(),
+    db.prepare(HISTORY_HOUR_SQL).bind(from, toExclusive).all<{ hour: number; count: number }>(),
+  ]);
+
+  // One entry per day in the range, zero-filled (charts need the full axis).
+  const daily: HistoryStats['daily'] = [];
+  const byDate = new Map<string, HistoryStats['daily'][number]>();
+  for (let d = from; d <= to; d = addDaysStr(d, 1)) {
+    const entry = { date: d, count: 0, cancellations: 0, delays: 0, alerts: 0 };
+    daily.push(entry);
+    byDate.set(d, entry);
+  }
+  for (const r of dailyRows.results) {
+    const entry = byDate.get(r.date);
+    if (!entry) continue;
+    entry.count += r.count;
+    if (r.type === 'cancellation') entry.cancellations += r.count;
+    else if (r.type === 'delay') entry.delays += r.count;
+    else if (r.type === 'alert') entry.alerts += r.count;
+  }
+
+  return {
+    days,
+    date_from: from,
+    date_to: to,
+    total_disruptions: daily.reduce((sum, e) => sum + e.count, 0),
+    daily,
+    by_line: lineRows.results
+      .map((r) => ({ line: r.line ?? 'unknown', count: r.count }))
+      .sort((a, b) => b.count - a.count),
+    by_cause: causeRows.results
+      .map((r) => ({ cause: r.cause ?? 'unknown', count: r.count }))
+      .sort((a, b) => b.count - a.count),
+    by_hour: hourRows.results.map((r) => ({ hour: r.hour, count: r.count })).sort((a, b) => a.hour - b.hour),
+  };
 }

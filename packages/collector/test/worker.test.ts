@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveStatus } from '@oresund/shared';
 import hyllieRaw from './fixtures/hyllie-raw.json';
 import kobenhavnHRaw from './fixtures/kobenhavn-h-raw.json';
@@ -233,5 +233,248 @@ describe('handleFetch — API paths', () => {
     const db = new FakeD1();
     const res = await handleFetch(new Request('https://oresund.live/nope'), env(db));
     expect(res.status).toBe(404);
+  });
+});
+
+describe('handleFetch — /api/transit/disruptions', () => {
+  const LIST_SQL = 'SELECT * FROM disruptions ORDER BY timestamp DESC LIMIT ?';
+  const LIST_FILTERED_SQL =
+    'SELECT * FROM disruptions WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp DESC LIMIT ?';
+
+  // Full disruption rows mirroring what the worker writes from the real
+  // fixture data (dep_key, direction, technical_number from hyllie-raw.json).
+  const rows = [
+    {
+      id: 2,
+      timestamp: '2026-08-06T21:59:27',
+      line: '804',
+      type: 'delay',
+      cause: 'signal_failure',
+      route_section: null,
+      severity: 'minor',
+      delay_seconds: 650,
+      raw_text: 'Signalfel',
+      dep_key: '804_21:59_Østerport',
+      first_seen: '2026-08-06T21:59:27',
+      last_updated: '2026-08-06T21:59:27',
+      direction: 'to_denmark',
+      technical_number: '1143',
+      sched_time: '2026-08-06T21:59:00',
+    },
+    {
+      id: 1,
+      timestamp: '2026-08-05T08:30:00',
+      line: '803',
+      type: 'cancellation',
+      cause: null,
+      route_section: null,
+      severity: 'major',
+      delay_seconds: 0,
+      raw_text: null,
+      dep_key: '803_08:30_Hässleholm',
+      first_seen: '2026-08-05T08:30:00',
+      last_updated: '2026-08-05T08:30:00',
+      direction: 'to_sweden',
+      technical_number: null,
+      sched_time: '2026-08-05T08:30:00',
+    },
+  ];
+
+  it('returns disruptions ordered newest-first with the full column set', async () => {
+    const db = new FakeD1();
+    db.stubAll(LIST_SQL, rows);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/disruptions'), env(db));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ disruptions: rows });
+    // ordering is guaranteed by the SQL, not by the response assembly
+    expect(db.callsMatching('ORDER BY timestamp DESC')).toHaveLength(1);
+  });
+
+  it('defaults limit to 50', async () => {
+    const db = new FakeD1();
+    await handleFetch(new Request('https://oresund.live/api/transit/disruptions'), env(db));
+    expect(db.lastBindsFor('LIMIT ?')).toEqual([50]);
+  });
+
+  it('applies an explicit limit and clamps above 200 to 200', async () => {
+    const db = new FakeD1();
+    await handleFetch(new Request('https://oresund.live/api/transit/disruptions?limit=50'), env(db));
+    expect(db.lastBindsFor('LIMIT ?')).toEqual([50]);
+
+    await handleFetch(new Request('https://oresund.live/api/transit/disruptions?limit=200'), env(db));
+    expect(db.lastBindsFor('LIMIT ?')).toEqual([200]);
+
+    await handleFetch(new Request('https://oresund.live/api/transit/disruptions?limit=500'), env(db));
+    expect(db.lastBindsFor('LIMIT ?')).toEqual([200]);
+  });
+
+  it('filters by from/to when provided', async () => {
+    const db = new FakeD1();
+    db.stubAll(LIST_FILTERED_SQL, rows);
+
+    const res = await handleFetch(
+      new Request('https://oresund.live/api/transit/disruptions?from=2026-08-05&to=2026-08-07'),
+      env(db),
+    );
+    expect(res.status).toBe(200);
+    // [from, to) exclusive end, mirroring queryDelayStats
+    expect(db.lastBindsFor('LIMIT ?')).toEqual(['2026-08-05', '2026-08-07', 50]);
+    await expect(res.json()).resolves.toEqual({ disruptions: rows });
+  });
+
+  it('returns 400 for a non-positive-integer limit', async () => {
+    for (const bad of ['abc', '0', '-3', '1.5']) {
+      const db = new FakeD1();
+      const res = await handleFetch(new Request(`https://oresund.live/api/transit/disruptions?limit=${bad}`), env(db));
+      expect(res.status).toBe(400);
+    }
+  });
+});
+
+describe('handleFetch — /api/transit/history', () => {
+  const DAILY_SQL =
+    'SELECT date(timestamp) AS date, type, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
+  const LINE_SQL =
+    'SELECT line, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY line ORDER BY count DESC';
+  const CAUSE_SQL =
+    'SELECT cause, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
+  const HOUR_SQL =
+    "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS count FROM disruptions WHERE timestamp >= ? AND timestamp < ? GROUP BY hour ORDER BY hour ASC";
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('aggregates daily/by_line/by_cause/by_hour over the last 7 days', async () => {
+    // 12:00 UTC = 14:00 Europe/Stockholm — date range 2026-07-31..2026-08-06
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    db.stubAll(DAILY_SQL, [
+      { date: '2026-08-06', type: 'delay', count: 3 },
+      { date: '2026-08-06', type: 'alert', count: 1 },
+      { date: '2026-08-05', type: 'cancellation', count: 1 },
+      { date: '2026-08-05', type: 'delay', count: 2 },
+    ]);
+    db.stubAll(LINE_SQL, [
+      { line: '804', count: 5 },
+      { line: null, count: 2 },
+    ]);
+    db.stubAll(CAUSE_SQL, [
+      { cause: 'signal_failure', count: 4 },
+      { cause: null, count: 3 },
+    ]);
+    db.stubAll(HOUR_SQL, [
+      { hour: 21, count: 5 },
+      { hour: 7, count: 2 },
+    ]);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/history?days=7'), env(db));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      days: 7,
+      date_from: '2026-07-31',
+      date_to: '2026-08-06',
+      total_disruptions: 7,
+      daily: [
+        { date: '2026-07-31', count: 0, cancellations: 0, delays: 0, alerts: 0 },
+        { date: '2026-08-01', count: 0, cancellations: 0, delays: 0, alerts: 0 },
+        { date: '2026-08-02', count: 0, cancellations: 0, delays: 0, alerts: 0 },
+        { date: '2026-08-03', count: 0, cancellations: 0, delays: 0, alerts: 0 },
+        { date: '2026-08-04', count: 0, cancellations: 0, delays: 0, alerts: 0 },
+        { date: '2026-08-05', count: 3, cancellations: 1, delays: 2, alerts: 0 },
+        { date: '2026-08-06', count: 4, cancellations: 0, delays: 3, alerts: 1 },
+      ],
+      by_line: [
+        { line: '804', count: 5 },
+        { line: 'unknown', count: 2 },
+      ],
+      by_cause: [
+        { cause: 'signal_failure', count: 4 },
+        { cause: 'unknown', count: 3 },
+      ],
+      by_hour: [
+        { hour: 7, count: 2 },
+        { hour: 21, count: 5 },
+      ],
+    });
+    // the range bound is [date_from, date_to + 1 day)
+    expect(db.lastBindsFor('GROUP BY date(timestamp), type')).toEqual(['2026-07-31', '2026-08-07']);
+  });
+
+  it('defaults to 7 days when days is omitted', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/history'), env(db));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { days: number; date_from: string; date_to: string };
+    expect(body.days).toBe(7);
+    expect(body.date_from).toBe('2026-07-31');
+    expect(body.date_to).toBe('2026-08-06');
+  });
+
+  it('returns 400 when days is not 7, 14 or 30', async () => {
+    for (const bad of ['abc', '1', '365', '']) {
+      const db = new FakeD1();
+      const res = await handleFetch(new Request(`https://oresund.live/api/transit/history?days=${bad}`), env(db));
+      expect(res.status).toBe(400);
+    }
+  });
+});
+
+describe('handleFetch — CORS', () => {
+  const corsHeaders: Record<string, string> = {
+    'access-control-allow-origin': '*',
+    'access-control-allow-methods': 'GET, OPTIONS',
+    'access-control-allow-headers': 'Content-Type',
+  };
+
+  function expectCors(res: Response): void {
+    for (const [name, value] of Object.entries(corsHeaders)) {
+      expect(res.headers.get(name)).toBe(value);
+    }
+  }
+
+  it('adds CORS headers to every response (200/400/404/503)', async () => {
+    const db = new FakeD1();
+    const status: LiveStatus = {
+      status: 'red',
+      status_text: 'No cross-border service detected',
+      timestamp: '2026-08-06T21:59:27',
+      time_short: '21:59',
+      disruption_count: 0,
+      departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
+      service_shutdown: true,
+      directions: { to_denmark: [], to_sweden: [], bus: [] },
+    };
+    db.stubFirst('SELECT snapshot FROM live_status WHERE id = 1', { snapshot: JSON.stringify(status) });
+
+    const paths: [string, number][] = [
+      ['https://oresund.live/health', 200],
+      ['https://oresund.live/api/transit/live', 200],
+      ['https://oresund.live/api/transit/delay-stats?from=2026-08-06&to=2026-08-07', 200],
+      ['https://oresund.live/api/transit/disruptions', 200],
+      ['https://oresund.live/api/transit/history', 200],
+      ['https://oresund.live/api/transit/delay-stats', 400],
+      ['https://oresund.live/nope', 404],
+    ];
+    for (const [path, expectedStatus] of paths) {
+      const res = await handleFetch(new Request(path), env(db));
+      expect(res.status, path).toBe(expectedStatus);
+      expectCors(res);
+    }
+
+    // 503 — no live snapshot yet
+    const db503 = new FakeD1();
+    const res503 = await handleFetch(new Request('https://oresund.live/api/transit/live'), env(db503));
+    expect(res503.status).toBe(503);
+    expectCors(res503);
+  });
+
+  it('answers OPTIONS preflight with 204 and CORS headers', async () => {
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/live', { method: 'OPTIONS' }), env(db));
+    expect(res.status).toBe(204);
+    expectCors(res);
+    await expect(res.text()).resolves.toBe('');
   });
 });

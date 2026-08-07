@@ -26,6 +26,8 @@ import {
 import {
   logDisruption,
   queryDelayStats,
+  queryHistory,
+  queryRecentDisruptions,
   readLiveStatus,
   upsertDeparture,
   writeLiveStatus,
@@ -261,18 +263,37 @@ export async function runScheduled(env: Env, fetchFn: FetchLike, nowFn: () => Da
   return status;
 }
 
+/** CORS headers for the Phase 3 browser dashboard (Cloudflare Pages). */
+const CORS_HEADERS: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, OPTIONS',
+  'access-control-allow-headers': 'Content-Type',
+};
+
+/** Add the CORS headers to a Response (preserving status + existing headers). */
+function withCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(CORS_HEADERS)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, headers });
+}
+
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  });
+  return withCors(
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+    }),
+  );
 }
 
 /** The read-only HTTP API surface. */
 export async function handleFetch(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
 
-  if (url.pathname === '/health') return new Response('ok');
+  // Browser preflight — every API path is GET-only, so a blanket 204 works.
+  if (request.method === 'OPTIONS') return withCors(new Response(null, { status: 204 }));
+
+  if (url.pathname === '/health') return withCors(new Response('ok'));
 
   if (url.pathname === '/api/transit/live') {
     const status = await readLiveStatus(env.DB);
@@ -287,6 +308,29 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
       return json({ error: 'from and to query parameters are required (ISO date/datetime)' }, 400);
     }
     return json(await queryDelayStats(env.DB, from, to));
+  }
+
+  if (url.pathname === '/api/transit/disruptions') {
+    const limitParam = url.searchParams.get('limit');
+    const limit = limitParam === null ? 50 : Number(limitParam);
+    if (!Number.isInteger(limit) || limit <= 0) {
+      return json({ error: 'limit must be a positive integer' }, 400);
+    }
+    const opts: { limit: number; from?: string; to?: string } = { limit: Math.min(limit, 200) };
+    const from = url.searchParams.get('from');
+    const to = url.searchParams.get('to');
+    if (from !== null) opts.from = from;
+    if (to !== null) opts.to = to;
+    return json({ disruptions: await queryRecentDisruptions(env.DB, opts) });
+  }
+
+  if (url.pathname === '/api/transit/history') {
+    const daysParam = url.searchParams.get('days');
+    const days = daysParam === null ? 7 : Number(daysParam);
+    if (days !== 7 && days !== 14 && days !== 30) {
+      return json({ error: 'days must be one of 7, 14 or 30' }, 400);
+    }
+    return json(await queryHistory(env.DB, days));
   }
 
   return json({ error: 'not found' }, 404);
