@@ -47,6 +47,12 @@ export const sv: Dict = {
   stat_canceled: 'Inställda',
   stat_avg_delay: 'Snittförsening',
   stat_departures: 'Avgångar',
+  // Stat card hints
+  stat_on_time_hint: 'Idag · andel avgångar med under 1 min försening',
+  stat_delayed_hint: 'Idag · avgångar försenade 1 min eller mer',
+  stat_canceled_hint: 'Idag · inställda avgångar',
+  stat_avg_delay_hint: 'Snittförsening för alla avgångar idag',
+  stat_departures_hint: 'Gränsöverskridande Öresundståg-avgångar idag',
   // History
   hist_daily: 'Per dag',
   hist_punctuality: 'Punktlighet',

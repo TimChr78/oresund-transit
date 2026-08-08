@@ -47,6 +47,12 @@ export const en: Dict = {
   stat_canceled: 'Canceled',
   stat_avg_delay: 'Avg delay',
   stat_departures: 'Departures',
+  // Stat card hints
+  stat_on_time_hint: 'Today · share of departures delayed under 1 min',
+  stat_delayed_hint: 'Today · departures delayed 1 min or more',
+  stat_canceled_hint: 'Today · departures canceled',
+  stat_avg_delay_hint: 'Mean delay of all departures today',
+  stat_departures_hint: 'Cross-border Øresundståg departures today',
   // History
   hist_daily: 'Daily',
   hist_punctuality: 'Punctuality',

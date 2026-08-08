@@ -51,6 +51,12 @@ export interface Dict {
   stat_canceled: string;
   stat_avg_delay: string;
   stat_departures: string;
+  // Stat card hints (one-liners defining each number)
+  stat_on_time_hint: string;
+  stat_delayed_hint: string;
+  stat_canceled_hint: string;
+  stat_avg_delay_hint: string;
+  stat_departures_hint: string;
   // History
   hist_daily: string;
   hist_punctuality: string;

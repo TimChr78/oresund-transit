@@ -222,6 +222,13 @@ body::after {
   color: var(--faint);
   margin-top: 1px;
 }
+.stat-hint {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--faint);
+  margin-top: 2px;
+}
 
 /* ------------------------------------------------------------ direction
    tabs */

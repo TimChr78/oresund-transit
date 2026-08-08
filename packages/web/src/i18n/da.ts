@@ -47,6 +47,12 @@ export const da: Dict = {
   stat_canceled: 'Aflyste',
   stat_avg_delay: 'Gns. forsinkelse',
   stat_departures: 'Afgange',
+  // Stat card hints
+  stat_on_time_hint: 'I dag · andel afgange med under 1 min forsinkelse',
+  stat_delayed_hint: 'I dag · afgange forsinket 1 minut eller mere',
+  stat_canceled_hint: 'I dag · aflyste afgange',
+  stat_avg_delay_hint: 'Gns. forsinkelse for alle afgange i dag',
+  stat_departures_hint: 'Grænseoverskridende Øresundståg-afgange i dag',
   // History
   hist_daily: 'Per dag',
   hist_punctuality: 'Punktlighed',
