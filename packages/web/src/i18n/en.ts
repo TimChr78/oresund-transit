@@ -68,6 +68,14 @@ export const en: Dict = {
   hist_total: 'Total: {n}',
   trend_avg_3d: '3-day avg',
   punct_data_since: 'data since {date}',
+  // Chart hints
+  hist_daily_hint: 'Disruptions per day, stacked by type',
+  hist_punctuality_hint: 'Share of departures on time (under 1 min delay) per day',
+  hist_by_line_hint: 'Disruption count per train line · avg / max delay',
+  hist_by_weekday_hint: 'Disruptions by weekday · avg delay',
+  hist_by_cause_hint: 'Disruptions grouped by cause',
+  hist_by_hour_hint: 'Share of disruptions by hour of day',
+  hist_peak_hint: 'Peak hours 07–09 & 16–18 vs rest of day',
   // Short month names
   month_1: 'Jan',
   month_2: 'Feb',

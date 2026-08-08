@@ -52,6 +52,12 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.stat-hint \{[^}]*margin-top:\s*2px/);
   });
 
+  it('styles the muted one-liner chart hints (0.75rem, faint, under the title)', () => {
+    expect(css).toMatch(/\.chart-hint \{[^}]*font-size:\s*0\.75rem/);
+    expect(css).toMatch(/\.chart-hint \{[^}]*color:\s*var\(--faint\)/);
+    expect(css).toMatch(/\.chart-hint \{[^}]*margin[^}]*6px/);
+  });
+
   it('left-aligns hbar-count and hbar-meta while keeping tabular numerals', () => {
     expect(css).toMatch(/\.hbar-count \{[^}]*text-align:\s*left/);
     expect(css).toMatch(/\.hbar-count \{[^}]*font-variant-numeric:\s*tabular-nums/);

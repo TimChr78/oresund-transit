@@ -68,6 +68,14 @@ export const da: Dict = {
   hist_total: 'I alt: {n}',
   trend_avg_3d: '3-dages gennemsnit',
   punct_data_since: 'data siden {date}',
+  // Chart hints
+  hist_daily_hint: 'Forstyrrelser pr. dag, stablet efter type',
+  hist_punctuality_hint: 'Andel afgange til tiden (under 1 min forsinkelse) pr. dag',
+  hist_by_line_hint: 'Antal forstyrrelser pr. togrute · gns. / maks forsinkelse',
+  hist_by_weekday_hint: 'Forstyrrelser pr. ugedag · gns. forsinkelse',
+  hist_by_cause_hint: 'Forstyrrelser grupperet efter årsag',
+  hist_by_hour_hint: 'Andel af forstyrrelserne pr. time',
+  hist_peak_hint: 'Myldretid 07–09 & 16–18 mod resten af dagen',
   // Short month names
   month_1: 'jan',
   month_2: 'feb',

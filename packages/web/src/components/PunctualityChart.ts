@@ -24,7 +24,7 @@ const Y_STOPS = [0, 25, 50, 75, 100];
  */
 export function renderPunctualityChart(punctuality: PunctualityResponse, lang: Lang): string {
   if (punctuality.daily.length === 0) {
-    return `<div class="chart"><h3 class="chart-title">${translate('hist_punctuality', lang)}</h3><div class="empty">${translate('empty_disruptions', lang)}</div></div>`;
+    return `<div class="chart"><h3 class="chart-title">${translate('hist_punctuality', lang)}</h3><p class="chart-hint">${esc(translate('hist_punctuality_hint', lang))}</p><div class="empty">${translate('empty_disruptions', lang)}</div></div>`;
   }
 
   const series = punctualitySeries(punctuality.daily);
@@ -88,6 +88,7 @@ export function renderPunctualityChart(punctuality: PunctualityResponse, lang: L
   return `
   <div class="chart">
     <h3 class="chart-title">${translate('hist_punctuality', lang)}</h3>
+    <p class="chart-hint">${esc(translate('hist_punctuality_hint', lang))}</p>
     <div class="punct-chart">
       <div class="punct-ylabels" aria-hidden="true">${yLabels}</div>
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(translate('hist_punctuality', lang))}">

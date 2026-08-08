@@ -41,6 +41,7 @@ function peakCard(history: HistoryResponse, lang: Lang): string {
   return `
   <div class="insight">
     <h3 class="insight-title">${translate('insight_peak', lang)}</h3>
+    <p class="chart-hint">${esc(translate('hist_peak_hint', lang))}</p>
     <span class="insight-value">${esc(share)}</span>
     <span class="insight-sub">${esc(delay)}</span>
   </div>`;

@@ -72,6 +72,14 @@ export interface Dict {
   hist_total: string;
   trend_avg_3d: string;
   punct_data_since: string;
+  // Chart hints (one-liners defining each history chart)
+  hist_daily_hint: string;
+  hist_punctuality_hint: string;
+  hist_by_line_hint: string;
+  hist_by_weekday_hint: string;
+  hist_by_cause_hint: string;
+  hist_by_hour_hint: string;
+  hist_peak_hint: string;
   // Short month names (month_1 = January)
   month_1: string;
   month_2: string;

@@ -68,6 +68,14 @@ export const sv: Dict = {
   hist_total: 'Totalt: {n}',
   trend_avg_3d: '3-dagarsmedel',
   punct_data_since: 'data från {date}',
+  // Chart hints
+  hist_daily_hint: 'Störningar per dag, staplade efter typ',
+  hist_punctuality_hint: 'Andel avgångar i tid (under 1 min försening) per dag',
+  hist_by_line_hint: 'Antal störningar per tåglinje · snitt / max försening',
+  hist_by_weekday_hint: 'Störningar per veckodag · snittförsening',
+  hist_by_cause_hint: 'Störningar grupperade efter orsak',
+  hist_by_hour_hint: 'Andel av störningarna per timme',
+  hist_peak_hint: 'Rusningstid 07–09 & 16–18 jämfört med övrig tid',
   // Short month names
   month_1: 'jan',
   month_2: 'feb',
