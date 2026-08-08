@@ -136,6 +136,40 @@ export const en: Dict = {
   privacy_contact: 'Questions or feedback? Email us at',
   privacy_back: '← Back to dashboard',
   nav_privacy: 'Privacy',
+  // Methodology page
+  meth_title: 'Methodology',
+  meth_intro: 'How every number on this site is defined, and where the data comes from.',
+  meth_defs_title: 'KPI definitions',
+  meth_col_kpi: 'KPI',
+  meth_col_definition: 'Definition',
+  meth_thresholds_title: 'Thresholds',
+  meth_thresholds_body:
+    'A departure counts as delayed when its delay is 60 seconds (1 minute) or more — the same threshold as on the private monitor. Everything below that counts as on time.',
+  meth_scope_title: 'Coverage',
+  meth_scope_body:
+    'Data covers cross-border Øresundståg services (lines 802–805) on the Hyllie ↔ København H corridor only. Other regional and local services are not included.',
+  meth_source_title: 'Data source',
+  meth_source_body:
+    'Data comes from Trafiklab (Skånetrafiken) realtime departures, polled every 5 minutes, under a CC-BY 4.0 license. Live data starts 2026-08-06; earlier history comes from KoDa’s historical archive (May 2026 onward).',
+  meth_lag_title: 'Data lag',
+  meth_lag_body:
+    'Trafiklab data can lag the official Skånetrafiken app by about 10–15 minutes on cancellations.',
+  nav_methodology: 'Methodology',
+  meth_def_on_time: 'Share of today’s cross-border departures with a delay under 60 seconds (1 minute).',
+  meth_def_delayed:
+    'Share of today’s cross-border departures delayed 60 seconds (1 minute) or more — not canceled.',
+  meth_def_canceled: 'Share of today’s cross-border departures that were canceled.',
+  meth_def_avg_delay:
+    'Mean delay across all of today’s departures, in seconds — on-time departures count with their actual (near-zero) delay.',
+  meth_def_departures:
+    'Number of today’s cross-border departures observed: Øresundståg lines 802–805 on the Hyllie ↔ København H corridor.',
+  meth_def_daily: 'Disruptions (cancellations, delays, alerts) per day, stacked by type.',
+  meth_def_punctuality: 'Share of departures on time (delay under 1 minute) per day. Days without departures are skipped.',
+  meth_def_by_line: 'Disruption count per train line, plus average and maximum delay.',
+  meth_def_by_weekday: 'Disruption count per weekday, plus average delay.',
+  meth_def_by_cause: 'Disruption count grouped by cause category.',
+  meth_def_by_hour: 'Share of disruptions per hour of day — last 30 days.',
+  meth_def_peak: 'Share of disruptions during peak hours (07–09 and 16–18) versus the rest of the day.',
   // Footer
   footer_attribution: 'Data from Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data can lag official apps by ~10–15 min; cancellations may be missed.',

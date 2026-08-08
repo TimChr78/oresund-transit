@@ -7,6 +7,11 @@ describe('routePath', () => {
     expect(routePath('/privacy/')).toBe('privacy');
   });
 
+  it('maps /methodology and /methodology/ to the methodology route', () => {
+    expect(routePath('/methodology')).toBe('methodology');
+    expect(routePath('/methodology/')).toBe('methodology');
+  });
+
   it('maps everything else to the dashboard', () => {
     expect(routePath('/')).toBe('dashboard');
     expect(routePath('/index.html')).toBe('dashboard');

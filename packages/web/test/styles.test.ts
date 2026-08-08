@@ -58,6 +58,13 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.chart-hint \{[^}]*margin[^}]*6px/);
   });
 
+  it('styles the methodology definitions table (left-aligned, faint headers)', () => {
+    expect(css).toMatch(/\.meth-table th \{[^}]*text-align:\s*left/);
+    expect(css).toMatch(/\.meth-table td \{[^}]*text-align:\s*left/);
+    expect(css).toMatch(/\.meth-table td:first-child \{[^}]*font-family:\s*var\(--font-display\)/);
+    expect(css).toMatch(/\.meth-h \{[^}]*color:\s*var\(--dim\)/);
+  });
+
   it('left-aligns hbar-count and hbar-meta while keeping tabular numerals', () => {
     expect(css).toMatch(/\.hbar-count \{[^}]*text-align:\s*left/);
     expect(css).toMatch(/\.hbar-count \{[^}]*font-variant-numeric:\s*tabular-nums/);

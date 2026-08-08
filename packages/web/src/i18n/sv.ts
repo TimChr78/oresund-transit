@@ -136,6 +136,40 @@ export const sv: Dict = {
   privacy_contact: 'Frågor eller feedback? Mejla oss på',
   privacy_back: '← Tillbaka till översikten',
   nav_privacy: 'Integritet',
+  // Methodology page
+  meth_title: 'Metod',
+  meth_intro: 'Så här definieras varje siffra på sajten, och varifrån datan kommer.',
+  meth_defs_title: 'Definitioner av nyckeltal',
+  meth_col_kpi: 'Nyckeltal',
+  meth_col_definition: 'Definition',
+  meth_thresholds_title: 'Tröskelvärden',
+  meth_thresholds_body:
+    'En avgång räknas som försenad när förseningen är 60 sekunder (1 minut) eller mer — samma tröskel som på den privata monitorn. Allt under det räknas som i tid.',
+  meth_scope_title: 'Omfattning',
+  meth_scope_body:
+    'Datan omfattar bara gränsöverskridande Öresundståg (linje 802–805) på sträckan Hyllie ↔ Köpenhamn H. Andra regionala och lokala tåg ingår inte.',
+  meth_source_title: 'Datakälla',
+  meth_source_body:
+    'Datan kommer från Trafiklab (Skånetrafiken) realtidsavgångar, avläst var 5:e minut, under licensen CC-BY 4.0. Live-data startar 2026-08-06; tidigare historik kommer från KoDas historiska arkiv (från maj 2026).',
+  meth_lag_title: 'Eftersläpning i data',
+  meth_lag_body:
+    'Trafiklab-data kan ligga ungefär 10–15 minuter efter Skånetrafikens officiella app när det gäller inställda avgångar.',
+  nav_methodology: 'Metod',
+  meth_def_on_time: 'Andel av dagens gränsöverskridande avgångar med under 60 sekunders (1 minuts) försening.',
+  meth_def_delayed:
+    'Andel av dagens gränsöverskridande avgångar med 60 sekunder (1 minut) eller mer i försening — inte inställda.',
+  meth_def_canceled: 'Andel av dagens gränsöverskridande avgångar som ställts in.',
+  meth_def_avg_delay:
+    'Snittförsening för alla dagens avgångar, i sekunder — avgångar i tid räknas med sin faktiska (nära noll) försening.',
+  meth_def_departures:
+    'Antal observerade gränsöverskridande avgångar idag: Öresundståg linje 802–805 på sträckan Hyllie ↔ Köpenhamn H.',
+  meth_def_daily: 'Störningar (inställda, förseningar, varningar) per dag, staplade efter typ.',
+  meth_def_punctuality: 'Andel avgångar i tid (under 1 minuts försening) per dag. Dagar utan avgångar hoppas över.',
+  meth_def_by_line: 'Antal störningar per tåglinje, samt snitt- och maxförsening.',
+  meth_def_by_weekday: 'Antal störningar per veckodag, samt snittförsening.',
+  meth_def_by_cause: 'Antal störningar grupperade efter orsakskategori.',
+  meth_def_by_hour: 'Andel av störningarna per timme — senaste 30 dagarna.',
+  meth_def_peak: 'Andel av störningarna under rusningstid (07–09 och 16–18) jämfört med övrig tid.',
   // Footer
   footer_attribution: 'Data från Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligga ~10–15 min efter officiella appar; inställda avgångar kan missas.',

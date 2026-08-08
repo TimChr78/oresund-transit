@@ -137,6 +137,33 @@ export interface Dict {
   privacy_contact: string;
   privacy_back: string;
   nav_privacy: string;
+  // Methodology page
+  meth_title: string;
+  meth_intro: string;
+  meth_defs_title: string;
+  meth_col_kpi: string;
+  meth_col_definition: string;
+  meth_thresholds_title: string;
+  meth_thresholds_body: string;
+  meth_scope_title: string;
+  meth_scope_body: string;
+  meth_source_title: string;
+  meth_source_body: string;
+  meth_lag_title: string;
+  meth_lag_body: string;
+  nav_methodology: string;
+  meth_def_on_time: string;
+  meth_def_delayed: string;
+  meth_def_canceled: string;
+  meth_def_avg_delay: string;
+  meth_def_departures: string;
+  meth_def_daily: string;
+  meth_def_punctuality: string;
+  meth_def_by_line: string;
+  meth_def_by_weekday: string;
+  meth_def_by_cause: string;
+  meth_def_by_hour: string;
+  meth_def_peak: string;
   // Footer
   footer_attribution: string;
   footer_disclaimer: string;

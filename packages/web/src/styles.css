@@ -999,6 +999,54 @@ body::after {
   margin-bottom: 0;
 }
 
+/* --------------------------------------------------------- methodology */
+
+.meth-h {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin: 24px 0 8px;
+}
+.meth-table-wrap {
+  margin-top: 4px;
+}
+.meth-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 420px;
+}
+.meth-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--faint);
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.meth-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.meth-table td:first-child {
+  white-space: nowrap;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+.meth-table tr:last-child td {
+  border-bottom: none;
+}
+
 /* ---------------------------------------------------------------- footer */
 .footer {
   margin-top: 28px;
