@@ -5,6 +5,7 @@
  * log_departure / log_disruption semantics.
  */
 import type { Departure, Disruption, DelayStats, LineDelayStats, LiveStatus } from '@oresund/shared';
+import { stickierType, type DisruptionType } from './logic.js';
 
 /**
  * Minimal structural D1 interface — anything with prepare()/bind()/all()/
@@ -95,27 +96,37 @@ const DISRUPTION_COLS = [
 ] as const;
 
 const EXISTING_DISRUPTION_SQL =
-  'SELECT id, delay_seconds FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1';
+  'SELECT id, delay_seconds, type FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1';
 
 /**
  * Log a disruption, deduplicated by dep_key within the same calendar day
  * (mirroring log_disruption in the private monitor): when the same scheduled
  * departure already has a disruption today, update it keeping the worse
- * (larger) delay plus the latest info; otherwise insert a fresh row.
+ * (larger) delay and the stickier (more severe) type, plus the latest
+ * info; otherwise insert a fresh row.
+ *
+ * Type stickiness matters because Trafiklab resets delay fields late
+ * (re-timing / post-departure polls): a departure first logged as delay>=600
+ * can re-classify as alert on a later poll even though the worst delay — and
+ * the alert text describing it — still describe the same event.
  */
 export async function logDisruption(db: D1Like, d: DisruptionInput): Promise<{ meta?: { changes?: number } }> {
   const existing = await db
     .prepare(EXISTING_DISRUPTION_SQL)
     .bind(d.dep_key, d.timestamp)
-    .first<{ id: number; delay_seconds: number | null }>();
+    .first<{ id: number; delay_seconds: number | null; type: DisruptionType | null }>();
 
   if (existing) {
     const delay = Math.max(existing.delay_seconds ?? 0, d.delay_seconds ?? 0);
+    // The shared Disruption row type widens `type` to string | null (DB rows);
+    // incoming classifications from classifyType are always one of the four.
+    const incomingType = (d.type ?? 'unknown') as DisruptionType;
+    const type = existing.type ? stickierType(existing.type, incomingType) : incomingType;
     return db
       .prepare(
         'UPDATE disruptions SET delay_seconds = ?, type = ?, severity = ?, cause = ?, raw_text = ?, last_updated = ? WHERE id = ?',
       )
-      .bind(delay, d.type, d.severity, d.cause, d.raw_text, d.last_updated, existing.id)
+      .bind(delay, type, d.severity, d.cause, d.raw_text, d.last_updated, existing.id)
       .run();
   }
   return db

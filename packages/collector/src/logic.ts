@@ -190,6 +190,35 @@ export function classifyType(
   return 'unknown';
 }
 
+/**
+ * Severity rank used for "sticky" disruption types: a disruption row that was
+ * once classified more severely must not be downgraded by a later, weaker
+ * observation of the same departure. Trafiklab resets delay fields late
+ * (re-timing / post-departure polls), so a train first logged as delay>=600
+ * can re-classify as alert on a later poll even though the alert text — and
+ * the recorded worst delay — still describe the same event.
+ */
+export function disruptionTypeRank(type: DisruptionType): number {
+  switch (type) {
+    case 'cancellation':
+      return 3;
+    case 'delay':
+      return 2;
+    case 'alert':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * The more severe of two classifications for the same departure. Ties keep
+ * the incoming value so the latest observation wins within a rank.
+ */
+export function stickierType(existing: DisruptionType, incoming: DisruptionType): DisruptionType {
+  return disruptionTypeRank(incoming) >= disruptionTypeRank(existing) ? incoming : existing;
+}
+
 /** "" or <16 chars → "?", else the HH:MM slice (isoStr[11:16]). */
 export function formatTime(isoStr: string | null | undefined): string {
   if (!isoStr || isoStr.length < 16) return '?';

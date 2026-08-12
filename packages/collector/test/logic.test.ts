@@ -14,6 +14,8 @@ import {
   isSwedenBoundTrain,
   isGottorpHyllieBus,
   delayStatus,
+  disruptionTypeRank,
+  stickierType,
 } from '../src/logic.js';
 
 describe('normalizeScan', () => {
@@ -344,5 +346,32 @@ describe('delayStatus', () => {
   it('returns delayed at and above 60s', () => {
     expect(delayStatus(60)).toBe('delayed');
     expect(delayStatus(120)).toBe('delayed');
+  });
+});
+
+describe('disruptionTypeRank / stickierType', () => {
+  it('ranks types by severity: cancellation > delay > alert > unknown', () => {
+    expect(disruptionTypeRank('cancellation')).toBeGreaterThan(disruptionTypeRank('delay'));
+    expect(disruptionTypeRank('delay')).toBeGreaterThan(disruptionTypeRank('alert'));
+    expect(disruptionTypeRank('alert')).toBeGreaterThan(disruptionTypeRank('unknown'));
+  });
+
+  it('keeps the existing type when the incoming classification is weaker', () => {
+    // The 2026-08-11 bug: Trafiklab resets the delay field late, a re-poll
+    // classifies the same departure as alert — the delay type must survive.
+    expect(stickierType('delay', 'alert')).toBe('delay');
+    expect(stickierType('cancellation', 'alert')).toBe('cancellation');
+    expect(stickierType('cancellation', 'delay')).toBe('cancellation');
+  });
+
+  it('upgrades to the incoming type when it is stronger', () => {
+    expect(stickierType('alert', 'delay')).toBe('delay');
+    expect(stickierType('delay', 'cancellation')).toBe('cancellation');
+    expect(stickierType('unknown', 'alert')).toBe('alert');
+  });
+
+  it('keeps the incoming type on equal rank', () => {
+    expect(stickierType('alert', 'alert')).toBe('alert');
+    expect(stickierType('delay', 'delay')).toBe('delay');
   });
 });

@@ -103,7 +103,7 @@ describe('logDisruption', () => {
     const db = new FakeD1();
     await logDisruption(db, disruptionRow);
 
-    const sel = db.callsMatching('SELECT id, delay_seconds FROM disruptions')[0]!;
+    const sel = db.callsMatching('SELECT id, delay_seconds, type FROM disruptions')[0]!;
     expect(sel.sql).toContain('dep_key = ?');
     expect(sel.sql).toContain('date(timestamp) = date(?)');
     expect(sel.binds).toEqual(['804_21:59_Østerport', '2026-08-06T21:59:27']);
@@ -111,9 +111,10 @@ describe('logDisruption', () => {
 
   it('updates the existing row instead of inserting (dedup path)', async () => {
     const db = new FakeD1();
-    db.stubFirst('SELECT id, delay_seconds FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
+    db.stubFirst('SELECT id, delay_seconds, type FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
       id: 7,
       delay_seconds: 300,
+      type: 'delay',
     });
     await logDisruption(db, { ...disruptionRow, delay_seconds: 100 });
 
@@ -125,27 +126,68 @@ describe('logDisruption', () => {
 
   it('keeps the worse (larger) delay when updating', async () => {
     const db = new FakeD1();
-    db.stubFirst('SELECT id, delay_seconds FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
+    db.stubFirst('SELECT id, delay_seconds, type FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
       id: 7,
       delay_seconds: 600,
+      type: 'delay',
     });
     await logDisruption(db, { ...disruptionRow, delay_seconds: 300 });
     expect(db.lastBindsFor('UPDATE disruptions SET')[0]).toBe(600);
 
     const db2 = new FakeD1();
-    db2.stubFirst('SELECT id, delay_seconds FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
+    db2.stubFirst('SELECT id, delay_seconds, type FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
       id: 7,
       delay_seconds: 300,
+      type: 'delay',
     });
     await logDisruption(db2, { ...disruptionRow, delay_seconds: 900 });
     expect(db2.lastBindsFor('UPDATE disruptions SET')[0]).toBe(900);
   });
 
+  it('keeps the stickier (more severe) type when a later poll classifies weaker', async () => {
+    // Regression (2026-08-11): Trafiklab resets delay fields late; a re-poll
+    // classifies the same departure as alert while the worst delay is kept —
+    // leaving type=alert with delay=1465s. The stronger type must survive.
+    const db = new FakeD1();
+    db.stubFirst('SELECT id, delay_seconds, type FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
+      id: 7,
+      delay_seconds: 1465,
+      type: 'delay',
+    });
+    await logDisruption(db, { ...disruptionRow, type: 'alert', delay_seconds: 0 });
+    const binds = db.lastBindsFor('UPDATE disruptions SET');
+    expect(binds[0]).toBe(1465); // worst delay kept
+    expect(binds[1]).toBe('delay'); // type NOT downgraded to alert
+  });
+
+  it('upgrades the stored type when the incoming classification is stronger', async () => {
+    const db = new FakeD1();
+    db.stubFirst('SELECT id, delay_seconds, type FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
+      id: 7,
+      delay_seconds: 300,
+      type: 'alert',
+    });
+    await logDisruption(db, { ...disruptionRow, type: 'cancellation', severity: 'major', delay_seconds: 0 });
+    expect(db.lastBindsFor('UPDATE disruptions SET')[1]).toBe('cancellation');
+  });
+
+  it('keeps the incoming type on equal severity rank', async () => {
+    const db = new FakeD1();
+    db.stubFirst('SELECT id, delay_seconds, type FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
+      id: 7,
+      delay_seconds: 300,
+      type: 'delay',
+    });
+    await logDisruption(db, { ...disruptionRow, type: 'delay', delay_seconds: 300 });
+    expect(db.lastBindsFor('UPDATE disruptions SET')[1]).toBe('delay');
+  });
+
   it('carries the latest info (type/severity/cause) on update', async () => {
     const db = new FakeD1();
-    db.stubFirst('SELECT id, delay_seconds FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
+    db.stubFirst('SELECT id, delay_seconds, type FROM disruptions WHERE dep_key = ? AND date(timestamp) = date(?) ORDER BY id DESC LIMIT 1', {
       id: 7,
       delay_seconds: 600,
+      type: 'delay',
     });
     await logDisruption(db, {
       ...disruptionRow,
