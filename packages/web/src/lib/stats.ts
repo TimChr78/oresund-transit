@@ -380,9 +380,15 @@ export function filterByDirection<T extends { direction: Disruption['direction']
  * day's departures live in [today, tomorrow). Returning `to` == `from`
  * (as the dashboard did at launch) yields an empty range and zero stats.
  */
+/** Local calendar date as YYYY-MM-DD (the timezone-correct "today"). */
+export function localToday(now: Date = new Date()): string {
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+}
+
 export function delayStatsRange(now: Date = new Date()): { from: string; to: string } {
   const p = (n: number): string => String(n).padStart(2, '0');
-  const from = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  const from = localToday(now);
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const to = `${tomorrow.getFullYear()}-${p(tomorrow.getMonth() + 1)}-${p(tomorrow.getDate())}`;
   return { from, to };

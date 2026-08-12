@@ -192,3 +192,25 @@ describe('app state reducer', () => {
     expect(s.history).toBeNull();
   });
 });
+
+describe('disruptionsMode', () => {
+  it('starts in today mode', () => {
+    expect(createInitialState().disruptionsMode).toBe('today');
+  });
+
+  it('SET_DISRUPTIONS_MODE switches to archive and back', () => {
+    const s0 = createInitialState();
+    const s1 = reducer(s0, { type: 'SET_DISRUPTIONS_MODE', mode: 'archive' });
+    expect(s1.disruptionsMode).toBe('archive');
+    expect(s1.disruptionsState).toBe('loading');
+    const s2 = reducer(s1, { type: 'SET_DISRUPTIONS_MODE', mode: 'today' });
+    expect(s2.disruptionsMode).toBe('today');
+  });
+
+  it('DISRUPTIONS_OK preserves the current mode', () => {
+    const s1 = reducer(createInitialState(), { type: 'SET_DISRUPTIONS_MODE', mode: 'archive' });
+    const s2 = reducer(s1, { type: 'DISRUPTIONS_OK', disruptions: [] });
+    expect(s2.disruptionsMode).toBe('archive');
+    expect(s2.disruptionsState).toBe('ok');
+  });
+});
