@@ -49,5 +49,19 @@
       <p lang="en">This page requires JavaScript to show the departure board.</p>
     </noscript>
     <script type="module" src="/src/main.ts"></script>
+    <script>
+      // Deploy-race self-heal: if the SPA never boots within 6s (typically a
+      // module load failure while a new deployment propagates), reload once.
+      // sessionStorage guard prevents reload loops.
+      (function () {
+        setTimeout(function () {
+          var app = document.getElementById('app');
+          if (app && app.children.length === 0 && !sessionStorage.getItem('oresund-reloaded')) {
+            sessionStorage.setItem('oresund-reloaded', '1');
+            location.reload();
+          }
+        }, 6000);
+      })();
+    </script>
   </body>
 </html>
