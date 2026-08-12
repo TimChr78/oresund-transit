@@ -146,7 +146,7 @@ function toDepartureRow(
 
 /**
  * Classify one departure into a disruption row (or null when it is not
- * disruptive): canceled → cancellation, delay >= 600s → delay, alerts → alert.
+ * disruptive): canceled → cancellation, delay >= 240s → delay, alerts → alert.
  * Reuses the ported logic.ts classifiers as-is.
  */
 function classifyDeparture(

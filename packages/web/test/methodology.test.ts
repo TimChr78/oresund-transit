@@ -44,8 +44,8 @@ describe('renderMethodologyPage', () => {
 
   it('renders the ground-truth definitions from the API/collector', () => {
     const html = renderMethodologyPage('en', getDict('en'));
-    expect(html).toContain('delay under 60 seconds');
-    expect(html).toContain('60 seconds (1 minute) or more');
+    expect(html).toContain('delay under 240 seconds');
+    expect(html).toContain('240 seconds (4 minutes) or more');
     expect(html).toContain('lines 802–805');
     expect(html).toContain('Hyllie ↔ København H');
   });

@@ -161,13 +161,13 @@ export function categorizeSeverity(
   if (['vagnbrist', 'kort tag', 'short train'].some((kw) => combined.includes(kw))) {
     return 'minor';
   }
-  if (delay && delay >= 600) return 'minor';
+  if (delay && delay >= 240) return 'minor';
   return 'minor';
 }
 
 export type DisruptionType = 'cancellation' | 'delay' | 'alert' | 'unknown';
 
-/** Type: canceled→cancellation, cancellation keywords→cancellation, delay≥600→delay, message→alert, else unknown. */
+/** Type: canceled→cancellation, cancellation keywords→cancellation, delay≥240→delay, message→alert, else unknown. */
 export function classifyType(
   canceled: boolean,
   delay: number | null | undefined,
@@ -185,7 +185,7 @@ export function classifyType(
   if (['installt', 'cancelled', 'canceled'].some((kw) => combined.includes(kw))) {
     return 'cancellation';
   }
-  if (delay && delay >= 600) return 'delay';
+  if (delay && delay >= 240) return 'delay';
   if (title || text) return 'alert';
   return 'unknown';
 }
@@ -194,7 +194,7 @@ export function classifyType(
  * Severity rank used for "sticky" disruption types: a disruption row that was
  * once classified more severely must not be downgraded by a later, weaker
  * observation of the same departure. Trafiklab resets delay fields late
- * (re-timing / post-departure polls), so a train first logged as delay>=600
+ * (re-timing / post-departure polls), so a train first logged as delay>=240
  * can re-classify as alert on a later poll even though the alert text — and
  * the recorded worst delay — still describe the same event.
  */
@@ -286,7 +286,13 @@ export function isGottorpHyllieBus(dep: TrafiklabDeparture): boolean {
   return dest.includes('hyllie');
 }
 
-/** <60s → "on_time", ≥60s → "delayed" (mirrors log_departure in the live monitor). */
+/**
+ * Punctuality status threshold — Skånetrafiken's official RT3 measure:
+ * a departure ≤ 3:59 late counts as punctual; ≥ 4:00 (240s) is delayed.
+ * ("Läget i tågtrafiken 2025": "Skånetrafiken har 3:59 (RT3) som mått".)
+ * classifyType uses the SAME 240s boundary, so the official delay definition
+ * is consistent across the KPI and the disruption table.
+ */
 export function delayStatus(delaySeconds: number): 'on_time' | 'delayed' {
-  return delaySeconds < 60 ? 'on_time' : 'delayed';
+  return delaySeconds < 240 ? 'on_time' : 'delayed';
 }

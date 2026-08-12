@@ -51,8 +51,8 @@ export const da: Dict = {
   stat_avg_delay: 'Gns. forsinkelse',
   stat_departures: 'Afgange',
   // Stat card hints
-  stat_on_time_hint: 'I dag · andel afgange med under 1 min forsinkelse',
-  stat_delayed_hint: 'I dag · afgange forsinket 1 minut eller mere',
+  stat_on_time_hint: 'I dag · andel afgange med under 4 min forsinkelse',
+  stat_delayed_hint: 'I dag · afgange forsinket 4 minutter eller mere',
   stat_canceled_hint: 'I dag · aflyste afgange',
   stat_avg_delay_hint: 'Gns. forsinkelse for alle afgange i dag',
   stat_departures_hint: 'Grænseoverskridende Øresundståg-afgange i dag',
@@ -73,7 +73,7 @@ export const da: Dict = {
   punct_data_since: 'data siden {date}',
   // Chart hints
   hist_daily_hint: 'Forstyrrelser pr. dag, stablet efter type',
-  hist_punctuality_hint: 'Andel afgange til tiden (under 1 min forsinkelse) pr. dag',
+  hist_punctuality_hint: 'Andel afgange til tiden (under 4 min forsinkelse) pr. dag',
   hist_by_line_hint: 'Antal forstyrrelser pr. togrute · gns. / maks forsinkelse',
   hist_by_weekday_hint: 'Forstyrrelser pr. ugedag · gns. forsinkelse',
   hist_by_cause_hint: 'Forstyrrelser grupperet efter årsag',
@@ -147,7 +147,7 @@ export const da: Dict = {
   meth_col_definition: 'Definition',
   meth_thresholds_title: 'Grænseværdier',
   meth_thresholds_body:
-    'En afgang tæller som forsinket, når forsinkelsen er 60 sekunder (1 minut) eller mere — samme grænseværdi som på den private skærm. Alt derunder tæller som til tiden.',
+    'En afgang tæller som forsinket, når forsinkelsen er 240 sekunder (4 minutter) eller mere — Skånetrafikens officielle RT3-punktlighedsmål (≤ 3:59 forsinket = til tiden). Alt derunder tæller som til tiden.',
   meth_scope_title: 'Dækning',
   meth_scope_body:
     'Dataene dækker kun grænseoverskridende Øresundståg (linje 802–805) på strækningen Hyllie ↔ København H. Andre regionale og lokale tog er ikke inkluderet.',
@@ -158,16 +158,16 @@ export const da: Dict = {
   meth_lag_body:
     'Trafiklab-data kan ligge ca. 10–15 minutter efter Skånetrafikens officielle app, når det gælder aflysninger.',
   nav_methodology: 'Metode',
-  meth_def_on_time: 'Andel af dagens grænseoverskridende afgange med under 60 sekunders (1 minuts) forsinkelse.',
+  meth_def_on_time: 'Andel af dagens grænseoverskridende afgange med under 240 sekunders (4 minutters) forsinkelse.',
   meth_def_delayed:
-    'Andel af dagens grænseoverskridende afgange med 60 sekunders (1 minuts) forsinkelse eller mere — ikke aflyste.',
+    'Andel af dagens grænseoverskridende afgange med 240 sekunders (4 minutters) forsinkelse eller mere — ikke aflyste.',
   meth_def_canceled: 'Andel af dagens grænseoverskridende afgange, der blev aflyst.',
   meth_def_avg_delay:
     'Gennemsnitlig forsinkelse for alle dagens afgange, i sekunder — afgange til tiden tæller med deres faktiske (næsten nul) forsinkelse.',
   meth_def_departures:
     'Antal observerede grænseoverskridende afgange i dag: Øresundståg linje 802–805 på strækningen Hyllie ↔ København H.',
   meth_def_daily: 'Forstyrrelser (aflysninger, forsinkelser, advarsler) pr. dag, stablet efter type.',
-  meth_def_punctuality: 'Andel afgange til tiden (under 1 minuts forsinkelse) pr. dag. Dage uden afgange springes over.',
+  meth_def_punctuality: 'Andel afgange til tiden (under 4 minutters forsinkelse) pr. dag. Dage uden afgange springes over.',
   meth_def_by_line: 'Antal forstyrrelser pr. togrute, samt gennemsnitlig og maksimal forsinkelse.',
   meth_def_by_weekday: 'Antal forstyrrelser pr. ugedag, samt gennemsnitlig forsinkelse.',
   meth_def_by_cause: 'Antal forstyrrelser grupperet efter årsagskategori.',
