@@ -157,10 +157,10 @@ describe('renderPunctualityChart', () => {
   it('adds a muted hint under the punctuality title (Phase 8)', () => {
     const html = renderPunctualityChart(PUNCTUALITY, 'en');
     expect(html).toMatch(
-      /chart-title">Punctuality<\/h3>\s*<p class="chart-hint">Share of departures on time \(under 1 min delay\) per day<\/p>/,
+      /chart-title">Punctuality<\/h3>\s*<p class="chart-hint">Share of departures on time \(under 4 min delay\) per day<\/p>/,
     );
-    expect(renderPunctualityChart(PUNCTUALITY, 'sv')).toContain('Andel avgångar i tid (under 1 min försening) per dag');
-    expect(renderPunctualityChart(PUNCTUALITY, 'da')).toContain('Andel afgange til tiden (under 1 min forsinkelse) pr. dag');
+    expect(renderPunctualityChart(PUNCTUALITY, 'sv')).toContain('Andel avgångar i tid (under 4 min försening) per dag');
+    expect(renderPunctualityChart(PUNCTUALITY, 'da')).toContain('Andel afgange til tiden (under 4 min forsinkelse) pr. dag');
   });
 
   it('still shows the punctuality hint in the empty state', () => {

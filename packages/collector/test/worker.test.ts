@@ -119,15 +119,15 @@ describe('runScheduled — disruption classification', () => {
     expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('canceled');
   });
 
-  it('creates a delay disruption for a delay >= 600s', async () => {
+  it('creates a delay disruption for a delay >= 240s', async () => {
     const db = new FakeD1();
-    const dep = { ...realDeparture, delay: 650 };
+    const dep = { ...realDeparture, delay: 240 };
     await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
 
     const rows = disruptionRows(db);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.type).toBe('delay');
-    expect(rows[0]!.delay_seconds).toBe(650);
+    expect(rows[0]!.delay_seconds).toBe(240);
   });
 
   it('creates an alert disruption when the departure carries alerts', async () => {
@@ -153,12 +153,12 @@ describe('runScheduled — disruption classification', () => {
     expect(disruptionRows(db)).toHaveLength(0);
   });
 
-  it('records a sub-600s delay as delayed but without a disruption row', async () => {
+  it('records a sub-240s delay as on_time with no disruption row', async () => {
     const db = new FakeD1();
-    const dep = { ...realDeparture, delay: 299 };
+    const dep = { ...realDeparture, delay: 239 };
     await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
 
-    expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('delayed');
+    expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('on_time');
     expect(disruptionRows(db)).toHaveLength(0);
   });
 });

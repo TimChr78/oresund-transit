@@ -183,13 +183,13 @@ describe('classifyType', () => {
     expect(classifyType(false, 0, 'canceled', '')).toBe('cancellation');
   });
 
-  it('returns delay for delay >= 600 (before title check)', () => {
-    expect(classifyType(false, 600, 'Försening', '')).toBe('delay');
+  it('returns delay for delay >= 240 (before title check)', () => {
+    expect(classifyType(false, 240, 'Försening', '')).toBe('delay');
     expect(classifyType(false, 1200, '', '')).toBe('delay');
   });
 
-  it('returns alert for delay < 600 with a message', () => {
-    expect(classifyType(false, 599, 'Något', '')).toBe('alert');
+  it('returns alert for delay < 240 with a message', () => {
+    expect(classifyType(false, 239, 'Något', '')).toBe('alert');
     expect(classifyType(false, 0, '', 'text')).toBe('alert');
   });
 
@@ -337,15 +337,17 @@ describe('isGottorpHyllieBus', () => {
 });
 
 describe('delayStatus', () => {
-  it('returns on_time below 60s (incl. negative delays)', () => {
+  it('returns on_time below 240s (RT3: Skånetrafiken counts ≤3:59 late as punctual)', () => {
     expect(delayStatus(0)).toBe('on_time');
     expect(delayStatus(59)).toBe('on_time');
     expect(delayStatus(-85)).toBe('on_time');
+    expect(delayStatus(239)).toBe('on_time');
   });
 
-  it('returns delayed at and above 60s', () => {
-    expect(delayStatus(60)).toBe('delayed');
-    expect(delayStatus(120)).toBe('delayed');
+  it('returns delayed at and above 240s (4:00)', () => {
+    expect(delayStatus(240)).toBe('delayed');
+    expect(delayStatus(299)).toBe('delayed');
+    expect(delayStatus(1200)).toBe('delayed');
   });
 });
 

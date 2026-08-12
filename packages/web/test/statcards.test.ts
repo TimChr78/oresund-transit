@@ -24,8 +24,8 @@ describe('renderStatCards — inline hints', () => {
 
   it('defines each stat in English', () => {
     const html = renderStatCards(STATS, 'en');
-    expect(html).toContain('Today · share of departures with under 1 min delay');
-    expect(html).toContain('Today · departures delayed 1 min or more');
+    expect(html).toContain('Today · share of departures with under 4 min delay');
+    expect(html).toContain('Today · departures delayed 4 min or more');
     expect(html).toContain('Today · departures canceled');
     expect(html).toContain('Mean delay of all departures today');
     expect(html).toContain('Cross-border Øresundståg departures today');
@@ -39,10 +39,10 @@ describe('renderStatCards — inline hints', () => {
 
   it('translates hints into sv and da', () => {
     const sv = renderStatCards(STATS, 'sv');
-    expect(sv).toContain('Idag · andel avgångar med under 1 min försening');
+    expect(sv).toContain('Idag · andel avgångar med under 4 min försening');
     expect(sv).toContain('Snittförsening för alla avgångar idag');
     const da = renderStatCards(STATS, 'da');
-    expect(da).toContain('I dag · andel afgange med under 1 min forsinkelse');
+    expect(da).toContain('I dag · andel afgange med under 4 min forsinkelse');
     expect(da).toContain('Grænseoverskridende Øresundståg-afgange i dag');
   });
 });
