@@ -65,6 +65,42 @@ describe('i18n dictionaries', () => {
     }
   });
 
+  it('provides every methodology-page key in all languages', () => {
+    const methKeys = [
+      'meth_title',
+      'meth_intro',
+      'meth_defs_title',
+      'meth_col_kpi',
+      'meth_col_definition',
+      'meth_thresholds_title',
+      'meth_thresholds_body',
+      'meth_scope_title',
+      'meth_scope_body',
+      'meth_source_title',
+      'meth_source_body',
+      'meth_lag_title',
+      'meth_lag_body',
+      'nav_methodology',
+      'meth_def_on_time',
+      'meth_def_delayed',
+      'meth_def_canceled',
+      'meth_def_avg_delay',
+      'meth_def_departures',
+      'meth_def_daily',
+      'meth_def_punctuality',
+      'meth_def_by_line',
+      'meth_def_by_weekday',
+      'meth_def_by_cause',
+      'meth_def_by_hour',
+      'meth_def_peak',
+    ] as Key[];
+    for (const lang of ALL_LANGS) {
+      for (const key of methKeys) {
+        expect(DICTS[lang][key].trim().length, `${lang}.${key} is empty`).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it('provides a translated label for every cause key in all languages', () => {
     const causeKeys = [
       'staffing',

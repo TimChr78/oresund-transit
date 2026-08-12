@@ -153,6 +153,21 @@ describe('renderPunctualityChart', () => {
     expect(html).not.toContain('<svg');
     expect(html).toContain('empty');
   });
+
+  it('adds a muted hint under the punctuality title (Phase 8)', () => {
+    const html = renderPunctualityChart(PUNCTUALITY, 'en');
+    expect(html).toMatch(
+      /chart-title">Punctuality<\/h3>\s*<p class="chart-hint">Share of departures on time \(under 1 min delay\) per day<\/p>/,
+    );
+    expect(renderPunctualityChart(PUNCTUALITY, 'sv')).toContain('Andel avgångar i tid (under 1 min försening) per dag');
+    expect(renderPunctualityChart(PUNCTUALITY, 'da')).toContain('Andel afgange til tiden (under 1 min forsinkelse) pr. dag');
+  });
+
+  it('still shows the punctuality hint in the empty state', () => {
+    const empty: PunctualityResponse = { days: 7, date_from: 'x', date_to: 'y', daily: [] };
+    const html = renderPunctualityChart(empty, 'en');
+    expect(html).toMatch(/class="chart-title">Punctuality<\/h3>\s*<p class="chart-hint">/);
+  });
 });
 
 // Keep HistoryResponse referenced so the fixture stays typed to the API shape.

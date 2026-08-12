@@ -66,4 +66,16 @@ describe('renderInsightCards', () => {
     expect(renderInsightCards(history(), 'da')).toContain('Uge mod uge');
     expect(renderInsightCards(history(), 'da')).toContain('Myldretid');
   });
+
+  it('adds a peak-hours hint to the peak card (Phase 8)', () => {
+    const html = renderInsightCards(history(), 'en');
+    expect(html).toContain('class="chart-hint"');
+    // & is escaped to &amp; by esc(), matching the on-page text
+    expect(html).toContain('Peak hours 07–09 &amp; 16–18 vs rest of day');
+  });
+
+  it('translates the peak-hours hint', () => {
+    expect(renderInsightCards(history(), 'sv')).toContain('Rusningstid 07–09 &amp; 16–18 jämfört med övrig tid');
+    expect(renderInsightCards(history(), 'da')).toContain('Myldretid 07–09 &amp; 16–18 mod resten af dagen');
+  });
 });

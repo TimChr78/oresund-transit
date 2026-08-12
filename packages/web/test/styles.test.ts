@@ -46,6 +46,25 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.heat-high \{[^}]*#ef4444/);
   });
 
+  it('styles the muted one-liner stat hints (small, faint, offset below the label)', () => {
+    expect(css).toMatch(/\.stat-hint \{[^}]*font-size:\s*0\.72rem/);
+    expect(css).toMatch(/\.stat-hint \{[^}]*color:\s*var\(--faint\)/);
+    expect(css).toMatch(/\.stat-hint \{[^}]*margin-top:\s*2px/);
+  });
+
+  it('styles the muted one-liner chart hints (0.75rem, faint, under the title)', () => {
+    expect(css).toMatch(/\.chart-hint \{[^}]*font-size:\s*0\.75rem/);
+    expect(css).toMatch(/\.chart-hint \{[^}]*color:\s*var\(--faint\)/);
+    expect(css).toMatch(/\.chart-hint \{[^}]*margin[^}]*6px/);
+  });
+
+  it('styles the methodology definitions table (left-aligned, faint headers)', () => {
+    expect(css).toMatch(/\.meth-table th \{[^}]*text-align:\s*left/);
+    expect(css).toMatch(/\.meth-table td \{[^}]*text-align:\s*left/);
+    expect(css).toMatch(/\.meth-table td:first-child \{[^}]*font-family:\s*var\(--font-display\)/);
+    expect(css).toMatch(/\.meth-h \{[^}]*color:\s*var\(--dim\)/);
+  });
+
   it('left-aligns hbar-count and hbar-meta while keeping tabular numerals', () => {
     expect(css).toMatch(/\.hbar-count \{[^}]*text-align:\s*left/);
     expect(css).toMatch(/\.hbar-count \{[^}]*font-variant-numeric:\s*tabular-nums/);

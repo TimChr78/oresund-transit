@@ -31,6 +31,11 @@ const LINE_ROUTES: Record<string, string> = {
 /** weekday_<key> translation suffix for Mon..Sun. */
 const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
+/** Muted one-liner under a chart title defining what the chart shows. */
+function chartHint(key: Key, lang: Lang): string {
+  return `<p class="chart-hint">${esc(translate(key, lang))}</p>`;
+}
+
 function legend(lang: Lang): string {
   const item = (cls: string, key: 'type_cancellation' | 'type_delay' | 'type_alert'): string => `
     <span class="legend-item"><span class="legend-dot ${cls}"></span>${translate(key, lang)}</span>`;
@@ -238,6 +243,7 @@ export function renderHistoryCharts(
 
     <div class="chart">
       <h3 class="chart-title">${translate('hist_daily', lang)}</h3>
+      ${chartHint('hist_daily_hint', lang)}
       <div class="bars">
         ${axis}
         <div class="bar-plot">
@@ -256,16 +262,19 @@ export function renderHistoryCharts(
 
     <div class="chart">
       <h3 class="chart-title">${translate('hist_by_line', lang)}</h3>
+      ${chartHint('hist_by_line_hint', lang)}
       <div class="hbars">${byLineBars(history.by_line, lang)}</div>
     </div>
 
     <div class="chart">
       <h3 class="chart-title">${translate('hist_by_weekday', lang)}</h3>
+      ${chartHint('hist_by_weekday_hint', lang)}
       <div class="hbars">${byWeekdayBars(history.daily, lang)}</div>
     </div>
 
     <div class="chart">
       <h3 class="chart-title">${translate('hist_by_cause', lang)}</h3>
+      ${chartHint('hist_by_cause_hint', lang)}
       <div class="hbars">${hbars(
         history.by_cause.map((c) => ({ label: causeLabel(c.cause, lang), count: c.count })),
         lang,
@@ -274,6 +283,7 @@ export function renderHistoryCharts(
 
     <div class="chart">
       <h3 class="chart-title">${translate('hist_by_hour', lang)}</h3>
+      ${chartHint('hist_by_hour_hint', lang)}
       <div class="heatmap">${cells}</div>
       <div class="heat-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
       ${heatmapHistory ? `<div class="heat-caption">${translate('heat_caption', lang)}</div>` : ''}

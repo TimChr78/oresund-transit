@@ -307,6 +307,36 @@ describe('renderHistoryCharts — by-hour heatmap (share %, 30-day baseline)', (
   });
 });
 
+describe('renderHistoryCharts — chart hints (Phase 8)', () => {
+  it('places a muted one-liner hint under every chart title (5 charts)', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect((html.match(/class="chart-hint"/g) ?? []).length).toBe(5);
+  });
+
+  it('defines each chart in English', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toContain('Disruptions per day, stacked by type');
+    expect(html).toContain('Disruption count per train line · avg / max delay');
+    expect(html).toContain('Disruptions by weekday · avg delay');
+    expect(html).toContain('Disruptions grouped by cause');
+    expect(html).toContain('Share of disruptions by hour of day');
+  });
+
+  it('sits right after the chart title', () => {
+    const html = renderHistoryCharts(HISTORY, null, 7, 'en');
+    expect(html).toMatch(/chart-title">Daily<\/h3>\s*<p class="chart-hint">/);
+  });
+
+  it('translates chart hints into sv and da', () => {
+    const sv = renderHistoryCharts(HISTORY, null, 7, 'sv');
+    expect(sv).toContain('Störningar per dag, staplade efter typ');
+    expect(sv).toContain('Andel av störningarna per timme');
+    const da = renderHistoryCharts(HISTORY, null, 7, 'da');
+    expect(da).toContain('Forstyrrelser pr. dag, stablet efter type');
+    expect(da).toContain('Andel af forstyrrelserne pr. time');
+  });
+});
+
 describe('renderHistoryCharts — hbar structure (de-right-align)', () => {
   it('renders label → track → fill → count → meta in order for line rows', () => {
     const html = renderHistoryCharts(HISTORY, null, 7, 'en');

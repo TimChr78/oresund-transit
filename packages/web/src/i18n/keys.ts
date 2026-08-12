@@ -6,6 +6,9 @@ export type Lang = 'sv' | 'da' | 'en';
  * exactly these keys — enforced by test/i18n.test.ts.
  */
 export interface Dict {
+  // Brand
+  brand_name: string;
+  brand_sub: string;
   // Status banner
   status_normal: string;
   status_delayed: string;
@@ -51,6 +54,12 @@ export interface Dict {
   stat_canceled: string;
   stat_avg_delay: string;
   stat_departures: string;
+  // Stat card hints (one-liners defining each number)
+  stat_on_time_hint: string;
+  stat_delayed_hint: string;
+  stat_canceled_hint: string;
+  stat_avg_delay_hint: string;
+  stat_departures_hint: string;
   // History
   hist_daily: string;
   hist_punctuality: string;
@@ -66,6 +75,14 @@ export interface Dict {
   hist_total: string;
   trend_avg_3d: string;
   punct_data_since: string;
+  // Chart hints (one-liners defining each history chart)
+  hist_daily_hint: string;
+  hist_punctuality_hint: string;
+  hist_by_line_hint: string;
+  hist_by_weekday_hint: string;
+  hist_by_cause_hint: string;
+  hist_by_hour_hint: string;
+  hist_peak_hint: string;
   // Short month names (month_1 = January)
   month_1: string;
   month_2: string;
@@ -123,6 +140,33 @@ export interface Dict {
   privacy_contact: string;
   privacy_back: string;
   nav_privacy: string;
+  // Methodology page
+  meth_title: string;
+  meth_intro: string;
+  meth_defs_title: string;
+  meth_col_kpi: string;
+  meth_col_definition: string;
+  meth_thresholds_title: string;
+  meth_thresholds_body: string;
+  meth_scope_title: string;
+  meth_scope_body: string;
+  meth_source_title: string;
+  meth_source_body: string;
+  meth_lag_title: string;
+  meth_lag_body: string;
+  nav_methodology: string;
+  meth_def_on_time: string;
+  meth_def_delayed: string;
+  meth_def_canceled: string;
+  meth_def_avg_delay: string;
+  meth_def_departures: string;
+  meth_def_daily: string;
+  meth_def_punctuality: string;
+  meth_def_by_line: string;
+  meth_def_by_weekday: string;
+  meth_def_by_cause: string;
+  meth_def_by_hour: string;
+  meth_def_peak: string;
   // Footer
   footer_attribution: string;
   footer_disclaimer: string;

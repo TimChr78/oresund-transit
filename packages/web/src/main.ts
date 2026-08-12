@@ -1,7 +1,8 @@
 import './styles.css';
 import { ApiError, fetchDelayStats, fetchDisruptions, fetchHistory, fetchLiveStatus, fetchPunctuality } from './api';
-import { detectLang, getDict, saveLang, translate, type Lang } from './i18n';
+import { detectLang, getDict, saveLang, translate, type Dict, type Key, type Lang } from './i18n';
 import { renderApp, type ConsentState } from './components/App';
+import { renderMethodologyPage } from './components/MethodologyPage';
 import { renderPrivacyPage } from './components/PrivacyPage';
 import { routePath } from './lib/route';
 import { createInitialState, reducer, type Action, type AppState } from './state';
@@ -43,14 +44,17 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Privacy page boot: static render + language switcher only. */
-function bootPrivacy(root: HTMLElement): void {
+/**
+ * Static-page boot (privacy / methodology): static render + language switcher
+ * only. No data fetching, no consent banner.
+ */
+function bootStaticPage(root: HTMLElement, page: { titleKey: Key; render: (lang: Lang, dict: Dict) => string }): void {
   let lang: Lang = detectLang();
   document.documentElement.lang = lang;
 
   const render = (): void => {
-    document.title = `${translate('privacy_title', lang)} — Øresund.live`;
-    root.innerHTML = renderPrivacyPage(lang, getDict(lang));
+    document.title = `${translate(page.titleKey, lang)} — Øresund.live`;
+    root.innerHTML = page.render(lang, getDict(lang));
   };
   render();
 
@@ -65,14 +69,28 @@ function bootPrivacy(root: HTMLElement): void {
   });
 }
 
+function bootPrivacy(root: HTMLElement): void {
+  bootStaticPage(root, { titleKey: 'privacy_title', render: renderPrivacyPage });
+}
+
+function bootMethodology(root: HTMLElement): void {
+  bootStaticPage(root, { titleKey: 'meth_title', render: renderMethodologyPage });
+}
+
 export function boot(): void {
   const root = document.getElementById('app');
   if (!root) return;
 
-  // /privacy renders the privacy page instead of the dashboard. No data
-  // fetching, no consent banner — just the shell, footer and lang switcher.
-  if (routePath(window.location.pathname) === 'privacy') {
+  // /privacy and /methodology render their static pages instead of the
+  // dashboard. No data fetching, no consent banner — just the shell, footer
+  // and lang switcher.
+  const route = routePath(window.location.pathname);
+  if (route === 'privacy') {
     bootPrivacy(root);
+    return;
+  }
+  if (route === 'methodology') {
+    bootMethodology(root);
     return;
   }
 

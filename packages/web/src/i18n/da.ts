@@ -2,6 +2,9 @@ import type { Dict } from './keys';
 
 /** Danish dictionary — plain commuter voice, no marketing. */
 export const da: Dict = {
+  // Brand (identical across languages)
+  brand_name: 'Øresund',
+  brand_sub: 'live',
   // Status banner
   status_normal: 'Normal drift',
   status_delayed: 'Forsinkelser',
@@ -47,6 +50,12 @@ export const da: Dict = {
   stat_canceled: 'Aflyste',
   stat_avg_delay: 'Gns. forsinkelse',
   stat_departures: 'Afgange',
+  // Stat card hints
+  stat_on_time_hint: 'I dag · andel afgange med under 1 min forsinkelse',
+  stat_delayed_hint: 'I dag · afgange forsinket 1 minut eller mere',
+  stat_canceled_hint: 'I dag · aflyste afgange',
+  stat_avg_delay_hint: 'Gns. forsinkelse for alle afgange i dag',
+  stat_departures_hint: 'Grænseoverskridende Øresundståg-afgange i dag',
   // History
   hist_daily: 'Per dag',
   hist_punctuality: 'Punktlighed',
@@ -62,6 +71,14 @@ export const da: Dict = {
   hist_total: 'I alt: {n}',
   trend_avg_3d: '3-dages gennemsnit',
   punct_data_since: 'data siden {date}',
+  // Chart hints
+  hist_daily_hint: 'Forstyrrelser pr. dag, stablet efter type',
+  hist_punctuality_hint: 'Andel afgange til tiden (under 1 min forsinkelse) pr. dag',
+  hist_by_line_hint: 'Antal forstyrrelser pr. togrute · gns. / maks forsinkelse',
+  hist_by_weekday_hint: 'Forstyrrelser pr. ugedag · gns. forsinkelse',
+  hist_by_cause_hint: 'Forstyrrelser grupperet efter årsag',
+  hist_by_hour_hint: 'Andel af forstyrrelserne pr. time',
+  hist_peak_hint: 'Myldretid 07–09 & 16–18 mod resten af dagen',
   // Short month names
   month_1: 'jan',
   month_2: 'feb',
@@ -122,6 +139,40 @@ export const da: Dict = {
   privacy_contact: 'Spørgsmål eller feedback? Skriv til os på',
   privacy_back: '← Tilbage til oversigten',
   nav_privacy: 'Privatliv',
+  // Methodology page
+  meth_title: 'Metode',
+  meth_intro: 'Sådan defineres hvert tal på siden, og hvor dataene kommer fra.',
+  meth_defs_title: 'Definitioner af nøgletal',
+  meth_col_kpi: 'Nøgletal',
+  meth_col_definition: 'Definition',
+  meth_thresholds_title: 'Grænseværdier',
+  meth_thresholds_body:
+    'En afgang tæller som forsinket, når forsinkelsen er 60 sekunder (1 minut) eller mere — samme grænseværdi som på den private skærm. Alt derunder tæller som til tiden.',
+  meth_scope_title: 'Dækning',
+  meth_scope_body:
+    'Dataene dækker kun grænseoverskridende Øresundståg (linje 802–805) på strækningen Hyllie ↔ København H. Andre regionale og lokale tog er ikke inkluderet.',
+  meth_source_title: 'Datakilde',
+  meth_source_body:
+    'Dataene kommer fra Trafiklab (Skånetrafiken) realtidsafgange, aflæst hver 5. minut, under en CC-BY 4.0-licens. Live-data starter 2026-08-06; tidligere historik kommer fra KoDas historiske arkiv (fra maj 2026).',
+  meth_lag_title: 'Forsinkelse i data',
+  meth_lag_body:
+    'Trafiklab-data kan ligge ca. 10–15 minutter efter Skånetrafikens officielle app, når det gælder aflysninger.',
+  nav_methodology: 'Metode',
+  meth_def_on_time: 'Andel af dagens grænseoverskridende afgange med under 60 sekunders (1 minuts) forsinkelse.',
+  meth_def_delayed:
+    'Andel af dagens grænseoverskridende afgange med 60 sekunders (1 minuts) forsinkelse eller mere — ikke aflyste.',
+  meth_def_canceled: 'Andel af dagens grænseoverskridende afgange, der blev aflyst.',
+  meth_def_avg_delay:
+    'Gennemsnitlig forsinkelse for alle dagens afgange, i sekunder — afgange til tiden tæller med deres faktiske (næsten nul) forsinkelse.',
+  meth_def_departures:
+    'Antal observerede grænseoverskridende afgange i dag: Øresundståg linje 802–805 på strækningen Hyllie ↔ København H.',
+  meth_def_daily: 'Forstyrrelser (aflysninger, forsinkelser, advarsler) pr. dag, stablet efter type.',
+  meth_def_punctuality: 'Andel afgange til tiden (under 1 minuts forsinkelse) pr. dag. Dage uden afgange springes over.',
+  meth_def_by_line: 'Antal forstyrrelser pr. togrute, samt gennemsnitlig og maksimal forsinkelse.',
+  meth_def_by_weekday: 'Antal forstyrrelser pr. ugedag, samt gennemsnitlig forsinkelse.',
+  meth_def_by_cause: 'Antal forstyrrelser grupperet efter årsagskategori.',
+  meth_def_by_hour: 'Andel af forstyrrelserne pr. time — sidste 30 dage.',
+  meth_def_peak: 'Andel af forstyrrelserne i myldretiden (07–09 og 16–18) sammenlignet med resten af dagen.',
   // Footer
   footer_attribution: 'Data fra Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligge ~10–15 min. efter officielle apps; aflyste afgange kan blive overset.',

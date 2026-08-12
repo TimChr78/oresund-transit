@@ -68,7 +68,7 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
   return `
   <div class="wrap">
     <header class="topbar">
-      <h1 class="brand">Øresund <span class="brand-sub">live</span></h1>
+      <h1 class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></h1>
       <span class="board-label">Hyllie ↔ København H</span>
     </header>
     ${banner}
