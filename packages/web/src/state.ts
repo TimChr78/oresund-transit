@@ -11,6 +11,12 @@ import type { DayRange, Direction } from './lib/stats';
 
 export type LiveSectionState = 'loading' | 'ok' | 'no_data' | 'error';
 
+/**
+ * Disruption table scope: "today" (default, matches the live board) or
+ * "archive" (most recent rows across all dates, date-grouped).
+ */
+export type DisruptionsMode = 'today' | 'archive';
+
 export interface AppState {
   direction: Direction;
   dayRange: DayRange;
@@ -21,6 +27,7 @@ export interface AppState {
   stats: DelayStats | null;
   statsError: string | null;
   disruptions: Disruption[];
+  disruptionsMode: DisruptionsMode;
   disruptionsState: 'loading' | 'ok' | 'error';
   disruptionsError: string | null;
   history: HistoryResponse | null;
@@ -40,6 +47,7 @@ export type Action =
   | { type: 'LIVE_ERROR'; message: string }
   | { type: 'STATS_OK'; stats: DelayStats }
   | { type: 'STATS_ERROR'; message: string }
+  | { type: 'SET_DISRUPTIONS_MODE'; mode: DisruptionsMode }
   | { type: 'DISRUPTIONS_OK'; disruptions: Disruption[] }
   | { type: 'DISRUPTIONS_ERROR'; message: string }
   | { type: 'HISTORY_OK'; history: HistoryResponse }
@@ -60,6 +68,7 @@ export function createInitialState(): AppState {
     stats: null,
     statsError: null,
     disruptions: [],
+    disruptionsMode: 'today',
     disruptionsState: 'loading',
     disruptionsError: null,
     history: null,
@@ -105,6 +114,10 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'STATS_ERROR':
       return { ...state, statsError: action.message };
+
+    case 'SET_DISRUPTIONS_MODE':
+      if (state.disruptionsMode === action.mode) return state;
+      return { ...state, disruptionsMode: action.mode, disruptionsState: 'loading' };
 
     case 'DISRUPTIONS_OK':
       return { ...state, disruptions: action.disruptions, disruptionsState: 'ok', disruptionsError: null };

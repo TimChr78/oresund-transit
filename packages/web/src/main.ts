@@ -5,7 +5,8 @@ import { renderApp, type ConsentState } from './components/App';
 import { renderMethodologyPage } from './components/MethodologyPage';
 import { renderPrivacyPage } from './components/PrivacyPage';
 import { routePath } from './lib/route';
-import { createInitialState, reducer, type Action, type AppState } from './state';
+import type { Disruption } from '@oresund/shared';
+import { createInitialState, reducer, type Action, type AppState, type DisruptionsMode } from './state';
 import { delayStatsRange, type DayRange, type Direction } from './lib/stats';
 
 /**
@@ -165,11 +166,18 @@ export function boot(): void {
 
   const refreshDisruptions = async (): Promise<void> => {
     try {
-      // The live table shows ONLY today: half-open [today 00:00, tomorrow 00:00).
-      // Disruption timestamps are naive local "YYYY-MM-DD HH:MM:SS", so the
-      // date-only bounds from delayStatsRange() compare correctly.
-      const { from, to } = delayStatsRange();
-      const disruptions = await fetchDisruptions(50, from, to);
+      let disruptions: Disruption[];
+      if (state.disruptionsMode === 'archive') {
+        // Archive: no date bounds — the API returns the most recent rows
+        // across all history (capped at 200 by the worker).
+        disruptions = await fetchDisruptions(200);
+      } else {
+        // The live table shows ONLY today: half-open [today 00:00, tomorrow 00:00).
+        // Disruption timestamps are naive local "YYYY-MM-DD HH:MM:SS", so the
+        // date-only bounds from delayStatsRange() compare correctly.
+        const { from, to } = delayStatsRange();
+        disruptions = await fetchDisruptions(50, from, to);
+      }
       dispatch({ type: 'DISRUPTIONS_OK', disruptions });
     } catch (err) {
       dispatch({ type: 'DISRUPTIONS_ERROR', message: messageOf(err) });
@@ -239,6 +247,10 @@ export function boot(): void {
         void refreshPunctuality();
         break;
       case 'retry-disruptions':
+        void refreshDisruptions();
+        break;
+      case 'set-disruptions-mode':
+        dispatch({ type: 'SET_DISRUPTIONS_MODE', mode: value as DisruptionsMode });
         void refreshDisruptions();
         break;
     }

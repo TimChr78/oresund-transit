@@ -118,6 +118,10 @@ export interface Dict {
   days_90: string;
   // Sections
   section_disruptions: string;
+  disruptions_show_all: string;
+  disruptions_back_to_today: string;
+  disruptions_today_sep: string;
+  disruptions_none_archive: string;
   section_history: string;
   // Consent banner
   consent_title: string;

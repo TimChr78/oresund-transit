@@ -114,6 +114,10 @@ export const en: Dict = {
   days_90: '90 days',
   // Sections
   section_disruptions: 'Disruptions',
+  disruptions_show_all: 'Show all disruptions',
+  disruptions_back_to_today: 'Back to today',
+  disruptions_today_sep: 'Today',
+  disruptions_none_archive: 'No disruptions logged in the recent archive.',
   section_history: 'History',
   // Consent banner
   consent_title: 'Cookies & privacy',

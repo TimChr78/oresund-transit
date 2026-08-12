@@ -114,6 +114,10 @@ export const sv: Dict = {
   days_90: '90 dagar',
   // Sections
   section_disruptions: 'Störningar',
+  disruptions_show_all: 'Visa alla störningar',
+  disruptions_back_to_today: 'Tillbaka till idag',
+  disruptions_today_sep: 'Idag',
+  disruptions_none_archive: 'Inga störningar i det senaste arkivet.',
   section_history: 'Historik',
   // Consent banner
   consent_title: 'Cookies & integritet',

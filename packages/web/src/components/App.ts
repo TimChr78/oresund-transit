@@ -1,5 +1,6 @@
 import type { AppState } from '../state';
 import { translate, type Lang } from '../i18n';
+import { esc } from '../lib/html';
 import { filterByDirection, sortNewestFirst } from '../lib/stats';
 import { renderConsentBanner } from './ConsentBanner';
 import { renderDirectionTabs } from './DirectionTabs';
@@ -62,8 +63,20 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
     disruptions = renderDisruptionsTable(
       sortNewestFirst(filterByDirection(state.disruptions, state.direction)),
       lang,
+      state.disruptionsMode,
     );
   }
+
+  const archiveToggleLabel = translate(
+    state.disruptionsMode === 'archive' ? 'disruptions_back_to_today' : 'disruptions_show_all',
+    lang,
+  );
+  const archiveToggleTarget = state.disruptionsMode === 'archive' ? 'today' : 'archive';
+  const modeToggle = `
+    <button type="button" class="btn mode-toggle"
+      data-action="set-disruptions-mode" data-value="${archiveToggleTarget}">
+      ${esc(archiveToggleLabel)}
+    </button>`;
 
   return `
   <div class="wrap">
@@ -82,6 +95,7 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
           lang,
         )}
         ${disruptions}
+        ${modeToggle}
       </section>
       ${history}
     </main>
