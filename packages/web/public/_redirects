@@ -1,0 +1,10 @@
+# SPA routing + deploy-race protection.
+#
+# Rule 1 is the critical one: during a deploy there is a window where the new
+# HTML references a hashed asset that has not propagated yet. Without this
+# rule Pages serves index.html (200) for the missing asset URL, and the
+# custom-domain cache rule for /assets/* caches that HTML under the JS URL
+# for hours -> blank page. Returning a 404 instead makes the module load fail
+# cleanly (the inline self-heal script in index.html then reloads once).
+/assets/*    /404.html    404
+/*           /index.html  200
