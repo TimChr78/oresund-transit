@@ -24,7 +24,7 @@ describe('renderStatCards — inline hints', () => {
 
   it('defines each stat in English', () => {
     const html = renderStatCards(STATS, 'en');
-    expect(html).toContain('Today · share of departures delayed under 1 min');
+    expect(html).toContain('Today · share of departures with under 1 min delay');
     expect(html).toContain('Today · departures delayed 1 min or more');
     expect(html).toContain('Today · departures canceled');
     expect(html).toContain('Mean delay of all departures today');

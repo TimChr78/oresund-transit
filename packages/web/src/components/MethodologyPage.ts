@@ -41,7 +41,7 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
   return `
   <div class="wrap privacy-wrap">
     <header class="topbar">
-      <h1 class="brand">Øresund <span class="brand-sub">live</span></h1>
+      <h1 class="brand">${esc(dict.brand_name)} <span class="brand-sub">${esc(dict.brand_sub)}</span></h1>
       <a class="privacy-back" href="/">${esc(dict.privacy_back)}</a>
     </header>
     <main class="privacy">

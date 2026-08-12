@@ -2,6 +2,9 @@ import type { Dict } from './keys';
 
 /** Swedish dictionary — plain commuter voice, no marketing. */
 export const sv: Dict = {
+  // Brand (identical across languages)
+  brand_name: 'Øresund',
+  brand_sub: 'live',
   // Status banner
   status_normal: 'Normal trafik',
   status_delayed: 'Förseningar',

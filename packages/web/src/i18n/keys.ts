@@ -6,6 +6,9 @@ export type Lang = 'sv' | 'da' | 'en';
  * exactly these keys — enforced by test/i18n.test.ts.
  */
 export interface Dict {
+  // Brand
+  brand_name: string;
+  brand_sub: string;
   // Status banner
   status_normal: string;
   status_delayed: string;
