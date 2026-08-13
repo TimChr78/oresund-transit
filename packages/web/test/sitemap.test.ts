@@ -7,13 +7,16 @@ import { readFileSync } from 'node:fs';
  * src/lib/route.ts (dashboard, privacy, methodology) — the dashboard maps to
  * the root URL, privacy and methodology to their named paths.
  */
-const sitemap = readFileSync(new URL('../public/sitemap.xml', import.meta.url), 'utf8');
+const sitemap: string = readFileSync(new URL('../public/sitemap.xml', import.meta.url), 'utf8');
 
 describe('sitemap.xml', () => {
-  it('lists all three indexable routes', () => {
-    expect(sitemap).toContain('<loc>https://oresund.live/</loc>');
-    expect(sitemap).toContain('<loc>https://oresund.live/methodology</loc>');
-    expect(sitemap).toContain('<loc>https://oresund.live/privacy</loc>');
+  it('lists exactly the three indexable routes, no extras or duplicates', () => {
+    const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    expect(locs).toEqual([
+      'https://oresund.live/',
+      'https://oresund.live/methodology',
+      'https://oresund.live/privacy',
+    ]);
   });
 
   it('is a valid urlset with the sitemaps.org namespace', () => {
