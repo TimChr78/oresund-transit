@@ -1,0 +1,29 @@
+/**
+ * Deploy-race protection for /assets/*.
+ *
+ * Pages serves static assets directly, but our SPA fallback (`/* → /index.html 200`
+ * in _redirects) means a *missing* hashed asset would otherwise return index.html
+ * with a 200 — and the custom domain caches that HTML under the asset's URL for
+ * hours. During a deploy there is a window where the new index.html references a
+ * hashed JS/CSS file that has not propagated yet; a visitor in that window would
+ * fetch HTML for the JS URL and get a blank page.
+ *
+ * This Function is scoped to /assets/* only (via _routes.json, so every other
+ * route stays on the free unlimited static tier). It re-fetches the requested
+ * asset through the ASSETS binding: a real asset returns its actual content-type
+ * (application/javascript / text/css) and is passed through untouched; a missing
+ * asset either 404s directly or falls through the SPA fallback as text/html —
+ * both are treated as "not a real asset" and answered with a clean 404.
+ */
+export async function onRequest(context) {
+  const asset = await context.env.ASSETS.fetch(context.request);
+  const contentType = (asset.headers.get('content-type') || '').toLowerCase();
+  const isSpaFallback = asset.status === 404 || contentType.includes('text/html');
+  if (isSpaFallback) {
+    return new Response('Not found', {
+      status: 404,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+  }
+  return asset;
+}

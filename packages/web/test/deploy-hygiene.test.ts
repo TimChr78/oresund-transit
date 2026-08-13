@@ -6,34 +6,45 @@ import { readFileSync, existsSync } from 'node:fs';
  * new HTML references a hashed asset that has not propagated yet; the SPA
  * fallback would serve index.html (200) for the missing asset, and the
  * custom-domain /assets/* cache rule would cache that HTML under the JS URL
- * for hours -> blank page. Three layers defend against it:
+ * for hours -> blank page. Two layers defend against it:
  *
- * 1. public/_redirects — /assets/* resolves to a real 404 (module load fails
- *    cleanly instead of fetching HTML).
+ * 1. functions/assets/[[path]].js — scoped to /assets/* via _routes.json,
+ *    returns a real 404 when the requested asset is missing (detected via the
+ *    ASSETS binding: a real asset is JS/CSS, a missing one falls through the
+ *    SPA fallback as text/html).
  * 2. Inline self-heal script in index.html — detects the never-booted app
  *    and reloads once (sessionStorage-guarded against loops).
  *
  * IMPORTANT: there must be NO top-level 404.html. Per Cloudflare Pages
  * "Serving Pages" docs, the presence of 404.html DISABLES Pages' SPA mode,
- * which breaks the client-side routes (/methodology, /privacy). Asset 404s
- * use index.html as the body with a 404 status instead.
+ * which breaks the client-side routes (/methodology, /privacy).
  */
 
 const redirects = readFileSync(new URL('../public/_redirects', import.meta.url), 'utf8');
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const routesJson = readFileSync(new URL('../public/_routes.json', import.meta.url), 'utf8');
+const assetFn = readFileSync(new URL('../functions/assets/[[path]].js', import.meta.url), 'utf8');
 
 describe('deploy-race protection', () => {
-  it('_redirects returns 404 for missing assets (before the SPA catch-all)', () => {
+  it('_redirects has only the SPA catch-all (no asset rule)', () => {
     const lines = redirects.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
-    expect(lines[0]).toBe('/assets/*    /index.html    404');
-    expect(lines).toContain('/*           /index.html    200');
+    expect(lines).toEqual(['/*           /index.html    200']);
   });
 
-  it('the asset 404 rule comes BEFORE the SPA catch-all', () => {
-    const assetIdx = redirects.indexOf('/assets/*');
-    const catchAllIdx = redirects.indexOf('/*           /index.html');
-    expect(assetIdx).toBeGreaterThan(-1);
-    expect(assetIdx).toBeLessThan(catchAllIdx);
+  it('_routes.json scopes the Function to /assets/* only', () => {
+    const parsed = JSON.parse(routesJson);
+    expect(parsed.version).toBe(1);
+    expect(parsed.include).toContain('/assets/*');
+    // Everything else stays on the free static tier.
+    expect(parsed.exclude).toEqual([]);
+  });
+
+  it('assets Function exists and returns a real 404 for missing assets', () => {
+    expect(existsSync(new URL('../functions/assets/[[path]].js', import.meta.url))).toBe(true);
+    expect(assetFn).toContain('context.env.ASSETS.fetch');
+    expect(assetFn).toContain('status: 404');
+    // A real asset is JS/CSS; a missing one is text/html via the SPA fallback.
+    expect(assetFn).toContain("includes('text/html')");
   });
 
   it('does NOT ship a top-level 404.html (would disable Pages SPA mode)', () => {
