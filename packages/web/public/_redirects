@@ -1,12 +1,5 @@
-# SPA routing + deploy-race protection.
-#
-# Rule 1 protects the deploy race: when new HTML references a hashed asset that
-# has not propagated yet, serving index.html at that asset URL would get cached
-# under the JS URL -> blank page. Return a 404 instead so the module load fails
-# cleanly (the inline self-heal script reloads once).
-#
-# NOTE: a top-level 404.html DISABLES Pages' SPA mode (see Cloudflare docs
-# "Serving Pages"), so we must NOT ship one. Asset 404s use index.html as the
-# body with a 404 status instead.
-/assets/*    /index.html    404
+# SPA routing: any non-static path serves index.html so client-side routes
+# (/methodology, /privacy) render. Missing /assets/* paths are NOT covered here —
+# a real 404 is returned by functions/assets/[[path]].js (deploy-race protection),
+# scoped to /assets/* only via _routes.json. See test/deploy-hygiene.test.ts.
 /*           /index.html    200
