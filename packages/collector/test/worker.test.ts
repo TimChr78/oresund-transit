@@ -119,6 +119,31 @@ describe('runScheduled — disruption classification', () => {
     expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('canceled');
   });
 
+  it('counts a keyword-cancelled departure (flag false) as canceled in the departures row too', async () => {
+    // Trafiklab frequently reports cancellations via the alert text
+    // ("Tåget är inställt …") while leaving the boolean `canceled` flag at
+    // false. The disruption list already catches that via classifyType's
+    // keyword fallback; the departures KPI must agree with it.
+    const db = new FakeD1();
+    const dep = {
+      ...realDeparture,
+      canceled: false,
+      delay: 0,
+      alerts: [{ title: 'Inställt tåg', text: 'Tåget är inställt København Østerport - Malmö C. Orsaken är signalfel.' }],
+    };
+    await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
+
+    // 1. the departures INSERT carries status='canceled' and canceled=1
+    const row = depRow(db, '2026-08-06_804_21:59_Østerport');
+    expect(row.status).toBe('canceled');
+    expect(row.canceled).toBe(1);
+
+    // 2. the disruptions INSERT still classifies it as a cancellation
+    const rows = disruptionRows(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.type).toBe('cancellation');
+  });
+
   it('creates a delay disruption for a delay >= 240s', async () => {
     const db = new FakeD1();
     const dep = { ...realDeparture, delay: 240 };
@@ -130,6 +155,42 @@ describe('runScheduled — disruption classification', () => {
     expect(rows[0]!.delay_seconds).toBe(240);
   });
 
+  it('prioritizes cancellation over delay when both a big delay and a cancellation keyword are present', async () => {
+    const db = new FakeD1();
+    const dep = {
+      ...realDeparture,
+      canceled: false,
+      delay: 300,
+      alerts: [{ title: 'Inställt tåg', text: 'Tåget är inställt København Østerport - Malmö C.' }],
+    };
+    await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
+
+    // classifyType checks cancellation before the 240s delay threshold, so the
+    // departure row lands in the canceled bucket — same as the disruption list.
+    const row = depRow(db, '2026-08-06_804_21:59_Østerport');
+    expect(row.status).toBe('canceled');
+    expect(row.canceled).toBe(1);
+    expect(disruptionRows(db)[0]!.type).toBe('cancellation');
+  });
+
+  it('still records a big delay with a keyword-free alert as delayed (not canceled)', async () => {
+    const db = new FakeD1();
+    const dep = {
+      ...realDeparture,
+      canceled: false,
+      delay: 300,
+      alerts: [{ title: 'Signalfel', text: 'Störning i tågtrafiken' }],
+    };
+    await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
+
+    // No cancellation keyword → cancellation stays off; the 240s boundary still
+    // decides the KPI status, and the disruption list calls it a delay.
+    const row = depRow(db, '2026-08-06_804_21:59_Østerport');
+    expect(row.status).toBe('delayed');
+    expect(row.canceled).toBe(0);
+    expect(disruptionRows(db)[0]!.type).toBe('delay');
+  });
+
   it('creates an alert disruption when the departure carries alerts', async () => {
     const db = new FakeD1();
     const dep = { ...realDeparture, delay: 0, alerts: [{ title: 'Signalfel', text: 'Störning i tågtrafiken' }] };
@@ -139,6 +200,8 @@ describe('runScheduled — disruption classification', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.type).toBe('alert');
     expect(rows[0]!.cause).toBe('signal_failure');
+    // alert-only (no cancellation keyword) → KPI still sees it as on_time
+    expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('on_time');
   });
 
   it('records an on-time departure with NO disruption row', async () => {

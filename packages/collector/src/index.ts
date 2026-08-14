@@ -120,6 +120,19 @@ export function departureKey(dep: TrafiklabDeparture): string {
   return d ? `${d}_${base}` : base;
 }
 
+/**
+ * Join the departure's alert title/text fields the way classifyType expects
+ * them (same extraction classifyDeparture uses). Shared so the departures
+ * KPI and the disruption list classify from identical inputs.
+ */
+function alertTitleText(dep: TrafiklabDeparture): { title: string; text: string } {
+  const alerts = (dep.alerts ?? []) as { title?: unknown; text?: unknown }[];
+  return {
+    title: alerts.map((a) => String(a?.title ?? '')).filter(Boolean).join(' | '),
+    text: alerts.map((a) => String(a?.text ?? '')).filter(Boolean).join(' | '),
+  };
+}
+
 function toDepartureRow(
   stop: { id: string; name: string },
   dep: TrafiklabDeparture,
@@ -127,7 +140,18 @@ function toDepartureRow(
 ): DepartureInput {
   const line = dep.route?.designation ?? null;
   const destination = dep.route?.direction ?? null;
-  const canceled = dep.canceled ? 1 : 0;
+  // Cancellation is decided by the SAME classifier as the disruption list:
+  // classifyType falls back to alert keywords ("Tåget är inställt …"), which
+  // Trafiklab frequently sends with the boolean canceled flag still false.
+  // Without this, the departures KPI (status column) would say on_time while
+  // the disruption list says cancellation — the exact bug this fixes.
+  // Note: the keyword check is a bare substring match, so a *delay* message
+  // that merely references another canceled service (e.g. "Försenad pga
+  // inställt byte") would mislabel this departure as canceled — a known
+  // tradeoff inherited from classifyType, kept for KPI/list parity.
+  const { title, text } = alertTitleText(dep);
+  const type = classifyType(dep.canceled, dep.delay, title, text);
+  const canceled = type === 'cancellation' ? 1 : 0;
   return {
     stop_id: stop.id,
     stop_name: stop.name,
@@ -154,9 +178,7 @@ function classifyDeparture(
   dep: TrafiklabDeparture,
   now: Date,
 ): DisruptionInput | null {
-  const alerts = (dep.alerts ?? []) as { title?: unknown; text?: unknown }[];
-  const title = alerts.map((a) => String(a?.title ?? '')).filter(Boolean).join(' | ');
-  const text = alerts.map((a) => String(a?.text ?? '')).filter(Boolean).join(' | ');
+  const { title, text } = alertTitleText(dep);
   const type = classifyType(dep.canceled, dep.delay, title, text);
   if (type === 'unknown') return null;
 
