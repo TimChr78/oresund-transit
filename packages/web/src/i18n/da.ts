@@ -183,4 +183,5 @@ export const da: Dict = {
   footer_changes: 'Ændret: klassificering + præsentation.',
   footer_lang: 'Sprog',
   footer_license: 'CC-BY 4.0-licensen',
+  footer_rss: 'RSS-feed',
 };

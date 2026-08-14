@@ -183,4 +183,5 @@ export const sv: Dict = {
   footer_changes: 'Ändrat: klassificering + presentation.',
   footer_lang: 'Språk',
   footer_license: 'CC-BY 4.0-licensen',
+  footer_rss: 'RSS-flöde',
 };

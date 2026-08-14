@@ -177,6 +177,7 @@ export interface Dict {
   footer_changes: string;
   footer_lang: string;
   footer_license: string;
+  footer_rss: string;
 }
 
 /** Union of every translation key. */
