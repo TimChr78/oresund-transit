@@ -4,6 +4,26 @@
    Nothing animates: the board only changes when a fetch lands.
    ========================================================================== */
 
+/* Self-hosted fonts (SIL OFL — see public/fonts/*-OFL.txt). Variable woff2
+   files cover Inter 400/500/600 and Space Grotesk 500/600/700, the exact
+   weights previously loaded from Google Fonts. No visitor IP ever leaves the
+   site for fonts. */
+@font-face {
+  font-family: Inter;
+  src: url('/fonts/Inter.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/SpaceGrotesk.woff2') format('woff2');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #0a0c10;
   --surface: #1a1d27;
@@ -18,7 +38,7 @@
   --blue: #3b82f6;
   --indigo: #6366f1;
   --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
-  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-body: Inter, ui-sans-serif, system-ui, sans-serif;
   --mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
   --radius: 10px;
   --radius-sm: 8px;
