@@ -79,8 +79,8 @@ describe('renderRssFeed', () => {
     const second = xml.indexOf('<item>', first + 1);
     expect(first).toBeGreaterThan(-1);
     expect(second).toBeGreaterThan(first);
-    expect(xml.slice(first, second)).toContain('<guid>https://oresund.live/disruption/2</guid>');
-    expect(xml.slice(second)).toContain('<guid>https://oresund.live/disruption/1</guid>');
+    expect(xml.slice(first, second)).toContain('<guid isPermaLink="false">https://oresund.live/disruption/2</guid>');
+    expect(xml.slice(second)).toContain('<guid isPermaLink="false">https://oresund.live/disruption/1</guid>');
   });
 
   it('composes per-item titles from line + type + direction', () => {
@@ -107,7 +107,8 @@ describe('renderRssFeed', () => {
 
   it('uses a stable per-item guid and the site link (no detail pages)', () => {
     const xml = renderRssFeed([disruption({ id: 42 })], OPTS);
-    expect(xml).toContain('<guid>https://oresund.live/disruption/42</guid>');
+    // isPermaLink=false: the guid URL is a stable identifier, not a real page.
+    expect(xml).toContain('<guid isPermaLink="false">https://oresund.live/disruption/42</guid>');
     expect(xml).toContain('<link>https://oresund.live/</link>');
   });
 
@@ -149,6 +150,14 @@ describe('renderRssFeed', () => {
     assertWellFormedXml(xml);
   });
 
+  it('strips XML-1.0-invalid control characters from text values', () => {
+    const xml = renderRssFeed([disruption({ raw_text: 'Line break\u0001here\u001F' })], OPTS);
+    expect(xml).toContain('Line breakhere');
+    expect(xml).not.toContain('\u0001');
+    expect(xml).not.toContain('\u001F');
+    assertWellFormedXml(xml);
+  });
+
   it('formats pubDate as RFC 822 with CEST (+0200) for a summer timestamp', () => {
     const xml = renderRssFeed([disruption({ timestamp: '2026-07-15T12:00:00' })], OPTS);
     expect(xml).toContain('<pubDate>Wed, 15 Jul 2026 12:00:00 +0200</pubDate>');
@@ -171,5 +180,11 @@ describe('renderRssFeed', () => {
     assertWellFormedXml(xml);
     expect(xml).toContain('<channel>');
     expect(xml).not.toContain('<item>');
+  });
+
+  it('omits <pubDate> for an unparseable timestamp (never emits an empty element)', () => {
+    const xml = renderRssFeed([disruption({ timestamp: 'not-a-date' })], OPTS);
+    expect(xml).not.toContain('<pubDate>');
+    assertWellFormedXml(xml);
   });
 });

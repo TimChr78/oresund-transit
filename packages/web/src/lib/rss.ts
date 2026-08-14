@@ -31,7 +31,10 @@ const ESCAPE_MAP: Record<string, string> = {
 
 /** XML-escape a text value for safe interpolation into the document. */
 export function escXml(value: string): string {
-  return value.replace(/[&<>"']/g, (ch) => ESCAPE_MAP[ch] ?? ch);
+  // Escape markup metacharacters AND drop XML-1.0-invalid control characters
+  // (raw_text is external input; \t \n \r are the only allowed C0 controls).
+  const cleaned = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  return cleaned.replace(/[&<>"']/g, (ch) => ESCAPE_MAP[ch] ?? ch);
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -126,15 +129,16 @@ function descriptionFor(d: Disruption): string {
 export function renderRssFeed(items: Disruption[], opts: RssOptions): string {
   const lastBuildDate = (opts.lastBuildDate ?? new Date()).toUTCString();
   const itemXml = items
-    .map(
-      (d) => `    <item>
+    .map((d) => {
+      const pubDate = toRfc822(d.timestamp);
+      const pubDateEl = pubDate ? `\n      <pubDate>${pubDate}</pubDate>` : '';
+      return `    <item>
       <title>${escXml(titleFor(d))}</title>
       <link>${escXml(opts.link)}</link>
-      <guid>https://oresund.live/disruption/${d.id}</guid>
-      <pubDate>${toRfc822(d.timestamp)}</pubDate>
+      <guid isPermaLink="false">https://oresund.live/disruption/${d.id}</guid>${pubDateEl}
       <description>${escXml(descriptionFor(d))}</description>
-    </item>`,
-    )
+    </item>`;
+    })
     .join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">

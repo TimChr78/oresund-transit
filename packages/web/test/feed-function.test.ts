@@ -64,14 +64,17 @@ describe('functions/feed.xml.js', () => {
       env: {},
     });
 
-    expect(fetchMock).toHaveBeenCalledWith(FEED_URL);
+    expect(fetchMock).toHaveBeenCalledWith(
+      FEED_URL,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('application/rss+xml; charset=utf-8');
     expect(res.headers.get('cache-control')).toBe('public, max-age=300');
     const xml = await res.text();
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
     expect(xml).toContain('<title>Line 803 delayed to Denmark</title>');
-    expect(xml).toContain('<guid>https://oresund.live/disruption/1</guid>');
+    expect(xml).toContain('<guid isPermaLink="false">https://oresund.live/disruption/1</guid>');
   });
 
   it('returns 502 plain text when the collector fetch throws', async () => {
@@ -93,6 +96,20 @@ describe('functions/feed.xml.js', () => {
 
     expect(res.status).toBe(502);
     expect(res.headers.get('content-type')).toContain('text/plain');
+  });
+
+  it('returns 502 when the collector answers 200 with a non-JSON body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('<html>proxy error</html>', { status: 200 })),
+    );
+
+    const mod = await loadFunction();
+    const res = await mod.onRequest({ request: new Request('https://oresund.live/feed.xml'), env: {} });
+
+    expect(res.status).toBe(502);
+    expect(res.headers.get('content-type')).toContain('text/plain');
+    expect(await res.text()).not.toContain('<rss');
   });
 
   it('answers HEAD with headers only (empty body)', async () => {
