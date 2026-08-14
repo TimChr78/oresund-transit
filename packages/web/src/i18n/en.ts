@@ -183,4 +183,5 @@ export const en: Dict = {
   footer_changes: 'Modified: classification + presentation.',
   footer_lang: 'Language',
   footer_license: 'CC-BY 4.0 license',
+  footer_rss: 'RSS feed',
 };
