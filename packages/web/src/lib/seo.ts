@@ -11,6 +11,7 @@ import type { Route } from './route';
 export interface PageMeta {
   title: string;
   description: string;
+  canonical: string;
 }
 
 export const META: Record<Route, PageMeta> = {
@@ -18,15 +19,18 @@ export const META: Record<Route, PageMeta> = {
     title: 'Øresund.live — live train status across the Sound',
     description:
       'Live departures, delays and disruptions across the Øresund — Hyllie ↔ København H. Privacy-friendly, no ads.',
+    canonical: 'https://oresund.live/',
   },
   methodology: {
     title: 'Methodology — Øresund.live',
     description:
       'How every metric on the Øresund.live dashboard is defined — on-time and delay thresholds, the Trafiklab data source and its caveats.',
+    canonical: 'https://oresund.live/methodology',
   },
   privacy: {
     title: 'Privacy — Øresund.live',
     description:
       'What Øresund.live stores and why — only your language choice, cookieless anonymous analytics, no ads, no personal data.',
+    canonical: 'https://oresund.live/privacy',
   },
 };

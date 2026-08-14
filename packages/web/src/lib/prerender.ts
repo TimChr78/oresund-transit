@@ -11,8 +11,8 @@ import type { PageMeta } from './seo';
  * visitor's language and keeps the lang switcher working) and the self-heal
  * reload guard — is preserved untouched.
  *
- * The route's own SEO metadata (title, meta description, og/twitter tags)
- * replaces the dashboard defaults from the shell.
+ * The route's own SEO metadata (title, meta description, canonical, og/twitter
+ * tags) replaces the dashboard defaults from the shell.
  *
  * This is a pure string transform on the source shell; the build script in
  * scripts/prerender.ts applies it and writes public/{methodology,privacy}.html
@@ -22,6 +22,7 @@ export function renderPrerenderedPage(shell: string, body: string, lang: Lang, m
   let html = shell.replace('<div id="app"></div>', `<div id="app">${body}</div>`);
   html = html.replace('<html lang="en">', `<html lang="${lang}">`);
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${meta.title}</title>`);
+  html = html.replace('</title>', `</title>\n    <link rel="canonical" href="${meta.canonical}" />`);
   html = setMetaContent(html, 'name', 'description', meta.description);
   html = setMetaContent(html, 'property', 'og:title', meta.title);
   html = setMetaContent(html, 'property', 'og:description', meta.description);

@@ -111,3 +111,35 @@ describe('per-route title and meta description', () => {
     expect(privacy).toContain('<title>Privacy — Øresund.live</title>');
   });
 });
+
+describe('per-route canonical', () => {
+  const methodology = renderPrerenderedPage(
+    shell,
+    renderMethodologyPage('en', getDict('en')),
+    'en',
+    META.methodology,
+  );
+  const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy);
+
+  it('canonicalizes /methodology (and /methodology/) to the bare URL', () => {
+    expect(methodology).toContain('<link rel="canonical" href="https://oresund.live/methodology" />');
+    expect(methodology).not.toContain('href="https://oresund.live/methodology/"');
+  });
+
+  it('canonicalizes /privacy (and /privacy/) to the bare URL', () => {
+    expect(privacy).toContain('<link rel="canonical" href="https://oresund.live/privacy" />');
+    expect(privacy).not.toContain('href="https://oresund.live/privacy/"');
+  });
+
+  it('canonicalizes the dashboard shell (/, /index.html) to https://oresund.live/', () => {
+    expect(shell).toContain('<link rel="canonical" href="https://oresund.live/" />');
+    expect(shell).not.toContain('href="https://oresund.live/index.html"');
+  });
+
+  it('the committed public pages carry their canonical', () => {
+    const methodology = readFileSync(new URL('../public/methodology.html', import.meta.url), 'utf8');
+    expect(methodology).toContain('<link rel="canonical" href="https://oresund.live/methodology" />');
+    const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
+    expect(privacy).toContain('<link rel="canonical" href="https://oresund.live/privacy" />');
+  });
+});
