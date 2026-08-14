@@ -24,7 +24,7 @@ describe('self-hosted fonts', () => {
 
   it('styles.css declares @font-face for both families from /fonts/ with font-display: swap', () => {
     expect(styles).toContain('@font-face');
-    expect(styles).toMatch(/font-family:\s*'Inter'/);
+    expect(styles).toMatch(/font-family:\s*Inter;/);
     expect(styles).toMatch(/font-family:\s*'Space Grotesk'/);
     expect(styles).toMatch(/url\('\/fonts\/[^']+\.woff2'\)/);
     expect(styles).toMatch(/font-display:\s*swap/);
