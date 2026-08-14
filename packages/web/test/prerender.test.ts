@@ -143,3 +143,53 @@ describe('per-route canonical', () => {
     expect(privacy).toContain('<link rel="canonical" href="https://oresund.live/privacy" />');
   });
 });
+
+describe('JSON-LD structured data', () => {
+  const blocks = (html: string): object[] =>
+    [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1] ?? ''));
+
+  const types = (data: object): string[] => {
+    const graph = (data as { '@graph'?: { '@type': string }[] })['@graph'];
+    return graph ? graph.map((n) => n['@type']) : [(data as { '@type': string })['@type']];
+  };
+
+  it('index.html carries exactly one ld+json block with WebSite + Organization', () => {
+    const parsed = blocks(shell);
+    expect(parsed).toHaveLength(1);
+    const first = parsed[0];
+    expect(first).toBeDefined();
+    expect(types(first as object)).toEqual(expect.arrayContaining(['WebSite', 'Organization']));
+  });
+
+  it('the structured data contains only real facts: name, url, description', () => {
+    const first = blocks(shell)[0];
+    expect(first).toBeDefined();
+    const data = first as { '@graph': { '@type': string; name: string; url: string; description: string }[] };
+    for (const node of data['@graph']) {
+      expect(node.name).toBe('Øresund.live');
+      expect(node.url).toBe('https://oresund.live/');
+      expect(node.description.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('the prerendered static pages mirror the same block', () => {
+    const methodology = renderPrerenderedPage(
+      shell,
+      renderMethodologyPage('en', getDict('en')),
+      'en',
+      META.methodology,
+    );
+    const parsed = blocks(methodology);
+    expect(parsed).toHaveLength(1);
+    const first = parsed[0];
+    expect(first).toBeDefined();
+    expect(types(first as object)).toEqual(expect.arrayContaining(['WebSite', 'Organization']));
+  });
+
+  it('the committed public pages carry the block too', () => {
+    const methodology = readFileSync(new URL('../public/methodology.html', import.meta.url), 'utf8');
+    expect(methodology).toContain('<script type="application/ld+json">');
+    const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
+    expect(privacy).toContain('<script type="application/ld+json">');
+  });
+});
