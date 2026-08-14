@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run scripts/prerender.ts && vite build",
+    "build": "vite build && bun run scripts/prerender.ts",
     "dev": "vite",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

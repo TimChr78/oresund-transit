@@ -4,30 +4,37 @@ import type { PageMeta } from './seo';
 /**
  * Prerender a static route (/methodology, /privacy) as a real HTML document.
  *
- * Takes the Vite entry shell (index.html) and injects the server-rendered
- * page fragment into <div id="app">, so crawlers and JS-disabled clients get
- * the actual content in the initial payload. The rest of the shell — fonts,
- * meta, the /src/main.ts module script (which re-renders the page in the
- * visitor's language and keeps the lang switcher working) and the self-heal
- * reload guard — is preserved untouched.
+ * Takes the BUILT Vite shell (dist/index.html — which already carries the
+ * hashed CSS/JS asset links) and injects the server-rendered page fragment
+ * into <div id="app">, so crawlers and JS-disabled clients get the actual
+ * content in the initial payload. Because the shell is the built page, the
+ * static routes load the same stylesheet and the same JS bundle as the
+ * dashboard: the lang switcher works (main.ts re-renders the page in the
+ * visitor's language) and the pages are fully styled.
  *
  * The route's own SEO metadata (title, meta description, canonical, og/twitter
- * tags) replaces the dashboard defaults from the shell.
+ * tags) replaces the dashboard defaults from the shell, and the dashboard-only
+ * <noscript> block is dropped (static pages render fine without JS).
  *
- * This is a pure string transform on the source shell; the build script in
- * scripts/prerender.ts applies it and writes public/{methodology,privacy}.html
- * (which Vite copies verbatim into dist/).
+ * This is a pure string transform; the build script in scripts/prerender.ts
+ * applies it to dist/index.html after `vite build` and writes
+ * dist/{methodology,privacy}.html.
  */
 export function renderPrerenderedPage(shell: string, body: string, lang: Lang, meta: PageMeta): string {
   let html = shell.replace('<div id="app"></div>', `<div id="app">${body}</div>`);
   html = html.replace('<html lang="en">', `<html lang="${lang}">`);
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${meta.title}</title>`);
-  html = html.replace('</title>', `</title>\n    <link rel="canonical" href="${meta.canonical}" />`);
+  // Replace the shell's dashboard canonical with the route's — never duplicate.
+  html = html.replace(/<link rel="canonical" href="[^"]*"\s*\/?>/, `<link rel="canonical" href="${meta.canonical}" />`);
   html = setMetaContent(html, 'name', 'description', meta.description);
   html = setMetaContent(html, 'property', 'og:title', meta.title);
   html = setMetaContent(html, 'property', 'og:description', meta.description);
+  html = setMetaContent(html, 'property', 'og:url', meta.canonical);
   html = setMetaContent(html, 'name', 'twitter:title', meta.title);
   html = setMetaContent(html, 'name', 'twitter:description', meta.description);
+  // The noscript "requires JavaScript" block is for the dashboard; the static
+  // page content is already in the HTML.
+  html = html.replace(/<noscript>[\s\S]*?<\/noscript>/, '');
   return html;
 }
 

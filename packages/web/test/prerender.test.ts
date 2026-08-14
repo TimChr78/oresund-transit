@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict } from '../src/i18n';
@@ -10,14 +10,18 @@ import { renderPrerenderedPage } from '../src/lib/prerender';
  * SEO prerender: /methodology and /privacy must ship their content in the
  * initial HTML payload (server-served), not an empty #app shell — crawlers
  * and JS-disabled clients must see the actual page. The in-browser lang
- * switcher keeps working because the shell (main.ts module script, delegated
+ * switcher keeps working because the shell (the built JS module + delegated
  * click listener) is preserved.
  *
- * We test the pure prerender function with the REAL index.html shell (the
- * same input the build script uses), plus the committed public/*.html
- * artifacts that Cloudflare Pages actually serves.
+ * The build runs `vite build` FIRST, then the prerender script applies
+ * renderPrerenderedPage() to the BUILT dist/index.html (which carries the
+ * hashed CSS/JS asset links) and writes dist/{methodology,privacy}.html.
+ * We test the pure transform against the source index.html shell and assert
+ * the pipeline contract (script input/output, no stale public/*.html that
+ * could serve a dead /src/main.ts or unstyled page).
  */
 const shell = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const prerenderScript = readFileSync(new URL('../scripts/prerender.ts', import.meta.url), 'utf8');
 
 /** Extract the `content` of a `<meta name|property="…">` tag, multiline-tolerant. */
 function metaContent(html: string, attr: string, value: string): string {
@@ -46,17 +50,14 @@ describe('prerendered static pages', () => {
   it('keeps the lang switcher working: module script + set-lang buttons survive', () => {
     const body = renderMethodologyPage('en', getDict('en'));
     const html = renderPrerenderedPage(shell, body, 'en', META.methodology);
-    expect(html).toContain('type="module" src="/src/main.ts"');
+    expect(html).toContain('type="module"');
     expect(html).toContain('data-action="set-lang"');
   });
 
-  it('the committed public pages Cloudflare serves are prerendered, not shells', () => {
-    const methodology = readFileSync(new URL('../public/methodology.html', import.meta.url), 'utf8');
-    expect(methodology).toContain('delay under 240 seconds');
-    expect(methodology).not.toContain('<div id="app"></div>');
-    const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
-    expect(privacy).toContain('hello@oresund.live');
-    expect(privacy).not.toContain('<div id="app"></div>');
+  it('drops the dashboard-only noscript: static pages render fine without JS', () => {
+    const body = renderMethodologyPage('en', getDict('en'));
+    const html = renderPrerenderedPage(shell, body, 'en', META.methodology);
+    expect(html).not.toContain('<noscript>');
   });
 });
 
@@ -87,13 +88,15 @@ describe('per-route title and meta description', () => {
     expect(privacy).not.toContain(META.methodology.description);
   });
 
-  it('keeps og:title / og:description / twitter tags in sync with the route title', () => {
+  it('keeps og:title / og:description / og:url / twitter tags in sync with the route', () => {
     expect(metaContent(methodology, 'property', 'og:title')).toBe(META.methodology.title);
     expect(metaContent(methodology, 'property', 'og:description')).toBe(META.methodology.description);
+    expect(metaContent(methodology, 'property', 'og:url')).toBe(META.methodology.canonical);
     expect(metaContent(methodology, 'name', 'twitter:title')).toBe(META.methodology.title);
     expect(metaContent(methodology, 'name', 'twitter:description')).toBe(META.methodology.description);
     expect(metaContent(privacy, 'property', 'og:title')).toBe(META.privacy.title);
     expect(metaContent(privacy, 'property', 'og:description')).toBe(META.privacy.description);
+    expect(metaContent(privacy, 'property', 'og:url')).toBe(META.privacy.canonical);
     expect(metaContent(privacy, 'name', 'twitter:description')).toBe(META.privacy.description);
   });
 
@@ -102,13 +105,6 @@ describe('per-route title and meta description', () => {
     expect(shell).toContain('name="description"');
     expect(shell).not.toContain('<title>Methodology — Øresund.live</title>');
     expect(shell).not.toContain('<title>Privacy — Øresund.live</title>');
-  });
-
-  it('the committed public pages carry their route title', () => {
-    const methodology = readFileSync(new URL('../public/methodology.html', import.meta.url), 'utf8');
-    expect(methodology).toContain('<title>Methodology — Øresund.live</title>');
-    const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
-    expect(privacy).toContain('<title>Privacy — Øresund.live</title>');
   });
 });
 
@@ -121,26 +117,23 @@ describe('per-route canonical', () => {
   );
   const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy);
 
-  it('canonicalizes /methodology (and /methodology/) to the bare URL', () => {
+  it('emits exactly one canonical on /methodology — the route URL, never the homepage', () => {
+    expect(methodology.match(/rel="canonical"/g) ?? []).toHaveLength(1);
     expect(methodology).toContain('<link rel="canonical" href="https://oresund.live/methodology" />');
+    expect(methodology).not.toContain('href="https://oresund.live/"');
     expect(methodology).not.toContain('href="https://oresund.live/methodology/"');
   });
 
-  it('canonicalizes /privacy (and /privacy/) to the bare URL', () => {
+  it('emits exactly one canonical on /privacy — the route URL, never the homepage', () => {
+    expect(privacy.match(/rel="canonical"/g) ?? []).toHaveLength(1);
     expect(privacy).toContain('<link rel="canonical" href="https://oresund.live/privacy" />');
+    expect(privacy).not.toContain('href="https://oresund.live/"');
     expect(privacy).not.toContain('href="https://oresund.live/privacy/"');
   });
 
   it('canonicalizes the dashboard shell (/, /index.html) to https://oresund.live/', () => {
     expect(shell).toContain('<link rel="canonical" href="https://oresund.live/" />');
     expect(shell).not.toContain('href="https://oresund.live/index.html"');
-  });
-
-  it('the committed public pages carry their canonical', () => {
-    const methodology = readFileSync(new URL('../public/methodology.html', import.meta.url), 'utf8');
-    expect(methodology).toContain('<link rel="canonical" href="https://oresund.live/methodology" />');
-    const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
-    expect(privacy).toContain('<link rel="canonical" href="https://oresund.live/privacy" />');
   });
 });
 
@@ -185,11 +178,28 @@ describe('JSON-LD structured data', () => {
     expect(first).toBeDefined();
     expect(types(first as object)).toEqual(expect.arrayContaining(['WebSite', 'Organization']));
   });
+});
 
-  it('the committed public pages carry the block too', () => {
-    const methodology = readFileSync(new URL('../public/methodology.html', import.meta.url), 'utf8');
-    expect(methodology).toContain('<script type="application/ld+json">');
-    const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
-    expect(privacy).toContain('<script type="application/ld+json">');
+describe('prerender build pipeline', () => {
+  it('runs AFTER vite build: reads the built dist/index.html shell', () => {
+    expect(prerenderScript).toContain("new URL('../dist/index.html', import.meta.url)");
+    expect(prerenderScript).not.toContain("new URL('../index.html', import.meta.url)");
+  });
+
+  it('writes the prerendered pages into dist/ (never public/)', () => {
+    expect(prerenderScript).toContain("new URL(`../dist/${page.file}`, import.meta.url)");
+    expect(prerenderScript).not.toContain('public/');
+  });
+
+  it('public/ carries no stale prerendered html (a dead /src/main.ts + unstyled page must never deploy)', () => {
+    expect(existsSync(new URL('../public/methodology.html', import.meta.url))).toBe(false);
+    expect(existsSync(new URL('../public/privacy.html', import.meta.url))).toBe(false);
+  });
+
+  it('the script fails the build if an emitted page lacks the built bundle (e2e guard)', () => {
+    expect(prerenderScript).toContain('src="/assets/');
+    expect(prerenderScript).toContain('src="/src/main.ts"');
+    expect(prerenderScript).toContain('href="/assets/');
+    expect(prerenderScript).toContain('throw new Error');
   });
 });
