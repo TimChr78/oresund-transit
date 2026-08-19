@@ -35,7 +35,7 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): 
   for (const l of lines) add(`${SITE_URL}/line/${encodeURIComponent(l.line)}`, ARCHIVE_CHANGEFREQ);
 
   add(`${SITE_URL}/station`, ARCHIVE_CHANGEFREQ);
-  for (const s of stations) add(`${SITE_URL}/station/${s.slug}`, ARCHIVE_CHANGEFREQ);
+  for (const s of stations) add(`${SITE_URL}/station/${encodeURIComponent(s.slug)}`, ARCHIVE_CHANGEFREQ);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

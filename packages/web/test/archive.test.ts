@@ -166,6 +166,17 @@ describe('archive renderers', () => {
     expect(html).toContain('href="/station/hyllie"');
     expect(html).toContain('href="/station/kobenhavn-h"');
   });
+
+  it('JSON-LD does not allow </script> breakout via line values', () => {
+    const evilLine: ArchiveLineStats = { ...lineStats, line: '</script><script>alert(1)' };
+    const html = renderLinePage(evilLine.line, evilLine, []);
+    const ldMatches = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+    expect(ldMatches.length).toBeGreaterThan(0);
+    const rawLd = ldMatches[0]![1]!;
+    expect(rawLd).not.toContain('</script>');
+    expect(rawLd).toContain('\\u003c');
+    expect(JSON.parse(rawLd.replace(/\\u003c/g, '<')).itemListElement ?? JSON.parse(rawLd.replace(/\\u003c/g, '<'))['@graph']).toBeDefined();
+  });
 });
 
 function stationStatsSlugList() {

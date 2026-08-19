@@ -111,7 +111,7 @@ function pageShell({ title, description, canonical, jsonLd, body }: ShellOpts): 
     <meta property="og:description" content="${attr(description)}" />
     <meta property="og:url" content="${attr(canonical)}" />
     <meta property="og:site_name" content="Øresund.live" />`;
-  const jsonLdBlock = jsonLd === undefined ? '' : `\n    <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`;
+  const jsonLdBlock = jsonLd === undefined ? '' : `\n    <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`;
   return `<!doctype html>
 <html lang="en">
   <head>

@@ -43,8 +43,8 @@ describe('buildSitemap', () => {
   });
 
   it('URL-encodes line identifiers in the sitemap', () => {
-    const xml = buildSitemap([{ line: '800M', disruptions: 1 }], []);
-    expect(xml).toContain('https://oresund.live/line/800M');
+    const xml = buildSitemap([{ line: '800 M/Ø', disruptions: 1 }], []);
+    expect(xml).toContain('https://oresund.live/line/800%20M%2F%C3%98');
   });
 
   it('is a valid urlset with the sitemaps.org namespace', () => {
