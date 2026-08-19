@@ -14,6 +14,11 @@ export const da: Dict = {
   banner_updated: 'Opdateret',
   banner_disruptions_one: '1 forstyrrelse',
   banner_disruptions_many: '{n} forstyrrelser',
+  // Disruption hero strip
+  hero_disruptions: 'Lige nu',
+  // SEO lead (H2 under the brand)
+  lead_tagline:
+    'Live Øresundstog / togafgange Hyllie ↔ København H — forsinkelser, aflysninger og forstyrrelser hvert 5. minut (Trafiklab).',
   // Direction tabs
   tab_to_denmark: 'Til Danmark',
   tab_to_sweden: 'Til Sverige',

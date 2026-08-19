@@ -18,7 +18,7 @@ export const META: Record<Route, PageMeta> = {
   dashboard: {
     title: 'Øresund.live — live train status across the Sound',
     description:
-      'Live departures, delays and disruptions across the Øresund — Hyllie ↔ København H. Privacy-friendly, no ads.',
+      'Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab.',
     canonical: 'https://oresund.live/',
   },
   methodology: {

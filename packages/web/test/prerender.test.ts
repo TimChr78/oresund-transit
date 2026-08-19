@@ -203,3 +203,43 @@ describe('prerender build pipeline', () => {
     expect(prerenderScript).toContain('throw new Error');
   });
 });
+
+describe('SEO — train + Øresundståg in the served HTML', () => {
+  it('the dashboard shell keeps the live-train <title> and ships the lead paragraph without JS', () => {
+    // 3x train was the SEO gap; the title stays, and the no-JS/crawler
+    // fallback block now carries the H2 lead with train + Øresundståg wording
+    // in the INITIAL HTML (visible without JavaScript).
+    expect(shell).toContain('<title>Øresund.live — live train status across the Sound</title>');
+    expect(shell).toContain('id="static-shell"');
+    const leadNode = /<h2 class="lead">([\s\S]*?)<\/h2>/.exec(shell)?.[1] ?? '';
+    expect(leadNode).toMatch(/train/i);
+    expect(leadNode).toMatch(/Øresundståg/);
+    // the fallback mirrors the client-rendered H1 brand (so the static HTML
+    // has an H1 + H2 hierarchy, not just an empty #app)
+    expect(shell).toContain('<h1 class="brand">Øresund <span class="brand-sub">live</span></h1>');
+  });
+
+  it('META.dashboard.description is one sentence with natural train + Øresundståg wording', () => {
+    const description = META.dashboard.description;
+    const sentences = description.split('.').filter((s) => s.trim().length > 0);
+    expect(sentences).toHaveLength(1);
+    expect(description).toMatch(/train/i);
+    expect(description).toMatch(/Øresundståg/);
+    // the index.html <head> carries the same description (og + twitter + JSON-LD in sync)
+    expect(shell).toContain(description);
+  });
+
+  it('static pages strip the dashboard fallback block (no duplicate H2 lead on /methodology, /privacy)', () => {
+    const methodology = renderPrerenderedPage(
+      shell,
+      renderMethodologyPage('en', getDict('en')),
+      'en',
+      META.methodology,
+    );
+    const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy);
+    expect(methodology).not.toContain('static-shell');
+    expect(privacy).not.toContain('static-shell');
+    expect(methodology).not.toContain('train departures');
+    expect(privacy).not.toContain('train departures');
+  });
+});

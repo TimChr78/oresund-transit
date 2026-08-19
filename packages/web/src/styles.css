@@ -129,6 +129,15 @@ body::after {
   letter-spacing: 0.12em;
   white-space: nowrap;
 }
+.lead {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dim);
+  line-height: 1.45;
+  max-width: 48em;
+  margin: 0 2px 14px;
+}
 
 /* ------------------------------------------------------- status banner
    The signature element: a departure-board strip. Colored band, dark ink,
@@ -190,6 +199,65 @@ body::after {
 }
 .sb-clock {
   font-weight: 700;
+}
+
+/* ------------------------------------------------- disruption hero strip
+   Newest active disruptions surfaced above the table when the live status
+   reports disruptions (count > 0). A sticky row of chips (line, HH:MM, cause
+   badge); clicking the strip scrolls down to the table. */
+
+.hero-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  text-decoration: none;
+  color: inherit;
+}
+.hero-strip-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+  white-space: nowrap;
+}
+.hero-strip-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.hero-strip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  white-space: nowrap;
+}
+.hero-strip-line {
+  font-weight: 700;
+}
+.hero-strip-time {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.hero-strip-arrow {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 12px;
 }
 
 /* -------------------------------------------------------------- sections */

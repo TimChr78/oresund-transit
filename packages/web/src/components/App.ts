@@ -4,6 +4,7 @@ import { esc } from '../lib/html';
 import { filterByDirection, sortNewestFirst } from '../lib/stats';
 import { renderConsentBanner } from './ConsentBanner';
 import { renderDirectionTabs } from './DirectionTabs';
+import { renderDisruptionsHero } from './DisruptionsHero';
 import { renderDisruptionsTable } from './DisruptionsTable';
 import { renderFooter } from './Footer';
 import { renderHistoryCharts } from './HistoryCharts';
@@ -67,6 +68,18 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
     );
   }
 
+  // Hero strip: surface the newest active disruptions above the table while
+  // the live snapshot reports disruptions (> 0) and the today list has rows.
+  // Links down to the table (href="#disruptions-table"); hidden in archive
+  // mode, where the rows shown are historical, not active.
+  const hero =
+    state.live &&
+    state.live.disruption_count > 0 &&
+    state.disruptionsMode === 'today' &&
+    state.disruptions.length > 0
+      ? renderDisruptionsHero(state.disruptions, lang)
+      : '';
+
   const archiveToggleLabel = translate(
     state.disruptionsMode === 'archive' ? 'disruptions_back_to_today' : 'disruptions_show_all',
     lang,
@@ -84,11 +97,13 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
       <h1 class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></h1>
       <span class="board-label">Hyllie ↔ København H</span>
     </header>
+    <h2 class="lead">${translate('lead_tagline', lang)}</h2>
     ${banner}
     <main class="board">
       ${stats}
       <section class="disruptions">
         <h2 class="section-title">${translate('section_disruptions', lang)}</h2>
+        ${hero}
         ${renderDirectionTabs(
           state.disruptionsState === 'ok' ? state.disruptions : null,
           state.direction,
