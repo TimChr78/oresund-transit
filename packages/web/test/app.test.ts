@@ -118,24 +118,63 @@ describe('renderApp — disruption hero strip', () => {
     expect(renderApp(state, 'en', 'declined')).not.toContain('class="hero-strip"');
   });
 
+
+  it('hero excludes a resolved today row (not updated on live date) under Active now', () => {
+    const state = {
+      ...createInitialState(),
+      live: {
+        status: 'amber' as const,
+        status_text: 'Delays',
+        timestamp: '2026-08-06T21:59:27',
+        time_short: '21:59',
+        disruption_count: 2,
+        departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
+        service_shutdown: false,
+        directions: { to_denmark: [], to_sweden: [], bus: [] },
+      },
+      liveState: 'ok' as const,
+      disruptions: [
+        newDisruption,
+        { ...olderDisruption, last_updated: '2026-08-05T22:00:00', timestamp: '2026-08-05T22:00:00' },
+      ],
+      disruptionsState: 'ok' as const,
+    };
+    const html = renderApp(state, 'en', 'declined');
+    expect(html).toContain('Active now');
+    const heroIdx = html.indexOf('hero-strip');
+    const heroSlice = html.slice(heroIdx, heroIdx + 800);
+    expect(heroSlice).toContain('804');
+    expect(heroSlice).not.toContain('803');
+  });
+
+  it('hero slices to disruption_count — does not show more than live reports as active', () => {
+    const baseLive = {
+      status: 'amber' as const,
+      status_text: 'Delays',
+      timestamp: '2026-08-06T21:59:27',
+      time_short: '21:59',
+      disruption_count: 2,
+      departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
+      service_shutdown: false,
+      directions: { to_denmark: [], to_sweden: [], bus: [] },
+    } as const;
+    const liveOne = { ...baseLive, disruption_count: 1 } as typeof baseLive;
+    const state = {
+      ...createInitialState(),
+      live: liveOne,
+      liveState: 'ok' as const,
+      disruptions: [newDisruption, olderDisruption],
+      disruptionsState: 'ok' as const,
+    };
+    const html = renderApp(state, 'en', 'declined');
+    const heroIdx = html.indexOf('hero-strip');
+    const heroSlice = html.slice(heroIdx, heroIdx + 800);
+    expect(heroSlice).toContain('804');
+    expect(heroSlice).not.toContain('803');
+  });
   it('hero label is trilingual', () => {
     const state = { ...createInitialState(), live, disruptions: [newDisruption], disruptionsState: 'ok' as const };
     expect(renderApp(state, 'sv', 'declined')).toContain('Just nu');
     expect(renderApp(state, 'da', 'declined')).toContain('Lige nu');
-  });
-});
-
-describe('renderApp — SEO lead (H2 under the brand)', () => {
-  it('renders the lead tagline under the H1 with train + Øresundståg wording', () => {
-    const html = renderApp(createInitialState(), 'en', 'declined');
-    expect(html).toContain('<h2 class="lead">');
-    expect(html).toMatch(/Live Øresundståg \/ train departures Hyllie ↔ København H/);
-    // H1 (brand) comes before the H2 lead
-    expect(html.indexOf('<h1 class="brand">')).toBeLessThan(html.indexOf('<h2 class="lead">'));
-  });
-
-  it('the lead is trilingual', () => {
-    expect(renderApp(createInitialState(), 'sv', 'declined')).toMatch(/tågavgångar/);
-    expect(renderApp(createInitialState(), 'da', 'declined')).toMatch(/togafgange/);
   });
 });

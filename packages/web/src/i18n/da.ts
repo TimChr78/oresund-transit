@@ -18,7 +18,7 @@ export const da: Dict = {
   hero_disruptions: 'Lige nu',
   // SEO lead (H2 under the brand)
   lead_tagline:
-    'Live Øresundstog / togafgange Hyllie ↔ København H — forsinkelser, aflysninger og forstyrrelser hvert 5. minut (Trafiklab).',
+    'Live Øresundstog / togafgange Hyllie ↔ København H — forsinkelser, aflysninger og forstyrrelser — opdateret hvert 5. minut (Trafiklab).',
   // Direction tabs
   tab_to_denmark: 'Til Danmark',
   tab_to_sweden: 'Til Sverige',

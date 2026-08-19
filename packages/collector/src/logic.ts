@@ -248,6 +248,17 @@ export function isResumedNormalNotice(title: string, text: string): boolean {
   return combined.includes('kan kora normalt igen') || combined.includes('kor normalt igen');
 }
 
+/** True only when every alert on the departure is a resumed-normal notice (no active alerts present). */
+export function isEveryAlertResumed(alerts: readonly { title?: unknown; text?: unknown }[]): boolean {
+  if (alerts.length === 0) return false;
+  for (const a of alerts) {
+    const title = String((a as any)?.title ?? '');
+    const text = String((a as any)?.text ?? '');
+    if (!isResumedNormalNotice(title, text)) return false;
+  }
+  return true;
+}
+
 const CROSSBORDER_DEST_KEYWORDS = [
   'osterport',
   'kobenhavn',

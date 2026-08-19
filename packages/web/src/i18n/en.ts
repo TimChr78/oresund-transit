@@ -18,7 +18,7 @@ export const en: Dict = {
   hero_disruptions: 'Active now',
   // SEO lead (H2 under the brand)
   lead_tagline:
-    'Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).',
+    'Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts, updated every 5 min (Trafiklab).',
   // Direction tabs
   tab_to_denmark: '→ DK',
   tab_to_sweden: '→ SE',

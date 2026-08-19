@@ -250,7 +250,7 @@ describe("boot() fallback removal (CodeRabbit: main.ts 87)", () => {
     // static-shell is dropped at the top of boot() before any route handler
     expect(src).toMatch(/document\.getElementById\(["']static-shell["']\)\?\.remove\(\)/);
     // and the removal sits before the route = routePath(...) line
-    const removeIdx = src.indexOf("static-shell");
+    const removeIdx = src.search(/document\.getElementById\(["\x27]static-shell["\x27]\)\?\.remove\(\)/);
     const routeIdx = src.indexOf("routePath(window.location.pathname)");
     expect(removeIdx).toBeGreaterThan(-1);
     expect(routeIdx).toBeGreaterThan(-1);

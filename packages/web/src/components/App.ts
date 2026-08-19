@@ -68,17 +68,25 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
     );
   }
 
-  // Hero strip: surface the newest active disruptions above the table while
+  // Hero strip: surface the newest ACTIVE disruptions above the table while
   // the live snapshot reports disruptions (> 0) and the today list has rows.
+  // The live snapshot and the today table are fetched independently (no shared
+  // snapshot ID, Disruption has no active marker), so disruption_count is the
+  // only signal of how many rows are still active. The hero therefore slices
+  // the newest disruptions to min(3, disruption_count) and drops any today row
+  // that was not updated on the live snapshot date -- otherwise a resolved
+  // row that is still in today table would be shown under "Active now".
   // Links down to the table (href="#disruptions-table"); hidden in archive
   // mode, where the rows shown are historical, not active.
-  const hero =
-    state.live &&
-    state.live.disruption_count > 0 &&
-    state.disruptionsMode === 'today' &&
-    state.disruptions.length > 0
-      ? renderDisruptionsHero(state.disruptions, lang)
-      : '';
+  const hero = (() => {
+    if (!state.live || state.live.disruption_count === 0 || state.disruptions.length === 0) return '';
+    if (state.disruptionsMode !== 'today') return '';
+    const liveDate = state.live.timestamp.slice(0, 10);
+    const active = state.disruptions.filter((d) => (d.last_updated ?? d.timestamp)?.startsWith(liveDate)).slice(0, state.live.disruption_count);
+    if (active.length === 0) return '';
+    return renderDisruptionsHero(active, lang);
+  })();
+
 
   const archiveToggleLabel = translate(
     state.disruptionsMode === 'archive' ? 'disruptions_back_to_today' : 'disruptions_show_all',
