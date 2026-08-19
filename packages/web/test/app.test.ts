@@ -120,18 +120,19 @@ describe('renderApp — disruption hero strip', () => {
 
 
   it('hero excludes a resolved today row (not updated on live date) under Active now', () => {
+    const liveResolved: LiveStatus = {
+      status: 'amber',
+      status_text: 'Delays',
+      timestamp: '2026-08-06T21:59:27',
+      time_short: '21:59',
+      disruption_count: 2,
+      departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
+      service_shutdown: false,
+      directions: { to_denmark: [], to_sweden: [], bus: [] },
+    };
     const state = {
       ...createInitialState(),
-      live: {
-        status: 'amber' as const,
-        status_text: 'Delays',
-        timestamp: '2026-08-06T21:59:27',
-        time_short: '21:59',
-        disruption_count: 2,
-        departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
-        service_shutdown: false,
-        directions: { to_denmark: [], to_sweden: [], bus: [] },
-      },
+      live: liveResolved,
       liveState: 'ok' as const,
       disruptions: [
         newDisruption,
@@ -148,8 +149,8 @@ describe('renderApp — disruption hero strip', () => {
   });
 
   it('hero slices to disruption_count — does not show more than live reports as active', () => {
-    const baseLive = {
-      status: 'amber' as const,
+    const baseLive: LiveStatus = {
+      status: 'amber',
       status_text: 'Delays',
       timestamp: '2026-08-06T21:59:27',
       time_short: '21:59',
@@ -157,8 +158,8 @@ describe('renderApp — disruption hero strip', () => {
       departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
       service_shutdown: false,
       directions: { to_denmark: [], to_sweden: [], bus: [] },
-    } as const;
-    const liveOne = { ...baseLive, disruption_count: 1 } as typeof baseLive;
+    };
+    const liveOne: LiveStatus = { ...baseLive, disruption_count: 1 };
     const state = {
       ...createInitialState(),
       live: liveOne,
