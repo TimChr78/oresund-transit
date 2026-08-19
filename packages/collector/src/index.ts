@@ -27,9 +27,13 @@ import {
 import {
   logDisruption,
   queryDelayStats,
+  queryDistinctLines,
   queryHistory,
+  queryLineHistory,
   queryPunctuality,
+  queryRecentDepartures,
   queryRecentDisruptions,
+  queryStationPunctuality,
   readLiveStatus,
   upsertDeparture,
   writeLiveStatus,
@@ -56,9 +60,22 @@ const DEFAULT_BASE_URL = 'https://realtime-api.trafiklab.se/v1/departures';
  * the Phase 2 scope decision.
  */
 const MONITORED_STOPS = [
-  { id: '740001586', name: 'Malmö Hyllie', filter: isCrossborderTrain },
-  { id: '860000626', name: 'København H', filter: isSwedenBoundTrain },
+  { id: '740001586', name: 'Malmö Hyllie', slug: 'hyllie', filter: isCrossborderTrain },
+  { id: '860000626', name: 'København H', slug: 'kobenhavn-h', filter: isSwedenBoundTrain },
 ] as const;
+
+/** The stable archive URL slug for a monitored stop (ASCII, URL-safe). */
+export interface StationInfo {
+  slug: string;
+  stop_id: string;
+  stop_name: string;
+}
+
+const STATIONS: StationInfo[] = MONITORED_STOPS.map((s) => ({
+  slug: s.slug,
+  stop_id: s.id,
+  stop_name: s.name,
+}));
 
 /** Operating hours / timestamps are "local" = Europe/Stockholm (monitor local). */
 const LOCAL_TZ = 'Europe/Stockholm';
@@ -389,7 +406,44 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
     return json(await queryPunctuality(env.DB, days));
   }
 
+  // ---- Archive (server-rendered SEO pages) ----
+  // Discovery endpoints feed the archive index pages + the dynamic sitemap.
+  if (url.pathname === '/api/transit/lines') {
+    return json({ lines: await queryDistinctLines(env.DB) });
+  }
+
+  if (url.pathname === '/api/transit/stations') {
+    return json({ stations: STATIONS });
+  }
+
+  if (url.pathname.startsWith('/api/transit/line/')) {
+    const line = decodeURIComponent(url.pathname.slice('/api/transit/line/'.length));
+    if (!line) return json({ error: 'line is required' }, 400);
+    return json(await queryLineHistory(env.DB, line, parseDays(url)));
+  }
+
+  if (url.pathname.startsWith('/api/transit/station/')) {
+    const slug = decodeURIComponent(url.pathname.slice('/api/transit/station/'.length));
+    const stop = STATIONS.find((s) => s.slug === slug);
+    if (!stop) return json({ error: 'unknown station' }, 404);
+    const days = parseDays(url);
+    const punctuality = await queryStationPunctuality(env.DB, stop.stop_id, days);
+    return json({
+      ...punctuality,
+      slug: stop.slug,
+      stop_name: stop.stop_name,
+      recent: await queryRecentDepartures(env.DB, stop.stop_id, 20),
+    });
+  }
+
   return json({ error: 'not found' }, 404);
+}
+
+/** days query param for archive pages — 7|14|30|90, defaulting to 30. */
+function parseDays(url: URL): number {
+  const n = url.searchParams.get('days');
+  const value = n === null ? 30 : Number(n);
+  return value === 7 || value === 14 || value === 30 || value === 90 ? value : 30;
 }
 
 export default {

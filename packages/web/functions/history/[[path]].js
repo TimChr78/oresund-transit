@@ -1,0 +1,21 @@
+/**
+ * Archive routes: paths under /history/* (/history, /history/{7|14|30|90})
+ * are served by this Pages Function, server-rendered at request time from the
+ * collector Worker (dynamic data). See src/lib/archive-http.ts for dispatch +
+ * render logic and src/lib/archive.ts for the pure renderers.
+ *
+ * Scoped to /history/* via _routes.json so every other route stays on the
+ * free static tier.
+ */
+import { handleArchiveRequest } from '../../src/lib/archive-http';
+
+export async function onRequest(context) {
+  const result = await handleArchiveRequest(new URL(context.request.url).pathname);
+  if (result) {
+    return result;
+  }
+  return new Response('Not found', {
+    status: 404,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+}

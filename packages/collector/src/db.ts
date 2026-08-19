@@ -488,3 +488,223 @@ export async function queryPunctuality(db: D1Like, days: number, now: Date = new
 
   return { days, date_from: from, date_to: to, daily };
 }
+
+/**
+ * Per-line disruption history — the /api/transit/line/{line} contract. Like
+ * queryHistory but filtered to one line: zero-filled daily counts (the chart
+ * axis), a by-cause facet, and the most recent disruptions for the line (for
+ * a server-rendered archive list). `now` is injectable so tests are
+ * deterministic.
+ */
+export interface LineHistoryStats {
+  line: string;
+  days: number;
+  date_from: string;
+  date_to: string;
+  total_disruptions: number;
+  daily: HistoryStats['daily'];
+  by_cause: { cause: string; count: number }[];
+  recent: Disruption[];
+}
+
+const LINE_DAILY_SQL =
+  'SELECT date(timestamp) AS date, type, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE line = ? AND timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
+const LINE_CAUSE_SQL =
+  'SELECT cause, COUNT(*) AS count FROM disruptions WHERE line = ? AND timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
+const LINE_RECENT_SQL = 'SELECT * FROM disruptions WHERE line = ? ORDER BY timestamp DESC LIMIT ?';
+
+const RECENT_DISRUPTIONS_LIMIT = 20;
+
+export async function queryLineHistory(
+  db: D1Like,
+  line: string,
+  days: number,
+  now: Date = new Date(),
+): Promise<LineHistoryStats> {
+  const to = localDateOnly(now);
+  const from = addDaysStr(to, -(days - 1));
+  const toExclusive = addDaysStr(to, 1);
+
+  const [dailyRows, causeRows, recentRows] = await Promise.all([
+    db
+      .prepare(LINE_DAILY_SQL)
+      .bind(line, from, toExclusive)
+      .all<{ date: string; type: string | null; count: number; avg_delay: number | null }>(),
+    db.prepare(LINE_CAUSE_SQL).bind(line, from, toExclusive).all<{ cause: string | null; count: number }>(),
+    db
+      .prepare(LINE_RECENT_SQL)
+      .bind(line, RECENT_DISRUPTIONS_LIMIT)
+      .all<Disruption>(),
+  ]);
+
+  const daily: LineHistoryStats['daily'] = [];
+  const byDate = new Map<string, LineHistoryStats['daily'][number]>();
+  for (let d = from; d <= to; d = addDaysStr(d, 1)) {
+    const entry = { date: d, count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null as number | null };
+    daily.push(entry);
+    byDate.set(d, entry);
+  }
+  const delaySum = new Map<string, { sum: number; n: number }>();
+  for (const r of dailyRows.results) {
+    const entry = byDate.get(r.date);
+    if (!entry) continue;
+    entry.count += r.count;
+    if (r.type === 'cancellation') entry.cancellations += r.count;
+    else if (r.type === 'delay') entry.delays += r.count;
+    else if (r.type === 'alert') entry.alerts += r.count;
+    if (r.avg_delay != null) {
+      const acc = delaySum.get(r.date) ?? { sum: 0, n: 0 };
+      acc.sum += r.count * r.avg_delay;
+      acc.n += r.count;
+      delaySum.set(r.date, acc);
+    }
+  }
+  for (const entry of daily) {
+    const acc = delaySum.get(entry.date);
+    entry.avg_delay = acc && acc.n > 0 ? Math.round(acc.sum / acc.n) : null;
+  }
+
+  return {
+    line,
+    days,
+    date_from: from,
+    date_to: to,
+    total_disruptions: daily.reduce((sum, e) => sum + e.count, 0),
+    daily,
+    by_cause: causeRows.results
+      .map((r) => ({ cause: r.cause ?? 'unknown', count: r.count }))
+      .sort((a, b) => b.count - a.count),
+    recent: recentRows.results,
+  };
+}
+
+/** Distinct lines with disruption counts — discovery for /api/transit/lines. */
+export function queryDistinctLines(db: D1Like, limit = 50): Promise<{ line: string; disruptions: number }[]> {
+  return db
+    .prepare('SELECT line, COUNT(*) AS count FROM disruptions WHERE line IS NOT NULL GROUP BY line ORDER BY count DESC LIMIT ?')
+    .bind(limit)
+    .all<{ line: string; count: number }>()
+    .then(({ results }) => results.map((r) => ({ line: r.line, disruptions: r.count })));
+}
+
+/**
+ * Per-station delay-% over time, filtered to one stop — the departure-side
+ * companion to a station page (disruptions have no station column). Same
+ * zero-filled daily shape as queryPunctuality, plus the period totals.
+ */
+export interface StationPunctuality {
+  stop_id: string;
+  days: number;
+  date_from: string;
+  date_to: string;
+  total_departures: number;
+  on_time_count: number;
+  delayed_count: number;
+  canceled_count: number;
+  on_time_pct: number;
+  avg_delay_seconds: number | null;
+  daily: PunctualityRow[];
+}
+
+const STATION_PUNCTUALITY_SQL =
+  'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+
+export async function queryStationPunctuality(
+  db: D1Like,
+  stopId: string,
+  days: number,
+  now: Date = new Date(),
+): Promise<StationPunctuality> {
+  const to = localDateOnly(now);
+  const from = addDaysStr(to, -(days - 1));
+  const toExclusive = addDaysStr(to, 1);
+
+  const { results } = await db
+    .prepare(STATION_PUNCTUALITY_SQL)
+    .bind(stopId, from, toExclusive)
+    .all<{ date: string; status: string | null; count: number; avg_delay: number | null }>();
+
+  const daily: PunctualityRow[] = [];
+  const byDate = new Map<string, PunctualityRow>();
+  for (let d = from; d <= to; d = addDaysStr(d, 1)) {
+    const entry: PunctualityRow = {
+      date: d,
+      total: 0,
+      on_time: 0,
+      delayed: 0,
+      canceled: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: null,
+    };
+    daily.push(entry);
+    byDate.set(d, entry);
+  }
+
+  const rowsByDay = new Map<string, { count: number; avg_delay: number | null }[]>();
+  for (const r of results) {
+    const entry = byDate.get(r.date);
+    if (!entry) continue;
+    const rows = rowsByDay.get(r.date) ?? [];
+    rows.push({ count: r.count, avg_delay: r.avg_delay });
+    rowsByDay.set(r.date, rows);
+    if (r.status === 'on_time') entry.on_time += r.count;
+    else if (r.status === 'delayed') entry.delayed += r.count;
+    else if (r.status === 'canceled') entry.canceled += r.count;
+  }
+
+  let on_time_count = 0;
+  let delayed_count = 0;
+  let canceled_count = 0;
+  for (const entry of daily) {
+    entry.total = entry.on_time + entry.delayed + entry.canceled;
+    entry.on_time_pct = entry.total > 0 ? Math.round((entry.on_time / entry.total) * 1000) / 10 : 0;
+    const rows = rowsByDay.get(entry.date) ?? [];
+    const withAvg = rows.filter((r) => r.avg_delay != null);
+    if (withAvg.length > 0) {
+      entry.avg_delay_seconds = Math.round(
+        withAvg.reduce((sum, r) => sum + r.count * (r.avg_delay ?? 0), 0) /
+          withAvg.reduce((sum, r) => sum + r.count, 0),
+      );
+    }
+    on_time_count += entry.on_time;
+    delayed_count += entry.delayed;
+    canceled_count += entry.canceled;
+  }
+
+  const total_departures = on_time_count + delayed_count + canceled_count;
+  const withAvg = daily.filter((d) => d.avg_delay_seconds != null);
+  const avg_delay_seconds =
+    withAvg.length > 0
+      ? Math.round(
+          withAvg.reduce((sum, d) => sum + d.total * (d.avg_delay_seconds ?? 0), 0) /
+            withAvg.reduce((sum, d) => sum + d.total, 0),
+        )
+      : null;
+
+  return {
+    stop_id: stopId,
+    days,
+    date_from: from,
+    date_to: to,
+    total_departures,
+    on_time_count,
+    delayed_count,
+    canceled_count,
+    on_time_pct: total_departures > 0 ? Math.round((on_time_count / total_departures) * 1000) / 10 : 0,
+    avg_delay_seconds,
+    daily,
+  };
+}
+
+/** Recent departures observed at a stop — the recent-rows list on a station page. */
+export function queryRecentDepartures(
+  db: D1Like,
+  stopId: string,
+  limit: number,
+): Promise<Departure[]> {
+  return db
+    .prepare('SELECT * FROM departures WHERE stop_id = ? ORDER BY sched_time DESC LIMIT ?')
+    .bind(stopId, limit)
+    .all<Departure>()
+    .then(({ results }) => results);
+}
