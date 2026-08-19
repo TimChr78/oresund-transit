@@ -180,15 +180,17 @@ function classifyDeparture(
   now: Date,
 ): DisruptionInput | null {
   const { title, text } = alertTitleText(dep);
+  const type = classifyType(dep.canceled, dep.delay, title, text);
+  if (type === 'unknown') return null;
   // Resumed-normal notices ("Förseningar – Tågen kan köra normalt igen") are
   // the all-clear message — NOT a disruption. The delay field still carries a
   // stale value at that point (0–779s observed), so without this filter every
   // back-to-normal poll would be logged as a delay/alert and inflate
-  // disruption_count while the train is actually on time. True residual
-  // delays (>= 240s) and cancellations are kept.
-  if (!dep.canceled && (dep.delay ?? 0) < 240 && isResumedNormalNotice(title, text)) return null;
-  const type = classifyType(dep.canceled, dep.delay, title, text);
-  if (type === 'unknown') return null;
+  // disruption_count while the train is actually on time. Text-classified
+  // cancellations (installt/cancelled in title/text) must still be kept, so
+  // the filter only applies when the type is not cancellation. True residual
+  // delays (>= 240s) and dep.canceled cancellations are also kept.
+  if (type !== "cancellation" && (dep.delay ?? 0) < 240 && isResumedNormalNotice(title, text)) return null;
 
   const ts = formatLocalIso(now);
   return {

@@ -243,3 +243,19 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
     expect(privacy).not.toContain('train departures');
   });
 });
+
+describe("boot() fallback removal (CodeRabbit: main.ts 87)", () => {
+  it("boot() source removes #static-shell before route branching", async () => {
+    const src = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+    // static-shell is dropped at the top of boot() before any route handler
+    expect(src).toMatch(/document\.getElementById\(["']static-shell["']\)\?\.remove\(\)/);
+    // and the removal sits before the route = routePath(...) line
+    const removeIdx = src.indexOf("static-shell");
+    const routeIdx = src.indexOf("routePath(window.location.pathname)");
+    expect(removeIdx).toBeGreaterThan(-1);
+    expect(routeIdx).toBeGreaterThan(-1);
+    expect(removeIdx).toBeLessThan(routeIdx);
+    // prerender pipeline already asserts static pages strip it, dashboards keep it in shell — this covers the client boot path
+    expect(shell).toContain('id="static-shell"');
+  });
+});

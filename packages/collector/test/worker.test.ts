@@ -278,6 +278,16 @@ describe('runScheduled — disruption classification', () => {
     expect(writtenStatus(db).status).toBe('amber');
   });
 
+  it('does NOT filter a TEXT-classified cancellation (installt) with a resumed-normal message', async () => {
+    // installt in text classifies as cancellation - must survive the all-clear filter even with delay<240
+    const db = new FakeD1();
+    const dep = { ...realDeparture, canceled: false, delay: 120, alerts: [{ title: 'Resumed - Tagen kan kora normalt igen', text: 'Taget ar installt - kan kora normalt igen' }] } as unknown as typeof realDeparture;
+    await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
+    const rows = disruptionRows(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.type).toBe('cancellation');
+  });
+
   it('does NOT filter a canceled departure with a resumed-normal message', async () => {
     const db = new FakeD1();
     const dep = {
