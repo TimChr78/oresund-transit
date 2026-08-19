@@ -646,6 +646,143 @@ describe('handleFetch — /api/transit/punctuality', () => {
   });
 });
 
+describe('handleFetch — archive: lines / line', () => {
+  const DISTINCT_SQL =
+    'SELECT line, COUNT(*) AS count FROM disruptions WHERE line IS NOT NULL GROUP BY line ORDER BY count DESC LIMIT ?';
+  const DAILY_SQL =
+    'SELECT date(timestamp) AS date, type, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE line = ? AND timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
+  const CAUSE_SQL =
+    'SELECT cause, COUNT(*) AS count FROM disruptions WHERE line = ? AND timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
+  const RECENT_SQL = 'SELECT * FROM disruptions WHERE line = ? ORDER BY timestamp DESC LIMIT ?';
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('GET /api/transit/lines lists distinct lines with counts', async () => {
+    const db = new FakeD1();
+    db.stubAll(DISTINCT_SQL, [
+      { line: '804', count: 40 },
+      { line: '803', count: 15 },
+    ]);
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/lines'), env(db));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      lines: [
+        { line: '804', disruptions: 40 },
+        { line: '803', disruptions: 15 },
+      ],
+    });
+  });
+
+  it('GET /api/transit/line/804 returns daily/by_cause/recent for that line', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    db.stubAll(DAILY_SQL, [
+      { date: '2026-08-06', type: 'delay', count: 3, avg_delay: 650 },
+      { date: '2026-08-05', type: 'cancellation', count: 1, avg_delay: 0 },
+    ]);
+    db.stubAll(CAUSE_SQL, [
+      { cause: 'signal_failure', count: 3 },
+      { cause: 'unknown', count: 1 },
+    ]);
+    db.stubAll(RECENT_SQL, [
+      { id: 9, timestamp: '2026-08-06T12:00:00', line: '804', type: 'delay' },
+    ]);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/line/804?days=7'), env(db));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      line: string;
+      days: number;
+      date_from: string;
+      total_disruptions: number;
+      daily: { date: string; count: number; cancellations: number; delays: number; alerts: number; avg_delay: number | null }[];
+      by_cause: { cause: string; count: number }[];
+      recent: { id: number; line: string; type: string }[];
+    };
+    expect(body.line).toBe('804');
+    expect(body.days).toBe(7);
+    expect(body.date_from).toBe('2026-07-31');
+    expect(body.total_disruptions).toBe(4);
+    expect(body.daily[6]).toEqual({ date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 });
+    expect(body.by_cause).toEqual([
+      { cause: 'signal_failure', count: 3 },
+      { cause: 'unknown', count: 1 },
+    ]);
+    expect(body.recent).toEqual([{ id: 9, timestamp: '2026-08-06T12:00:00', line: '804', type: 'delay' }]);
+    // line filtered with the range bound
+    expect(db.lastBindsFor('WHERE line = ? AND timestamp >= ?')).toEqual(['804', '2026-07-31', '2026-08-07']);
+    expect(db.lastBindsFor('WHERE line = ? ORDER BY timestamp DESC')).toEqual(['804', 20]);
+  });
+
+  it('GET /api/transit/line/ rejects an empty line', async () => {
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/line/'), env(db));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('handleFetch — archive: stations / station', () => {
+  const PUNCT_SQL =
+    'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+  const RECENT_SQL = 'SELECT * FROM departures WHERE stop_id = ? ORDER BY sched_time DESC LIMIT ?';
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('GET /api/transit/stations lists the monitored stops with slugs', async () => {
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/stations'), env(db));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      stations: [
+        { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
+        { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
+      ],
+    });
+  });
+
+  it('GET /api/transit/station/hyllie returns punctuality + recent departures', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    db.stubAll(PUNCT_SQL, [
+      { date: '2026-08-06', status: 'on_time', count: 9, avg_delay: 0 },
+      { date: '2026-08-06', status: 'delayed', count: 1, avg_delay: 600 },
+    ]);
+    db.stubAll(RECENT_SQL, [
+      { id: 3, stop_id: '740001586', stop_name: 'Malmö Hyllie', line: '804', sched_time: '2026-08-06T21:59:00' },
+    ]);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/station/hyllie?days=7'), env(db));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      slug: string;
+      stop_id: string;
+      stop_name: string;
+      days: number;
+      total_departures: number;
+      on_time_pct: number;
+      daily: unknown[];
+      recent: { id: number; line: string }[];
+    };
+    expect(body.slug).toBe('hyllie');
+    expect(body.stop_name).toBe('Malmö Hyllie');
+    expect(body.stop_id).toBe('740001586');
+    expect(body.days).toBe(7);
+    expect(body.total_departures).toBe(10);
+    expect(body.on_time_pct).toBe(90);
+    expect(body.daily).toHaveLength(7);
+    expect(body.recent).toEqual([{ id: 3, stop_id: '740001586', stop_name: 'Malmö Hyllie', line: '804', sched_time: '2026-08-06T21:59:00' }]);
+    expect(db.lastBindsFor('WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY')).toEqual(['740001586', '2026-07-31', '2026-08-07']);
+  });
+
+  it('GET /api/transit/station/unknown returns 404', async () => {
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/station/nowhere'), env(db));
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('handleFetch — CORS', () => {
   const corsHeaders: Record<string, string> = {
     'access-control-allow-origin': '*',
