@@ -224,6 +224,74 @@ describe('runScheduled — disruption classification', () => {
     expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('on_time');
     expect(disruptionRows(db)).toHaveLength(0);
   });
+
+  it('does NOT log a "resumed normal" notice with a stale sub-240s delay (count 0, green)', async () => {
+    // Trafiklab follows a disruption with "Förseningar – Tågen kan köra normalt
+    // igen" once service is back, but the delay field still carries a stale
+    // value. Previously classifyType logged this as an alert/delay row and
+    // buildLiveStatus counted it — the miscount this fix removes.
+    const db = new FakeD1();
+    const dep = {
+      ...realDeparture,
+      delay: 120,
+      canceled: false,
+      alerts: [{ title: 'Förseningar', text: 'Tågen kan köra normalt igen' }],
+    };
+    await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
+
+    expect(disruptionRows(db)).toHaveLength(0);
+    const status = writtenStatus(db);
+    expect(status.disruption_count).toBe(0);
+    expect(status.status).toBe('green');
+    // the KPI already treated it as on time — list and count now agree
+    expect(depRow(db, '2026-08-06_804_21:59_Østerport').status).toBe('on_time');
+  });
+
+  it('also filters the "kör normalt igen" variant and the exact D1 spellings', async () => {
+    const db = new FakeD1();
+    const dep = {
+      ...realDeparture,
+      delay: 90,
+      canceled: false,
+      alerts: [{ title: 'Förseningar - Tågen kan köra normalt igen', text: 'Tågen kör normalt igen' }],
+    };
+    await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
+
+    expect(disruptionRows(db)).toHaveLength(0);
+    expect(writtenStatus(db).disruption_count).toBe(0);
+  });
+
+  it('keeps a TRUE residual delay (>= 240s) even with a resumed-normal message', async () => {
+    const db = new FakeD1();
+    const dep = {
+      ...realDeparture,
+      delay: 300,
+      canceled: false,
+      alerts: [{ title: 'Förseningar', text: 'Tågen kan köra normalt igen' }],
+    };
+    await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
+
+    const rows = disruptionRows(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.type).toBe('delay');
+    expect(rows[0]!.delay_seconds).toBe(300);
+    expect(writtenStatus(db).status).toBe('amber');
+  });
+
+  it('does NOT filter a canceled departure with a resumed-normal message', async () => {
+    const db = new FakeD1();
+    const dep = {
+      ...realDeparture,
+      delay: 0,
+      canceled: true,
+      alerts: [{ title: 'Förseningar', text: 'Tågen kan köra normalt igen' }],
+    };
+    await runScheduled(env(db), fetchFor(hylliePayload([dep])), () => new Date('2026-08-06T12:00:00Z'));
+
+    const rows = disruptionRows(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.type).toBe('cancellation');
+  });
 });
 
 describe('handleFetch — API paths', () => {

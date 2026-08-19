@@ -10,6 +10,7 @@ import {
   classifyType,
   formatTime,
   isChronic,
+  isResumedNormalNotice,
   isCrossborderTrain,
   isSwedenBoundTrain,
   isGottorpHyllieBus,
@@ -214,6 +215,29 @@ describe('formatTime', () => {
     expect(formatTime('2026-08-06T22:1')).toBe('?');
     expect(formatTime('2026-08-06')).toBe('?');
     expect(formatTime(null)).toBe('?');
+  });
+});
+
+describe('isResumedNormalNotice', () => {
+  it('matches "kan köra normalt igen" across Swedish orthography variants', () => {
+    expect(isResumedNormalNotice('Förseningar', 'Tågen kan köra normalt igen')).toBe(true);
+    expect(isResumedNormalNotice('Förseningar - Tågen kan köra normalt igen', '')).toBe(true);
+    // the exact normalized spelling seen in D1 raw_text (ö→o, å→a applied)
+    expect(isResumedNormalNotice('Forseningar', 'Tagen kan kora normalt igen')).toBe(true);
+  });
+
+  it('matches the "kör normalt igen" variant (no "kan")', () => {
+    expect(isResumedNormalNotice('Förseningar', 'Tågen kör normalt igen')).toBe(true);
+    expect(isResumedNormalNotice('', 'Trafiken rullar, tågen kör normalt igen')).toBe(true);
+  });
+
+  it('does not match disturbances or unrelated text', () => {
+    expect(isResumedNormalNotice('Signalfel', 'Störning i tågtrafiken')).toBe(false);
+    expect(isResumedNormalNotice('Personalbrist', '')).toBe(false);
+    expect(isResumedNormalNotice('', '')).toBe(false);
+    // nearly-there phrases (missing "igen", English translation) are not the all-clear
+    expect(isResumedNormalNotice('Förseningar', 'Tågen kan köra normalt')).toBe(false);
+    expect(isResumedNormalNotice('', 'trains can now run normally again')).toBe(false);
   });
 });
 
