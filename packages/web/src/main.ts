@@ -82,6 +82,10 @@ export function boot(): void {
   const root = document.getElementById('app');
   if (!root) return;
 
+  // Drop the no-JS/crawler fallback block (static H1 + SEO lead) shipped in
+  // the shell — boot renders into #app regardless of route below.
+  document.getElementById('static-shell')?.remove();
+
   // /privacy and /methodology render their static pages instead of the
   // dashboard. No data fetching, no consent banner — just the shell, footer
   // and lang switcher.

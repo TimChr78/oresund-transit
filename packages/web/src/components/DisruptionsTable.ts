@@ -106,7 +106,7 @@ export function renderDisruptionsTable(
     bodyRows.push(row(d, lang));
   }
   return `
-  <div class="table-wrap">
+  <div class="table-wrap" id="disruptions-table">
     <table class="board-table">
       <thead>
         <tr>${headers.map((h) => `<th>${translate(h, lang)}</th>`).join('')}</tr>

@@ -14,6 +14,11 @@ export const en: Dict = {
   banner_updated: 'Updated',
   banner_disruptions_one: '1 disruption',
   banner_disruptions_many: '{n} disruptions',
+  // Disruption hero strip
+  hero_disruptions: 'Active now',
+  // SEO lead (H2 under the brand)
+  lead_tagline:
+    'Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts, updated every 5 min (Trafiklab).',
   // Direction tabs
   tab_to_denmark: '→ DK',
   tab_to_sweden: '→ SE',

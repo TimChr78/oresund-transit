@@ -35,6 +35,11 @@ export function renderPrerenderedPage(shell: string, body: string, lang: Lang, m
   // The noscript "requires JavaScript" block is for the dashboard; the static
   // page content is already in the HTML.
   html = html.replace(/<noscript>[\s\S]*?<\/noscript>/, '');
+  // The shell's no-JS/crawler fallback (static H1 + SEO lead) is dashboard
+  // content — the static route injects its own page into #app, so the
+  // fallback must not leak into /methodology or /privacy. The block itself
+  // contains no nested <div>, so the first </div> closes it.
+  html = html.replace(/<div id="static-shell"[^>]*>[\s\S]*?<\/div>\s*/, '');
   return html;
 }
 

@@ -13,7 +13,7 @@
     />
     <meta
       name="description"
-      content="Live departures, delays and disruptions across the Øresund — Hyllie ↔ København H. Privacy-friendly, no ads."
+      content="Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
     />
     <meta name="theme-color" content="#0a0c10" />
     <link
@@ -25,7 +25,7 @@
     <meta property="og:title" content="Øresund.live — live train status across the Sound" />
     <meta
       property="og:description"
-      content="Live departures, delays and disruptions across the Øresund — Hyllie ↔ København H."
+      content="Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
     />
     <meta property="og:url" content="https://oresund.live/" />
     <meta property="og:site_name" content="Øresund.live" />
@@ -37,7 +37,7 @@
     <meta name="twitter:title" content="Øresund.live — live train status across the Sound" />
     <meta
       name="twitter:description"
-      content="Live departures, delays and disruptions across the Øresund — Hyllie ↔ København H."
+      content="Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
     />
     <!-- Umami analytics — cookieless, anonymized; no consent interaction needed. -->
     <script defer src="https://analytics.martechsignal.com/script.js" data-website-id="5e9194d0-7e30-4b99-beeb-eb08e02dcd71"></script>
@@ -51,14 +51,14 @@
             "@id": "https://oresund.live/#website",
             "name": "Øresund.live",
             "url": "https://oresund.live/",
-            "description": "Live departures, delays and disruptions across the Øresund — Hyllie ↔ København H. Privacy-friendly, no ads."
+            "description": "Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
           },
           {
             "@type": "Organization",
             "@id": "https://oresund.live/#organization",
             "name": "Øresund.live",
             "url": "https://oresund.live/",
-            "description": "Live departures, delays and disruptions across the Øresund — Hyllie ↔ København H."
+            "description": "Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
           }
         ]
       }
@@ -66,6 +66,19 @@
   </head>
   <body>
     <div id="app"></div>
+    <div id="static-shell" class="wrap">
+      <!--
+        No-JS / crawler fallback: the dashboard itself is client-rendered, so
+        the SEO-critical lead (H2 with Øresundståg + train wording) is shipped
+        in the initial HTML. boot() removes this element on startup and renders
+        the live board into #app; the static routes remove it via prerender.
+      -->
+      <header class="topbar">
+        <h1 class="brand">Øresund <span class="brand-sub">live</span></h1>
+        <span class="board-label">Hyllie ↔ København H</span>
+      </header>
+      <h2 class="lead">Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).</h2>
+    </div>
     <noscript>
       <p lang="sv">Den här sidan kräver JavaScript för att visa avgångstavlan.</p>
       <p lang="da">Denne side kræver JavaScript for at vise afgangstavlen.</p>

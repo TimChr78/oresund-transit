@@ -4,6 +4,7 @@ import { esc } from '../lib/html';
 import { filterByDirection, sortNewestFirst } from '../lib/stats';
 import { renderConsentBanner } from './ConsentBanner';
 import { renderDirectionTabs } from './DirectionTabs';
+import { renderDisruptionsHero } from './DisruptionsHero';
 import { renderDisruptionsTable } from './DisruptionsTable';
 import { renderFooter } from './Footer';
 import { renderHistoryCharts } from './HistoryCharts';
@@ -67,6 +68,26 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
     );
   }
 
+  // Hero strip: surface the newest ACTIVE disruptions above the table while
+  // the live snapshot reports disruptions (> 0) and the today list has rows.
+  // The live snapshot and the today table are fetched independently (no shared
+  // snapshot ID, Disruption has no active marker), so disruption_count is the
+  // only signal of how many rows are still active. The hero therefore slices
+  // the newest disruptions to min(3, disruption_count) and drops any today row
+  // that was not updated on the live snapshot date -- otherwise a resolved
+  // row that is still in today table would be shown under "Active now".
+  // Links down to the table (href="#disruptions-table"); hidden in archive
+  // mode, where the rows shown are historical, not active.
+  const hero = (() => {
+    if (!state.live || state.live.disruption_count === 0 || state.disruptions.length === 0) return '';
+    if (state.disruptionsMode !== 'today') return '';
+    const liveDate = state.live.timestamp.slice(0, 10);
+    const active = state.disruptions.filter((d) => (d.last_updated ?? d.timestamp)?.startsWith(liveDate)).slice(0, state.live.disruption_count);
+    if (active.length === 0) return '';
+    return renderDisruptionsHero(active, lang);
+  })();
+
+
   const archiveToggleLabel = translate(
     state.disruptionsMode === 'archive' ? 'disruptions_back_to_today' : 'disruptions_show_all',
     lang,
@@ -84,11 +105,13 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
       <h1 class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></h1>
       <span class="board-label">Hyllie ↔ København H</span>
     </header>
+    <h2 class="lead">${translate('lead_tagline', lang)}</h2>
     ${banner}
     <main class="board">
       ${stats}
       <section class="disruptions">
         <h2 class="section-title">${translate('section_disruptions', lang)}</h2>
+        ${hero}
         ${renderDirectionTabs(
           state.disruptionsState === 'ok' ? state.disruptions : null,
           state.direction,

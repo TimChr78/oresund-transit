@@ -18,6 +18,10 @@ export interface Dict {
   banner_updated: string;
   banner_disruptions_one: string;
   banner_disruptions_many: string;
+  // Disruption hero strip (newest active disruptions surfaced above the table)
+  hero_disruptions: string;
+  // SEO lead (H2 under the brand) — one sentence, natural train wording
+  lead_tagline: string;
   // Direction tabs
   tab_to_denmark: string;
   tab_to_sweden: string;

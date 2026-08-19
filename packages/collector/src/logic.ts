@@ -232,6 +232,33 @@ export function isChronic(title: string, text: string): boolean {
   );
 }
 
+/**
+ * Resumed-normal notice detection: Trafiklab follows a disruption with
+ * "Förseningar – Tågen kan köra normalt igen" ("delays – trains can run
+ * normally again") once service is back. That message is NOT a disruption:
+ * the delay field often still carries a stale value (0–779s observed), so
+ * classifyType would otherwise log a bogus delay/alert row — inflating
+ * disruption_count even though the train is on time. The phrase is matched on
+ * the Scandinavian-normalized title+text (ö→o, å→a), covering the Swedish
+ * variants "kan köra normalt igen" and "kör normalt igen". Only the
+ * all-clear phrase counts — a real disturbance text must never match.
+ */
+export function isResumedNormalNotice(title: string, text: string): boolean {
+  const combined = normalizeScan(`${title} ${text}`);
+  return combined.includes('kan kora normalt igen') || combined.includes('kor normalt igen');
+}
+
+/** True only when every alert on the departure is a resumed-normal notice (no active alerts present). */
+export function isEveryAlertResumed(alerts: readonly { title?: unknown; text?: unknown }[]): boolean {
+  if (alerts.length === 0) return false;
+  for (const a of alerts) {
+    const title = String((a as any)?.title ?? '');
+    const text = String((a as any)?.text ?? '');
+    if (!isResumedNormalNotice(title, text)) return false;
+  }
+  return true;
+}
+
 const CROSSBORDER_DEST_KEYWORDS = [
   'osterport',
   'kobenhavn',

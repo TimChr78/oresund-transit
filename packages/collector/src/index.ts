@@ -21,6 +21,7 @@ import {
   formatTime,
   getDirection,
   isCrossborderTrain,
+  isEveryAlertResumed,
   isSwedenBoundTrain,
 } from './logic.js';
 import {
@@ -181,6 +182,16 @@ function classifyDeparture(
   const { title, text } = alertTitleText(dep);
   const type = classifyType(dep.canceled, dep.delay, title, text);
   if (type === 'unknown') return null;
+  // Resumed-normal notices ("Förseningar – Tågen kan köra normalt igen") are
+  // the all-clear message — NOT a disruption. The delay field still carries a
+  // stale value at that point (0–779s observed), so without this filter every
+  // back-to-normal poll would be logged as a delay/alert and inflate
+  // disruption_count while the train is actually on time. Text-classified
+  // cancellations (installt/cancelled in title/text) must still be kept, so
+  // the filter only applies when the type is not cancellation. True residual
+  // delays (>= 240s) and dep.canceled cancellations are also kept.
+  // Per-alert check: a departure with mixed alerts (one active + one resumed-normal) must NOT be suppressed.
+  if (type !== "cancellation" && (dep.delay ?? 0) < 240 && isEveryAlertResumed((dep.alerts ?? []) as { title?: unknown; text?: unknown }[])) return null;
 
   const ts = formatLocalIso(now);
   return {
