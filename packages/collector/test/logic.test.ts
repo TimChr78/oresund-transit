@@ -13,6 +13,7 @@ import {
   isResumedNormalNotice,
   isCrossborderTrain,
   isSwedenBoundTrain,
+  isAnyTrain,
   isGottorpHyllieBus,
   delayStatus,
   disruptionTypeRank,
@@ -328,6 +329,29 @@ describe('isSwedenBoundTrain', () => {
     expect(isSwedenBoundTrain(withDest('Sweden'))).toBe(true);
     expect(isSwedenBoundTrain(withDest('Malmö', 'RAIL'))).toBe(true);
     expect(isSwedenBoundTrain(withDest('Østerport'))).toBe(false);
+  });
+});
+
+describe('isAnyTrain', () => {
+  it('flags every TRAIN departure regardless of destination (Malmö C filter)', () => {
+    expect(isAnyTrain(hyllieRaw.departures[0]!)).toBe(true); // 804 → Østerport
+    expect(isAnyTrain(hyllieRaw.departures[3]!)).toBe(true); // 804 → Halmstad C (not Denmark-listed)
+    expect(isAnyTrain(hyllieRaw.departures[16]!)).toBe(true); // 803 → Hässleholm
+    expect(isAnyTrain(kobenhavnHRaw.departures[0]!)).toBe(true); // 803 → Hässleholm
+    expect(isAnyTrain(kobenhavnHRaw.departures[3]!)).toBe(true); // 802 → Kristianstad C (not in SWEDEN_DEST_KEYWORDS)
+  });
+
+  it('accepts RAIL mode and empty/unknown destination', () => {
+    const base = hyllieRaw.departures[0]!;
+    const withRoute = (route: Partial<typeof base.route>) => ({ ...base, route: { ...base.route, ...route } });
+    expect(isAnyTrain(withRoute({ direction: '', transport_mode: 'RAIL' }))).toBe(true);
+    expect(isAnyTrain(withRoute({ direction: '', transport_mode: 'TRAIN' }))).toBe(true);
+  });
+
+  it('does not flag buses (Malmö C only monitors train traffic)', () => {
+    expect(isAnyTrain(hyllieRaw.departures[1]!)).toBe(false); // 10 → Svågertorp (BUS)
+    expect(isAnyTrain(hyllieRaw.departures[4]!)).toBe(false); // 6 → Toftanäs (BUS)
+    expect(isAnyTrain(gottorpRaw.departures[0]!)).toBe(false);
   });
 });
 

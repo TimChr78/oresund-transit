@@ -10,6 +10,9 @@ import { FakeD1 } from './fake-d1.js';
 // worker puts in the departures URL.
 const HYLLIE_ID = '740001586';
 const KBH_ID = '860000626';
+// ResRobot-doc SiteIds for the two added stops (unverified — see MONITORED_STOPS).
+const MALMO_C_ID = '740000001';
+const KASTRUP_ID = '840004349';
 
 /** Column order of the departures INSERT (see src/db.ts). */
 const DEP_COLS = [
@@ -57,9 +60,19 @@ function env(db: FakeD1): Env {
 // are derived from this real shape rather than invented.
 const realDeparture = (hyllieRaw.departures as unknown as TrafiklabDeparture[])[0]!;
 
-/** A canned API payload with a single departure for the Hyllie stop. */
+/** Every monitored stop answering with no departures. */
+function emptyPayload(): Record<string, unknown> {
+  return {
+    [HYLLIE_ID]: { departures: [] },
+    [KBH_ID]: { departures: [] },
+    [MALMO_C_ID]: { departures: [] },
+    [KASTRUP_ID]: { departures: [] },
+  };
+}
+
+/** A canned API payload with a single departure for the Hyllie stop (the other three stops empty). */
 function hylliePayload(departures: TrafiklabDeparture[]): Record<string, unknown> {
-  return { '740001586': { departures }, '860000626': { departures: [] } };
+  return { ...emptyPayload(), [HYLLIE_ID]: { departures } };
 }
 
 describe('runScheduled — service shutdown detection', () => {
@@ -67,7 +80,7 @@ describe('runScheduled — service shutdown detection', () => {
     const db = new FakeD1();
     // 12:00 UTC = 14:00 Europe/Stockholm — inside 06:00–22:00
     const now = new Date('2026-08-06T12:00:00Z');
-    const status = await runScheduled(env(db), fetchFor({ '740001586': { departures: [] }, '860000626': { departures: [] } }), () => now);
+    const status = await runScheduled(env(db), fetchFor(emptyPayload()), () => now);
 
     expect(status.service_shutdown).toBe(true);
     expect(status.status).toBe('red');
@@ -77,17 +90,39 @@ describe('runScheduled — service shutdown detection', () => {
     expect(writtenStatus(db).service_shutdown).toBe(true);
   });
 
+  it('flags shutdown even when Malmö C still reports local trains (all-trains stop cannot mask it)', async () => {
+    const db = new FakeD1();
+    // 12:00 UTC = 14:00 Europe/Stockholm — inside 06:00–22:00. Hyllie /
+    // København H / Kastrup are empty (no cross-border service), but Malmö C
+    // still answers a real 804 TRAIN (Østerport-bound). Because Malmö C's
+    // filter admits purely local Pågatåg traffic, it is flagged
+    // `crossborder: false` and must NOT keep the shutdown detector green.
+    const now = new Date('2026-08-06T12:00:00Z');
+    const status = await runScheduled(
+      env(db),
+      fetchFor({ ...emptyPayload(), [MALMO_C_ID]: { departures: [realDeparture] } }),
+      () => now,
+    );
+
+    expect(status.service_shutdown).toBe(true);
+    expect(status.status).toBe('red');
+  });
+
   it('does NOT flag shutdown when cross-border trains are present', async () => {
     const db = new FakeD1();
     // 19:59 UTC = 21:59 Europe/Stockholm (matches the fixture timestamps)
     const now = new Date('2026-08-06T19:59:00Z');
-    const status = await runScheduled(env(db), fetchFor({ [HYLLIE_ID]: hyllieRaw, [KBH_ID]: kobenhavnHRaw }), () => now);
+    const status = await runScheduled(
+      env(db),
+      fetchFor({ ...emptyPayload(), [HYLLIE_ID]: hyllieRaw, [KBH_ID]: kobenhavnHRaw }),
+      () => now,
+    );
 
     expect(status.service_shutdown).toBe(false);
     // Hyllie: 4 trains to Denmark (804/803/802/804). København H: only the
     // 803→Hässleholm is Sweden-bound — note: the ported SWEDEN_DEST_KEYWORDS
     // list has no 'kristianstad', so 802→Kristianstad C is filtered out (a
-    // known port-plan quirk, kept as-is).
+    // known port-plan quirk, kept as-is). Malmö C and Kastrup answer empty.
     expect(status.departure_counts).toEqual({ to_denmark: 4, to_sweden: 1, bus: 0 });
     expect(status.directions.to_denmark).toContain('Østerport');
     expect(status.directions.to_sweden).toContain('Hässleholm');
@@ -97,7 +132,7 @@ describe('runScheduled — service shutdown detection', () => {
     const db = new FakeD1();
     // 22:30 UTC = 00:30 Europe/Stockholm (next day) — outside 06:00–22:00
     const now = new Date('2026-08-06T22:30:00Z');
-    const status = await runScheduled(env(db), fetchFor({ '740001586': { departures: [] }, '860000626': { departures: [] } }), () => now);
+    const status = await runScheduled(env(db), fetchFor(emptyPayload()), () => now);
 
     expect(status.service_shutdown).toBe(false);
     expect(status.status).toBe('green');
@@ -730,7 +765,7 @@ describe('handleFetch — archive: stations / station', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('GET /api/transit/stations lists the monitored stops with slugs', async () => {
+  it('GET /api/transit/stations lists the four monitored stops with slugs', async () => {
     const db = new FakeD1();
     const res = await handleFetch(new Request('https://oresund.live/api/transit/stations'), env(db));
     expect(res.status).toBe(200);
@@ -738,6 +773,8 @@ describe('handleFetch — archive: stations / station', () => {
       stations: [
         { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
         { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
+        { slug: 'malmo-c', stop_id: '740000001', stop_name: 'Malmö C' },
+        { slug: 'kastrup', stop_id: '840004349', stop_name: 'Kastrup Lufthavn' },
       ],
     });
   });
@@ -774,6 +811,33 @@ describe('handleFetch — archive: stations / station', () => {
     expect(body.daily).toHaveLength(7);
     expect(body.recent).toEqual([{ id: 3, stop_id: '740001586', stop_name: 'Malmö Hyllie', line: '804', sched_time: '2026-08-06T21:59:00' }]);
     expect(db.lastBindsFor('WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY')).toEqual(['740001586', '2026-07-31', '2026-08-07']);
+  });
+
+  it('GET /api/transit/station/kastrup serves the new stop (empty-archive shape)', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    // A brand-new stop has no archived departures yet: punctuality totals 0,
+    // zero-filled daily rows, and an empty recent list (no div-by-zero).
+    db.stubAll(PUNCT_SQL, []);
+    db.stubAll(RECENT_SQL, []);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/station/kastrup?days=30'), env(db));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      slug: string;
+      stop_id: string;
+      stop_name: string;
+      total_departures: number;
+      on_time_pct: number;
+      recent: unknown[];
+    };
+    expect(body.slug).toBe('kastrup');
+    expect(body.stop_name).toBe('Kastrup Lufthavn');
+    expect(body.stop_id).toBe('840004349');
+    expect(body.total_departures).toBe(0);
+    expect(body.on_time_pct).toBe(0);
+    expect(body.recent).toEqual([]);
+    expect(db.lastBindsFor('WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY')).toEqual(['840004349', '2026-07-08', '2026-08-07']);
   });
 
   it('GET /api/transit/station/unknown returns 404', async () => {

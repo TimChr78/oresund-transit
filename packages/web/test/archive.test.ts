@@ -202,18 +202,50 @@ describe('archive renderers', () => {
   });
 
   it('station pages include on-time stats, daily table and breadcrumb JSON-LD', () => {
-    const html = renderStationPage(stationStats, [{ slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' }]);
+    const html = renderStationPage(stationStats, stationStatsSlugList());
     expect(html).toContain('<title>Malmö Hyllie — punctuality archive — Øresund.live</title>');
     expect(html).toContain('<link rel="canonical" href="https://oresund.live/station/hyllie" />');
     expect(html).toContain('92.9%'); // on_time_pct stat
     expect(html).toContain('"@type":"BreadcrumbList"');
     expect(html).toContain('København H'); // sibling link
+    expect(html).toContain('Malmö C'); // new sibling link
+    expect(html).not.toContain('No data yet'); // non-empty archive has no empty-state note
+  });
+
+  it('station pages with an empty archive render graceful "no data yet" copy (no div-by-zero)', () => {
+    const empty: ArchiveStationStats = {
+      ...stationStats,
+      slug: 'kastrup',
+      stop_id: '840004349',
+      stop_name: 'Kastrup Lufthavn',
+      total_departures: 0,
+      on_time_count: 0,
+      delayed_count: 0,
+      canceled_count: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: null,
+      daily: [
+        { date: '2026-08-06', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+      ],
+      recent: [],
+    };
+    const html = renderStationPage(empty, stationStatsSlugList());
+    expect(html).toContain('<title>Kastrup Lufthavn — punctuality archive — Øresund.live</title>');
+    expect(html).toContain('No data yet — this station\'s archive starts once live monitoring begins.');
+    expect(html).toContain('No departures recorded yet.');
+    expect(html).toContain('0%'); // zeroed stats, never NaN
+    expect(html).not.toContain('NaN');
+    // Empty archives must stay indexable — never noindex.
+    expect(html).toContain('<meta name="robots" content="index,follow" />');
+    expect(html).not.toContain('noindex');
   });
 
   it('station index renders the monitored stops', () => {
     const html = renderStationIndex(stationStatsSlugList());
     expect(html).toContain('href="/station/hyllie"');
     expect(html).toContain('href="/station/kobenhavn-h"');
+    expect(html).toContain('href="/station/malmo-c"');
+    expect(html).toContain('href="/station/kastrup"');
   });
 
   it('JSON-LD does not allow </script> breakout via line values', () => {
@@ -232,6 +264,8 @@ function stationStatsSlugList() {
   return [
     { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
     { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
+    { slug: 'malmo-c', stop_id: '740000001', stop_name: 'Malmö C' },
+    { slug: 'kastrup', stop_id: '840004349', stop_name: 'Kastrup Lufthavn' },
   ];
 }
 

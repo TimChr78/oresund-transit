@@ -303,6 +303,20 @@ export function isSwedenBoundTrain(dep: TrafiklabDeparture): boolean {
   return SWEDEN_DEST_KEYWORDS.some((d) => dest.includes(d));
 }
 
+/**
+ * Any TRAIN/RAIL-mode departure, regardless of destination. Malmö C's
+ * monitor filter: both Øresundståg bridge services (800-series) and Pågatåg
+ * local/regional trains call there, so a destination-scoped helper (like
+ * isCrossborderTrain / isSwedenBoundTrain) would drop half the traffic the
+ * station archive should cover. Intentionally destination-agnostic; the
+ * shutdown detector does NOT count this stop (see MONITORED_STOPS), since a
+ * station with purely local traffic cannot attest cross-border service.
+ */
+export function isAnyTrain(dep: TrafiklabDeparture): boolean {
+  const mode = (dep.route?.transport_mode ?? '').toUpperCase();
+  return mode.includes('TRAIN') || mode.includes('RAIL');
+}
+
 /** BUS, designation 6 or 16, and (lowercased, un-normalized) dest contains "hyllie". */
 export function isGottorpHyllieBus(dep: TrafiklabDeparture): boolean {
   const mode = (dep.route?.transport_mode ?? '').toUpperCase();
