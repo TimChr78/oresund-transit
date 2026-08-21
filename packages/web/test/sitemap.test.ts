@@ -35,6 +35,8 @@ describe('buildSitemap', () => {
     const locs = [...buildSitemap([{ line: '7085', disruptions: 3 }], [
       { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
       { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
+      { slug: 'malmo-c', stop_id: '740000001', stop_name: 'Malmö C' },
+      { slug: 'kastrup', stop_id: '840004349', stop_name: 'Kastrup Lufthavn' },
     ]).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 
     expect(locs).toContain('https://oresund.live/line');
@@ -43,6 +45,9 @@ describe('buildSitemap', () => {
     expect(locs).toContain('https://oresund.live/station');
     expect(locs).toContain('https://oresund.live/station/hyllie');
     expect(locs).toContain('https://oresund.live/station/kobenhavn-h');
+    // New stations expand the sitemap automatically via collector discovery.
+    expect(locs).toContain('https://oresund.live/station/malmo-c');
+    expect(locs).toContain('https://oresund.live/station/kastrup');
     // No duplicates.
     expect(new Set(locs).size).toBe(locs.length);
   });

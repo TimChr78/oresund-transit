@@ -433,7 +433,7 @@ function disruptionListItem(d: Disruption): string {
 
 /** /station — index of the per-station archives. */
 export function renderStationIndex(stations: ArchiveStation[]): string {
-  const description = 'Per-station punctuality archives for the Øresund crossing — on-time performance, cancellations and delays at Hyllie and København H.';
+  const description = 'Per-station punctuality archives for the Øresund crossing — on-time performance, cancellations and delays at every monitored stop.';
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › Stations</p>
     <h1>Station archives</h1>
@@ -468,7 +468,15 @@ ${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent
 
 /** /station/{slug} — one station's punctuality archive. */
 export function renderStationPage(stats: ArchiveStationStats, allStations: ArchiveStation[]): string {
-  const description = `Punctuality history for ${stats.stop_name} on the Øresund crossing — ${stats.total_departures} departures, ${stats.on_time_pct}% on time over the last ${stats.days} days.`;
+  // A brand-new monitored stop starts with an empty archive (no departures
+  // recorded yet): totals are 0, daily rows are zero-filled, and the page
+  // must not divide by zero or imply data exists. Mirror the line-page
+  // empty-archive pattern: keep it indexable with graceful "no data yet"
+  // copy.
+  const empty = stats.total_departures === 0;
+  const description = empty
+    ? `Punctuality history for ${stats.stop_name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.`
+    : `Punctuality history for ${stats.stop_name} on the Øresund crossing — ${stats.total_departures} departures, ${stats.on_time_pct}% on time over the last ${stats.days} days.`;
   const dailyRows = stats.daily
     .map((r) => {
       const cells = [r.date, r.total, r.on_time, r.delayed, r.canceled, `${r.on_time_pct}%`, fmtDelay(r.avg_delay_seconds)]
@@ -481,6 +489,7 @@ export function renderStationPage(stats: ArchiveStationStats, allStations: Archi
     <p class="crumb"><a href="/">Øresund.live</a> › <a href="/station">Stations</a> › ${esc(stats.stop_name)}</p>
     <h1>${esc(stats.stop_name)} — punctuality archive</h1>
     <p class="sub">Observed departures over the last ${stats.days} days (${fmtDate(stats.date_from)}–${fmtDate(stats.date_to)}). Data från Trafiklab.se.</p>
+${empty ? '    <p class="meta">No data yet — this station\'s archive starts once live monitoring begins.</p>' : ''}
     <div>
       <span class="stat"><b>${stats.total_departures}</b><span>Departures</span></span>
       <span class="stat"><b>${stats.on_time_pct}%</b><span>On time</span></span>

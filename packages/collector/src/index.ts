@@ -1,8 +1,8 @@
 /**
  * oresund-transit collector Worker entry point.
  *
- * scheduled()  — every 5 min (wrangler.toml cron): fetch both monitored stops
- *                from Trafiklab, filter to cross-border trains, upsert
+ * scheduled()  — every 5 min (wrangler.toml cron): fetch all four monitored
+ *                stops from Trafiklab, filter the relevant trains, upsert
  *                departures, classify + log disruptions, detect service
  *                shutdown, and persist a LiveStatus snapshot to D1.
  * fetch()      — read-only API: /health, /api/transit/live,
@@ -23,6 +23,7 @@ import {
   isCrossborderTrain,
   isEveryAlertResumed,
   isSwedenBoundTrain,
+  isAnyTrain,
 } from './logic.js';
 import {
   logDisruption,
@@ -54,14 +55,39 @@ export type FetchLike = (url: string) => Promise<{ ok: boolean; status?: number;
 const DEFAULT_BASE_URL = 'https://realtime-api.trafiklab.se/v1/departures';
 
 /**
- * The two monitored stops. SiteIds come from the real fixtures' query.query:
- * Hyllie 740001586 (trains to Denmark via isCrossborderTrain), København H
- * 860000626 (trains to Sweden via isSwedenBoundTrain). Buses are excluded per
- * the Phase 2 scope decision.
+ * The four monitored stops.
+ *
+ * Hyllie 740001586 and København H 860000626 are verified live SiteIds (they
+ * come from the real fixtures' query.query): Hyllie monitors Denmark-bound
+ * trains via isCrossborderTrain, København H monitors Sweden-bound trains via
+ * isSwedenBoundTrain. Kastrup Lufthavn mirrors København H's filter.
+ *
+ * ⚠️ UNVERIFIED SITE IDS — VERIFY ON FIRST DEPLOY:
+ * Malmö C 740000001 and Kastrup Lufthavn 840004349 come from the ResRobot
+ * site registry documentation, NOT from a live Trafiklab poll. On the first
+ * deploy, confirm each id fetches real departures (a manual poll of
+ * /v1/departures/740000001 and /v1/departures/840004349 with the live key)
+ * before trusting their data — a wrong id would silently collect nothing (or
+ * worse, a different stop).
+ *
+ * Trafiklab quota: polling every 5 minutes costs ~288 requests/day per stop,
+ * ≈ 8.6k requests/month. Four monitored stops therefore consume ≈ 35k
+ * requests/month of the Trafiklab key quota; each added or removed stop
+ * moves that needle by ~8.6k requests/month.
+ *
+ * Buses are excluded per the Phase 2 scope decision. `crossborder: false` on
+ * Malmö C: its filter (isAnyTrain) intentionally admits purely local Pågatåg
+ * trains, which cannot attest cross-border service — the service-shutdown
+ * detector counts only the three crossborder stops (Hyllie, København H,
+ * Kastrup Lufthavn).
  */
 const MONITORED_STOPS = [
-  { id: '740001586', name: 'Malmö Hyllie', slug: 'hyllie', filter: isCrossborderTrain },
-  { id: '860000626', name: 'København H', slug: 'kobenhavn-h', filter: isSwedenBoundTrain },
+  { id: '740001586', name: 'Malmö Hyllie', slug: 'hyllie', filter: isCrossborderTrain, crossborder: true },
+  { id: '860000626', name: 'København H', slug: 'kobenhavn-h', filter: isSwedenBoundTrain, crossborder: true },
+  // ⚠️ ResRobot-doc id 740000001 — verify live on first deploy (see above).
+  { id: '740000001', name: 'Malmö C', slug: 'malmo-c', filter: isAnyTrain, crossborder: false },
+  // ⚠️ ResRobot-doc id 840004349 — verify live on first deploy (see above).
+  { id: '840004349', name: 'Kastrup Lufthavn', slug: 'kastrup', filter: isSwedenBoundTrain, crossborder: true },
 ] as const;
 
 /** The stable archive URL slug for a monitored stop (ASCII, URL-safe). */
@@ -286,11 +312,14 @@ export function buildLiveStatus(
 }
 
 /**
- * The scheduled run: fetch both stops → filter → upsert departures → classify
- * + log disruptions → detect service shutdown → persist LiveStatus snapshot.
- * fetchFn and nowFn are injected so tests never touch the network or the
- * clock. A fetch failure aborts the run (thrown) so a broken API poll is
- * never mistaken for "no cross-border service".
+ * The scheduled run: fetch all four stops → filter → upsert departures →
+ * classify + log disruptions → detect service shutdown → persist LiveStatus
+ * snapshot. fetchFn and nowFn are injected so tests never touch the network
+ * or the clock. A fetch failure aborts the run (thrown) so a broken API poll
+ * is never mistaken for "no cross-border service". crossborderCount counts
+ * only departures from stops flagged `crossborder` (Malmö C is excluded — its
+ * all-trains filter sees purely local Pågatåg traffic and cannot attest
+ * cross-border service).
  */
 export async function runScheduled(env: Env, fetchFn: FetchLike, nowFn: () => Date): Promise<LiveStatus> {
   if (!env.TRAFIKLAB_KEY) throw new Error('TRAFIKLAB_KEY is not configured');
@@ -309,7 +338,9 @@ export async function runScheduled(env: Env, fetchFn: FetchLike, nowFn: () => Da
 
     for (const dep of body.departures ?? []) {
       if (!stop.filter(dep)) continue;
-      crossborderCount += 1;
+      // Only stops flagged `crossborder` attest cross-border service; Malmö C
+      // also sees purely local trains, so it must not mask a shutdown.
+      if (stop.crossborder) crossborderCount += 1;
       const row = toDepartureRow(stop, dep, now);
       await upsertDeparture(env.DB, row);
       departuresSeen.push(row);
