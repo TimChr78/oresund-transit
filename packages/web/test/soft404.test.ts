@@ -52,6 +52,15 @@ describe('soft-404 catch-all (functions/[[path]].js)', () => {
     expect(res.headers.get('content-type')).toContain('text/plain');
   });
 
+  it('passes localized /sv/ and /da/ static pages through (not soft-404)', async () => {
+    for (const p of ['/sv/', '/sv/methodology', '/sv/privacy', '/da/', '/da/methodology', '/da/privacy']) {
+      const { context } = ctx(p, () => htmlResponse(200));
+      const res = await onRequest(context);
+      expect(res.status, p).toBe(200);
+      expect(await res.text(), p).toBe('<html>index.html shell</html>');
+    }
+  });
+
   // Coverage is derived from the shared static-page contract, so every path
   // registered there is asserted to pass through rather than 404.
   it(`passes every registered static page through (${STATIC_PAGE_PATHS.join(', ')})`, async () => {
@@ -120,6 +129,11 @@ describe('homepage shell footer', () => {
     expect(indexHtml).toContain('href="/line">Line archives</a>');
     expect(indexHtml).toContain('href="/station">Station archives</a>');
     expect(indexHtml).toContain('href="/methodology">Methodology</a>');
+  });
+
+  it('ships SV and DA language links pointing at the localized homes', () => {
+    expect(indexHtml).toContain('href="/sv/" lang="sv" hreflang="sv">SV</a>');
+    expect(indexHtml).toContain('href="/da/" lang="da" hreflang="da">DA</a>');
   });
 
   it('marks the footer as a nav landmark (crawlers can discover internal links)', () => {

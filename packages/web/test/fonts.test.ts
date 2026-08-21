@@ -42,7 +42,7 @@ describe('self-hosted fonts', () => {
 
   it('the prerendered static pages inherit the Google-free shell', () => {
     const shell = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-    const html = renderPrerenderedPage(shell, renderMethodologyPage('en', getDict('en')), 'en', META.methodology);
+    const html = renderPrerenderedPage(shell, renderMethodologyPage('en', getDict('en')), 'en', META.methodology.en);
     expect(html).not.toMatch(/fonts\.googleapis\.com|fonts\.gstatic\.com/i);
   });
 });
