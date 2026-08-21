@@ -21,9 +21,9 @@ describe('RSS feed discoverability', () => {
     );
   });
 
-  it('_routes.json routes /feed.xml to the Function (and keeps the asset rule)', () => {
-    expect(routesJson.include).toContain('/feed.xml');
-    expect(routesJson.include).toContain('/assets/*');
+  it('_routes.json catch-all include covers /feed.xml routing', () => {
+    // '/*' is the only include (CF rejects overlap); feed.xml Function wins by specificity.
+    expect(routesJson.include).toEqual(['/*']);
     expect(routesJson.exclude).toEqual([]);
   });
 
