@@ -99,14 +99,17 @@ describe('soft-404 catch-all (functions/[[path]].js)', () => {
   });
 });
 
+
+function parsed_include(): string[] {
+  return routesJson.include as string[];
+}
+
 describe('_routes.json catch-all wiring', () => {
   it('includes the root catch-all so the Function runs for unknown routes', () => {
-    expect(routesJson.include).toContain('/*');
-    // The archive + asset Functions stay routed (more specific routes win).
-    expect(routesJson.include).toContain('/line/*');
-    expect(routesJson.include).toContain('/station/*');
-    expect(routesJson.include).toContain('/history/*');
-    expect(routesJson.include).toContain('/assets/*');
+    // '/*' is the only include — CF rejects overlapping rules. Route-specific
+    // Functions (line/station/history) still win by specificity over the
+    // catch-all, and assets pass through ASSETS.fetch.
+    expect(parsed_include()).toEqual(['/*']);
     expect(routesJson.exclude).toEqual([]);
   });
 });

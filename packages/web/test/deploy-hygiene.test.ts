@@ -35,9 +35,10 @@ describe('deploy-race protection', () => {
     const parsed = JSON.parse(routesJson);
     expect(parsed.version).toBe(1);
     // The root catch-all (functions/[[path]].js) answers unknown paths with a
-    // real 404; the more-specific archive + asset routes still win.
-    expect(parsed.include).toContain('/*');
-    expect(parsed.include).toContain('/assets/*');
+    // real 404. '/*' is the ONLY include — CF rejects overlapping rules, and
+    // route-specific Functions still win by specificity; assets pass through
+    // ASSETS.fetch inside the catch-all.
+    expect(parsed.include).toEqual(['/*']);
     // Everything else stays on the free static tier.
     expect(parsed.exclude).toEqual([]);
   });
