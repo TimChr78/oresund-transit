@@ -15,15 +15,27 @@ import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
 import { renderPrerenderedPage } from '../src/lib/prerender';
+import { PRERENDER_FILES } from '../src/lib/static-pages';
 import { META, type PageMeta } from '../src/lib/seo';
 
 const shell = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
 const LANG: Lang = 'en';
 
-const pages: { file: string; meta: PageMeta; render: () => string }[] = [
-  { file: 'methodology.html', meta: META.methodology, render: () => renderMethodologyPage(LANG, getDict(LANG)) },
-  { file: 'privacy.html', meta: META.privacy, render: () => renderPrivacyPage(LANG, getDict(LANG)) },
-];
+// Map each static route to its SEO metadata + renderer. PRERENDER_FILES (the
+// single source of truth shared with the soft-404 catch-all) drives which
+// pages are emitted, so adding a page here keeps the catch-all in sync.
+type StaticRoute = 'methodology' | 'privacy';
+const PAGES: Record<StaticRoute, { meta: PageMeta; render: () => string }> = {
+  methodology: { meta: META.methodology, render: () => renderMethodologyPage(LANG, getDict(LANG)) },
+  privacy: { meta: META.privacy, render: () => renderPrivacyPage(LANG, getDict(LANG)) },
+};
+
+const pages: { file: string; meta: PageMeta; render: () => string }[] = PRERENDER_FILES.map(
+  (file) => {
+    const route = file.slice(0, -'.html'.length) as StaticRoute;
+    return { file, ...PAGES[route] };
+  },
+);
 
 for (const page of pages) {
   const html = renderPrerenderedPage(shell, page.render(), LANG, page.meta);

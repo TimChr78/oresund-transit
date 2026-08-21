@@ -31,9 +31,12 @@ describe('deploy-race protection', () => {
     expect(lines).toEqual(['/*           /index.html    200']);
   });
 
-  it('_routes.json scopes the Function to /assets/* only', () => {
+  it('_routes.json routes the archive/asset/feed Functions and the soft-404 catch-all', () => {
     const parsed = JSON.parse(routesJson);
     expect(parsed.version).toBe(1);
+    // The root catch-all (functions/[[path]].js) answers unknown paths with a
+    // real 404; the more-specific archive + asset routes still win.
+    expect(parsed.include).toContain('/*');
     expect(parsed.include).toContain('/assets/*');
     // Everything else stays on the free static tier.
     expect(parsed.exclude).toEqual([]);
