@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { onRequest } from '../functions/[[path]].js';
+import { STATIC_PAGE_PATHS } from '../src/lib/static-pages';
 
 /**
  * Soft-404 + static-nav SEO fixes.
@@ -51,8 +52,10 @@ describe('soft-404 catch-all (functions/[[path]].js)', () => {
     expect(res.headers.get('content-type')).toContain('text/plain');
   });
 
-  it('passes the known prerendered HTML pages through (homepage, methodology, privacy)', async () => {
-    for (const p of ['/', '/methodology', '/privacy']) {
+  // Coverage is derived from the shared static-page contract, so every path
+  // registered there is asserted to pass through rather than 404.
+  it(`passes every registered static page through (${STATIC_PAGE_PATHS.join(', ')})`, async () => {
+    for (const p of STATIC_PAGE_PATHS) {
       const { context } = ctx(p, () => htmlResponse(200));
       const res = await onRequest(context);
       expect(res.status, p).toBe(200);
