@@ -43,7 +43,10 @@ describe('functions/sitemap.xml.js', () => {
     expect(res.status).toBe(200);
     const xml = await res.text();
     expect(xml).toContain('https://oresund.live/');
-    expect(xml).not.toContain('https://oresund.live/line/804');
+    // Canonical lines are always listed, even when the collector is unreachable.
+    expect(xml).toContain('https://oresund.live/line/804');
+    // Stations remain discovery-only — no static station set.
+    expect(xml).not.toContain('https://oresund.live/station/hyllie');
   });
 
   it('answers HEAD with headers only', async () => {

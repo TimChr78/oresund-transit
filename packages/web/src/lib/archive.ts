@@ -25,6 +25,55 @@ export interface ArchiveLine {
   disruptions: number;
 }
 
+/**
+ * The canonical Øresundståg / Pågatåg / bus line set served over the bridge.
+ *
+ * Lines are discovered dynamically from disruption data (they come from the
+ * route `designation` of Trafiklab departures), but a line with no disruptions
+ * in the current window never shows up in that discovery — so /line/* pages
+ * for e.g. 801 or 807 existed but were invisible to crawlers. This static set
+ * is unioned with whatever is discovered so every valid line archive is always
+ * listed in the sitemap and the /line index, whether or not it has recorded
+ * disruptions.
+ */
+export const CANONICAL_LINES: readonly string[] = [
+  '801',
+  '802',
+  '803',
+  '804',
+  '805',
+  '806',
+  '807',
+  '808',
+  '809',
+  '910',
+  '6',
+  '16',
+];
+
+/**
+ * Union a dynamically-discovered line list with the canonical set. Canonical
+ * lines come first (in CANONICAL_LINES order, keeping any discovered
+ * disruption count), then any non-canonical lines discovered from data are
+ * appended. De-duplicated by line value.
+ */
+export function unionCanonicalLines(lines: ArchiveLine[]): ArchiveLine[] {
+  const result: ArchiveLine[] = [];
+  const seen = new Set<string>();
+  for (const line of CANONICAL_LINES) {
+    const existing = lines.find((l) => l.line === line);
+    result.push({ line, disruptions: existing?.disruptions ?? 0 });
+    seen.add(line);
+  }
+  for (const l of lines) {
+    if (!seen.has(l.line)) {
+      result.push(l);
+      seen.add(l.line);
+    }
+  }
+  return result;
+}
+
 export interface ArchiveStation {
   slug: string;
   stop_id: string;
@@ -295,8 +344,9 @@ ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/$
 
 /** /line — index of the per-line archives. */
 export function renderLineIndex(lines: ArchiveLine[]): string {
+  const all = unionCanonicalLines(lines);
   const description = 'Per-line disruption archives for the Øresund crossing — historical cancellations, delays and alerts for each Öresundståg / Pågatåg service.';
-  const list = lines
+  const list = all
     .map(
       (l) =>
         `<li><a href="/line/${encodeURIComponent(l.line)}">Line ${esc(l.line)}</a> <span class="meta">— ${l.disruptions} disruptions recorded</span></li>`,
@@ -319,8 +369,8 @@ ${list}
         breadcrumb([{ name: 'Lines', url: `${SITE_URL}/line` }]),
         {
           '@type': 'ItemList',
-          numberOfItems: lines.length,
-          itemListElement: lines.map((l, i) => ({
+          numberOfItems: all.length,
+          itemListElement: all.map((l, i) => ({
             '@type': 'ListItem',
             position: i + 1,
             name: `Line ${l.line}`,
@@ -336,6 +386,7 @@ ${list}
 
 /** /line/{line} — one line's disruption archive. */
 export function renderLinePage(line: string, stats: ArchiveLineStats, allLines: ArchiveLine[]): string {
+  const all = unionCanonicalLines(allLines);
   const description = `Disruption history for line ${line} on the Øresund crossing — ${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)}.`;
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › <a href="/line">Lines</a> › Line ${esc(line)}</p>
@@ -353,7 +404,7 @@ ${(stats.recent.length ? stats.recent : []).map(disruptionListItem).join('\n') |
     </ul>
     <h2>Other lines</h2>
     <ul class="plain">
-${allLines.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">Line ${esc(l.line)}</a></li>`).join('\n')}
+${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">Line ${esc(l.line)}</a></li>`).join('\n')}
     </ul>`;
   return pageShell({
     title: `Line ${line} — disruption archive — Øresund.live`,
