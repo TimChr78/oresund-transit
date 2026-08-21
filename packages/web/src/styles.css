@@ -1187,6 +1187,37 @@ body::after {
   margin: 0 6px;
   opacity: 0.5;
 }
+
+/* ------------------------------------------- static shell site footer */
+/* Archive-section links for crawlers / no-JS clients in the initial HTML.
+   Stays visible under the client-rendered board; intentionally small and
+   muted so it never disturbs the dashboard layout. Shared by the prerendered
+   static pages, which inherit the shell. */
+.site-footer {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 6px 14px 20px;
+  font-size: 11px;
+  color: var(--faint);
+  text-align: center;
+}
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+}
+.site-footer a {
+  color: var(--faint);
+  text-decoration: none;
+}
+.site-footer a:hover {
+  color: var(--dim);
+  text-decoration: underline;
+}
+.site-footer .sep {
+  opacity: 0.55;
+}
 .lang-switch {
   display: flex;
   align-items: center;

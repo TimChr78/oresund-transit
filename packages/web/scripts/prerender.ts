@@ -15,15 +15,25 @@ import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
 import { renderPrerenderedPage } from '../src/lib/prerender';
+import { STATIC_PAGES, type PrerenderedPageId } from '../src/lib/static-pages';
 import { META, type PageMeta } from '../src/lib/seo';
 
 const shell = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
 const LANG: Lang = 'en';
 
-const pages: { file: string; meta: PageMeta; render: () => string }[] = [
-  { file: 'methodology.html', meta: META.methodology, render: () => renderMethodologyPage(LANG, getDict(LANG)) },
-  { file: 'privacy.html', meta: META.privacy, render: () => renderPrivacyPage(LANG, getDict(LANG)) },
-];
+// Renderer registry keyed by the shared static route ids (PrerenderedPageId,
+// the non-home entries of STATIC_PAGES in src/lib/static-pages). The Record is
+// exhaustively typed, so adding a static page to that registry forces this
+// table to grow a renderer too — a new prerendered path can never silently map
+// to a missing renderer (no arbitrary string casts).
+const PAGES: Record<PrerenderedPageId, { meta: PageMeta; render: () => string }> = {
+  methodology: { meta: META.methodology, render: () => renderMethodologyPage(LANG, getDict(LANG)) },
+  privacy: { meta: META.privacy, render: () => renderPrivacyPage(LANG, getDict(LANG)) },
+};
+
+const pages: { file: string; meta: PageMeta; render: () => string }[] = STATIC_PAGES.filter(
+  (p): p is Extract<(typeof STATIC_PAGES)[number], { id: PrerenderedPageId }> => p.id !== 'home',
+).map(({ path, id }) => ({ file: `${path.slice(1)}.html`, ...PAGES[id] }));
 
 for (const page of pages) {
   const html = renderPrerenderedPage(shell, page.render(), LANG, page.meta);
