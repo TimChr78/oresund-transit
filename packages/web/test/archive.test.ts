@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  CANONICAL_LINES,
   renderHistoryIndex,
   renderHistoryPage,
   renderLineIndex,
   renderLinePage,
   renderStationIndex,
   renderStationPage,
+  unionCanonicalLines,
   type ArchiveHistory,
   type ArchiveLineStats,
   type ArchiveStationStats,
@@ -152,6 +154,53 @@ describe('archive renderers', () => {
     expect(html).toContain('"@type":"ItemList"');
   });
 
+  it('line index lists every canonical line, even with no discovered data', () => {
+    const html = renderLineIndex([]);
+    // Every canonical line archive is linked, including empty ones.
+    for (const l of CANONICAL_LINES) expect(html).toContain(`href="/line/${encodeURIComponent(l)}"`);
+    // Disruptions default to 0 for canonical lines with no recorded data.
+    expect(html).toContain('Line 807</a> <span class="meta">— 0 disruptions recorded</span>');
+    // No duplicates in the ItemList.
+    const hrefs = [...html.matchAll(/href="\/line\/[^"]+"/g)].map((m) => m[0]);
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
+
+  it('empty-archive line page renders correct SEO markup (index,follow, no noindex)', () => {
+    const empty: ArchiveLineStats = {
+      ...lineStats,
+      line: '807',
+      total_disruptions: 0,
+      by_cause: [],
+      recent: [],
+    };
+    const html = renderLinePage('807', empty, []);
+    expect(html).toContain('<title>Line 807 — disruption archive — Øresund.live</title>');
+    expect(html).toContain('<meta name="description" content="Disruption history for line 807');
+    expect(html).toContain('<link rel="canonical" href="https://oresund.live/line/807" />');
+    // Empty archives must stay indexable — never noindex.
+    expect(html).toContain('<meta name="robots" content="index,follow" />');
+    expect(html).not.toContain('noindex');
+    expect(html).toContain('None recorded in this range.');
+    // Sibling links still list the canonical line set.
+    expect(html).toContain('href="/line/801"');
+  });
+
+  it('unionCanonicalLines keeps discovered counts and appends non-canonical lines', () => {
+    const unioned = unionCanonicalLines([
+      { line: '804', disruptions: 40 },
+      { line: 'custom-route', disruptions: 2 },
+    ]);
+    const byLine = Object.fromEntries(unioned.map((l) => [l.line, l.disruptions]));
+    // Canonical line with discovered data keeps its count.
+    expect(byLine['804']).toBe(40);
+    // Canonical line without data defaults to 0.
+    expect(byLine['807']).toBe(0);
+    // Non-canonical discovered line is still appended.
+    expect(byLine['custom-route']).toBe(2);
+    // No duplicates.
+    expect(new Set(unioned.map((l) => l.line)).size).toBe(unioned.length);
+  });
+
   it('station pages include on-time stats, daily table and breadcrumb JSON-LD', () => {
     const html = renderStationPage(stationStats, [{ slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' }]);
     expect(html).toContain('<title>Malmö Hyllie — punctuality archive — Øresund.live</title>');
@@ -219,7 +268,10 @@ describe('handleArchiveRequest dispatch', () => {
     stubFetch({ '/api/transit/lines': { lines: [{ line: '804', disruptions: 4 }] } });
     const res = await handleArchiveRequest('/line');
     expect(res?.status).toBe(200);
-    expect(await res?.text()).toContain('href="/line/804"');
+    const html = await res?.text();
+    expect(html).toContain('href="/line/804"');
+    // A canonical line with no data must also be listed by the index.
+    expect(html).toContain('href="/line/807"');
   });
 
   it('renders /line/804 from collector data', async () => {

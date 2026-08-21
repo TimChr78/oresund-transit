@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildSitemap } from '../src/lib/sitemap';
+import { CANONICAL_LINES } from '../src/lib/archive';
 
 /**
  * The sitemap lists every indexable route so Google Search Console can
@@ -8,10 +9,11 @@ import { buildSitemap } from '../src/lib/sitemap';
  *
  * It is built by functions/sitemap.xml.js, which discovers the line/station
  * sets from the collector at request time; buildSitemap is the pure builder
- * under test here.
+ * under test here. Every canonical line is always listed (even with no data) —
+ * the dynamic discovery is only a supplement for lines outside the known set.
  */
 describe('buildSitemap', () => {
-  it('lists the three static pages and the fixed history archive when no data resolves', () => {
+  it('lists the three static pages, the fixed history archive, and every canonical line even when no data resolves', () => {
     const locs = [...buildSitemap([], []).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
     // The static pages plus the fixed archive indexes/ranges are always listed.
     expect(locs).toContain('https://oresund.live/');
@@ -21,20 +23,23 @@ describe('buildSitemap', () => {
     expect(locs).toContain('https://oresund.live/line');
     expect(locs).toContain('https://oresund.live/station');
     for (const d of [7, 14, 30, 90]) expect(locs).toContain(`https://oresund.live/history/${d}`);
-    // No per-line/per-station pages when there's no data.
-    expect(locs).not.toContain('https://oresund.live/line/804');
+    // Every canonical line archive is listed even though the collector
+    // returned no data — they must be crawlable whether or not they have
+    // disruptions in the current window.
+    for (const l of CANONICAL_LINES) expect(locs).toContain(`https://oresund.live/line/${encodeURIComponent(l)}`);
+    // Stations remain discovery-only (no static station set).
     expect(locs).not.toContain('https://oresund.live/station/hyllie');
   });
 
   it('adds discovered line and station archive pages', () => {
-    const locs = [...buildSitemap([{ line: '804', disruptions: 3 }, { line: '803', disruptions: 1 }], [
+    const locs = [...buildSitemap([{ line: '7085', disruptions: 3 }], [
       { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
       { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
     ]).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 
     expect(locs).toContain('https://oresund.live/line');
-    expect(locs).toContain('https://oresund.live/line/804');
-    expect(locs).toContain('https://oresund.live/line/803');
+    // The dynamic, non-canonical line is still appended.
+    expect(locs).toContain('https://oresund.live/line/7085');
     expect(locs).toContain('https://oresund.live/station');
     expect(locs).toContain('https://oresund.live/station/hyllie');
     expect(locs).toContain('https://oresund.live/station/kobenhavn-h');

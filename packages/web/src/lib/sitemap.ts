@@ -8,7 +8,7 @@
  *
  * Pure function — no I/O — so it is trivially testable.
  */
-import { SITE_URL, DAY_RANGES, type ArchiveLine, type ArchiveStation } from './archive';
+import { SITE_URL, DAY_RANGES, unionCanonicalLines, type ArchiveLine, type ArchiveStation } from './archive';
 
 /** changefreq hints — archives are stable enough for daily crawls. */
 const ARCHIVE_CHANGEFREQ = 'daily';
@@ -19,6 +19,7 @@ const STATIC_CHANGEFREQ = {
 
 export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): string {
   const locs: string[] = [];
+  const allLines = unionCanonicalLines(lines);
 
   const add = (url: string, changefreq: string): void => {
     locs.push(`  <url><loc>${url}</loc><changefreq>${changefreq}</changefreq></url>`);
@@ -32,7 +33,7 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): 
   for (const d of DAY_RANGES) add(`${SITE_URL}/history/${d}`, ARCHIVE_CHANGEFREQ);
 
   add(`${SITE_URL}/line`, ARCHIVE_CHANGEFREQ);
-  for (const l of lines) add(`${SITE_URL}/line/${encodeURIComponent(l.line)}`, ARCHIVE_CHANGEFREQ);
+  for (const l of allLines) add(`${SITE_URL}/line/${encodeURIComponent(l.line)}`, ARCHIVE_CHANGEFREQ);
 
   add(`${SITE_URL}/station`, ARCHIVE_CHANGEFREQ);
   for (const s of stations) add(`${SITE_URL}/station/${encodeURIComponent(s.slug)}`, ARCHIVE_CHANGEFREQ);
