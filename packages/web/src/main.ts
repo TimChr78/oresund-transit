@@ -4,7 +4,7 @@ import { detectLang, getDict, saveLang, translate, type Dict, type Key, type Lan
 import { renderApp, type ConsentState } from './components/App';
 import { renderMethodologyPage } from './components/MethodologyPage';
 import { renderPrivacyPage } from './components/PrivacyPage';
-import { routePath } from './lib/route';
+import { langFromPath, routePath } from './lib/route';
 import type { Disruption } from '@oresund/shared';
 import { createInitialState, reducer, type Action, type AppState, type DisruptionsMode } from './state';
 import { delayStatsRange, type DayRange, type Direction } from './lib/stats';
@@ -47,10 +47,16 @@ function messageOf(err: unknown): string {
 
 /**
  * Static-page boot (privacy / methodology): static render + language switcher
- * only. No data fetching, no consent banner.
+ * only. No data fetching, no consent banner. `forcedLang` is present on the
+ * localized /sv/ and /da/ paths so the page renders in the URL's language
+ * rather than the saved/browser one.
  */
-function bootStaticPage(root: HTMLElement, page: { titleKey: Key; render: (lang: Lang, dict: Dict) => string }): void {
-  let lang: Lang = detectLang();
+function bootStaticPage(
+  root: HTMLElement,
+  page: { titleKey: Key; render: (lang: Lang, dict: Dict) => string },
+  forcedLang?: Lang | null,
+): void {
+  let lang: Lang = forcedLang ?? detectLang();
   document.documentElement.lang = lang;
 
   const render = (): void => {
@@ -70,12 +76,12 @@ function bootStaticPage(root: HTMLElement, page: { titleKey: Key; render: (lang:
   });
 }
 
-function bootPrivacy(root: HTMLElement): void {
-  bootStaticPage(root, { titleKey: 'privacy_title', render: renderPrivacyPage });
+function bootPrivacy(root: HTMLElement, forcedLang?: Lang | null): void {
+  bootStaticPage(root, { titleKey: 'privacy_title', render: renderPrivacyPage }, forcedLang);
 }
 
-function bootMethodology(root: HTMLElement): void {
-  bootStaticPage(root, { titleKey: 'meth_title', render: renderMethodologyPage });
+function bootMethodology(root: HTMLElement, forcedLang?: Lang | null): void {
+  bootStaticPage(root, { titleKey: 'meth_title', render: renderMethodologyPage }, forcedLang);
 }
 
 export function boot(): void {
@@ -88,18 +94,19 @@ export function boot(): void {
 
   // /privacy and /methodology render their static pages instead of the
   // dashboard. No data fetching, no consent banner — just the shell, footer
-  // and lang switcher.
+  // and lang switcher. Localized /sv/* and /da/* paths force their language.
+  const pathLang = langFromPath(window.location.pathname);
   const route = routePath(window.location.pathname);
   if (route === 'privacy') {
-    bootPrivacy(root);
+    bootPrivacy(root, pathLang);
     return;
   }
   if (route === 'methodology') {
-    bootMethodology(root);
+    bootMethodology(root, pathLang);
     return;
   }
 
-  let lang: Lang = detectLang();
+  let lang: Lang = pathLang ?? detectLang();
   document.documentElement.lang = lang;
   let consent: ConsentState = readConsent();
   let state: AppState = createInitialState();
