@@ -1,13 +1,7 @@
 {
   "version": 1,
   "include": [
-    "/*",
-    "/assets/*",
-    "/feed.xml",
-    "/sitemap.xml",
-    "/line/*",
-    "/station/*",
-    "/history/*"
+    "/*"
   ],
   "exclude": []
 }
