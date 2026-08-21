@@ -12,8 +12,9 @@
  * Determination is done through the ASSETS binding (which serves pretty paths
  * and applies header/redirect rules — see the assets Function for the same
  * pattern): a real asset (JS/CSS/PNG/XML/TXT…) returns a non-HTML content-type
- * and is passed through untouched; /, /methodology and /privacy are the known
- * HTML pages the SPA legitimately serves, so those pass through too. Anything
+ * and is passed through untouched; /, /methodology and /privacy (and their
+ * localized /sv/ and /da/ variants) are the known HTML pages the SPA
+ * legitimately serves, so those pass through too. Anything
  * else that comes back as 404, or as HTML for a path we don't own (the SPA
  * fallback), is an unknown path → a minimal branded 404 with `noindex` so it
  * never gets indexed or mistaken for the homepage. A 3xx from ASSETS (e.g. the

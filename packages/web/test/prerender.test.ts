@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
-import { getDict } from '../src/i18n';
-import { META } from '../src/lib/seo';
-import { renderPrerenderedPage } from '../src/lib/prerender';
+import { getDict, type Lang } from '../src/i18n';
+import { META, hreflangCluster } from '../src/lib/seo';
+import { renderPrerenderedPage, renderLocalizedHome } from '../src/lib/prerender';
 
 /**
  * SEO prerender: /methodology and /privacy must ship their content in the
@@ -32,7 +32,7 @@ function metaContent(html: string, attr: string, value: string): string {
 describe('prerendered static pages', () => {
   it('puts the methodology content in the HTML, not an empty #app', () => {
     const body = renderMethodologyPage('en', getDict('en'));
-    const html = renderPrerenderedPage(shell, body, 'en', META.methodology);
+    const html = renderPrerenderedPage(shell, body, 'en', META.methodology.en);
     expect(html).toContain('delay under 240 seconds');
     expect(html).toContain('lines 802–805');
     expect(html).toContain('id="app"');
@@ -41,7 +41,7 @@ describe('prerendered static pages', () => {
 
   it('puts the privacy content in the HTML, not an empty #app', () => {
     const body = renderPrivacyPage('en', getDict('en'));
-    const html = renderPrerenderedPage(shell, body, 'en', META.privacy);
+    const html = renderPrerenderedPage(shell, body, 'en', META.privacy.en);
     expect(html).toContain('hello@oresund.live');
     expect(html).toContain('Trafiklab.se');
     expect(html).not.toContain('<div id="app"></div>');
@@ -49,14 +49,14 @@ describe('prerendered static pages', () => {
 
   it('keeps the lang switcher working: module script + set-lang buttons survive', () => {
     const body = renderMethodologyPage('en', getDict('en'));
-    const html = renderPrerenderedPage(shell, body, 'en', META.methodology);
+    const html = renderPrerenderedPage(shell, body, 'en', META.methodology.en);
     expect(html).toContain('type="module"');
     expect(html).toContain('data-action="set-lang"');
   });
 
   it('drops the dashboard-only noscript: static pages render fine without JS', () => {
     const body = renderMethodologyPage('en', getDict('en'));
-    const html = renderPrerenderedPage(shell, body, 'en', META.methodology);
+    const html = renderPrerenderedPage(shell, body, 'en', META.methodology.en);
     expect(html).not.toContain('<noscript>');
   });
 });
@@ -66,9 +66,9 @@ describe('per-route title and meta description', () => {
     shell,
     renderMethodologyPage('en', getDict('en')),
     'en',
-    META.methodology,
+    META.methodology.en,
   );
-  const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy);
+  const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy.en);
 
   it('gives /methodology its own title, distinct from the dashboard', () => {
     expect(methodology).toContain('<title>Methodology — Øresund.live</title>');
@@ -82,22 +82,22 @@ describe('per-route title and meta description', () => {
 
   it('gives each route its own meta description', () => {
     expect(methodology).toContain('name="description"');
-    expect(methodology).toContain(META.methodology.description);
-    expect(methodology).not.toContain(META.privacy.description);
-    expect(privacy).toContain(META.privacy.description);
-    expect(privacy).not.toContain(META.methodology.description);
+    expect(methodology).toContain(META.methodology.en.description);
+    expect(methodology).not.toContain(META.privacy.en.description);
+    expect(privacy).toContain(META.privacy.en.description);
+    expect(privacy).not.toContain(META.methodology.en.description);
   });
 
   it('keeps og:title / og:description / og:url / twitter tags in sync with the route', () => {
-    expect(metaContent(methodology, 'property', 'og:title')).toBe(META.methodology.title);
-    expect(metaContent(methodology, 'property', 'og:description')).toBe(META.methodology.description);
-    expect(metaContent(methodology, 'property', 'og:url')).toBe(META.methodology.canonical);
-    expect(metaContent(methodology, 'name', 'twitter:title')).toBe(META.methodology.title);
-    expect(metaContent(methodology, 'name', 'twitter:description')).toBe(META.methodology.description);
-    expect(metaContent(privacy, 'property', 'og:title')).toBe(META.privacy.title);
-    expect(metaContent(privacy, 'property', 'og:description')).toBe(META.privacy.description);
-    expect(metaContent(privacy, 'property', 'og:url')).toBe(META.privacy.canonical);
-    expect(metaContent(privacy, 'name', 'twitter:description')).toBe(META.privacy.description);
+    expect(metaContent(methodology, 'property', 'og:title')).toBe(META.methodology.en.title);
+    expect(metaContent(methodology, 'property', 'og:description')).toBe(META.methodology.en.description);
+    expect(metaContent(methodology, 'property', 'og:url')).toBe(META.methodology.en.canonical);
+    expect(metaContent(methodology, 'name', 'twitter:title')).toBe(META.methodology.en.title);
+    expect(metaContent(methodology, 'name', 'twitter:description')).toBe(META.methodology.en.description);
+    expect(metaContent(privacy, 'property', 'og:title')).toBe(META.privacy.en.title);
+    expect(metaContent(privacy, 'property', 'og:description')).toBe(META.privacy.en.description);
+    expect(metaContent(privacy, 'property', 'og:url')).toBe(META.privacy.en.canonical);
+    expect(metaContent(privacy, 'name', 'twitter:description')).toBe(META.privacy.en.description);
   });
 
   it('the dashboard shell keeps its own (distinct) title + description', () => {
@@ -113,9 +113,9 @@ describe('per-route canonical', () => {
     shell,
     renderMethodologyPage('en', getDict('en')),
     'en',
-    META.methodology,
+    META.methodology.en,
   );
-  const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy);
+  const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy.en);
 
   it('emits exactly one canonical on /methodology — the route URL, never the homepage', () => {
     expect(methodology.match(/rel="canonical"/g) ?? []).toHaveLength(1);
@@ -170,7 +170,7 @@ describe('JSON-LD structured data', () => {
       shell,
       renderMethodologyPage('en', getDict('en')),
       'en',
-      META.methodology,
+      META.methodology.en,
     );
     const parsed = blocks(methodology);
     expect(parsed).toHaveLength(1);
@@ -187,7 +187,7 @@ describe('prerender build pipeline', () => {
   });
 
   it('writes the prerendered pages into dist/ (never public/)', () => {
-    expect(prerenderScript).toContain("new URL(`../dist/${page.file}`, import.meta.url)");
+    expect(prerenderScript).toContain('new URL(`../dist/${file}`, import.meta.url)');
     expect(prerenderScript).not.toContain('public/');
   });
 
@@ -219,8 +219,8 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
     expect(shell).toContain('<h1 class="brand">Øresund <span class="brand-sub">live</span></h1>');
   });
 
-  it('META.dashboard.description is one sentence with natural train + Øresundståg wording', () => {
-    const description = META.dashboard.description;
+  it('META.dashboard.en.description is one sentence with natural train + Øresundståg wording', () => {
+    const description = META.dashboard.en.description;
     const sentences = description.split('.').filter((s) => s.trim().length > 0);
     expect(sentences).toHaveLength(1);
     expect(description).toMatch(/train/i);
@@ -234,9 +234,9 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
       shell,
       renderMethodologyPage('en', getDict('en')),
       'en',
-      META.methodology,
+      META.methodology.en,
     );
-    const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy);
+    const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy.en);
     expect(methodology).not.toContain('static-shell');
     expect(privacy).not.toContain('static-shell');
     expect(methodology).not.toContain('train departures');
@@ -257,5 +257,93 @@ describe("boot() fallback removal (CodeRabbit: main.ts 87)", () => {
     expect(removeIdx).toBeLessThan(routeIdx);
     // prerender pipeline already asserts static pages strip it, dashboards keep it in shell — this covers the client boot path
     expect(shell).toContain('id="static-shell"');
+  });
+});
+
+describe('localized static variants (sv/da) — i18n decision B', () => {
+  const LANGS: Lang[] = ['sv', 'da'];
+
+  it('each methodology variant has the correct lang, localized title/canonical and hreflang cluster', () => {
+    for (const lang of LANGS) {
+      const html = renderPrerenderedPage(
+        shell,
+        renderMethodologyPage(lang, getDict(lang)),
+        lang,
+        META.methodology[lang],
+        hreflangCluster('/methodology'),
+      );
+      expect(html, lang).toContain(`<html lang="${lang}">`);
+      expect(html, lang).toContain(`<title>${META.methodology[lang].title}</title>`);
+      expect(html, lang).toContain(`<link rel="canonical" href="${META.methodology[lang].canonical}" />`);
+      expect(html, lang).toContain(`property="og:url"`);
+      expect(metaContent(html, 'property', 'og:url')).toBe(META.methodology[lang].canonical);
+      // The full hreflang cluster: en + sv + da + x-default.
+      expect(html, lang).toContain('hreflang="en" href="https://oresund.live/methodology"');
+      expect(html, lang).toContain('hreflang="sv" href="https://oresund.live/sv/methodology"');
+      expect(html, lang).toContain('hreflang="da" href="https://oresund.live/da/methodology"');
+      expect(html, lang).toContain('hreflang="x-default" href="https://oresund.live/methodology"');
+    }
+  });
+
+  it('each privacy variant has the correct lang, localized title/canonical and hreflang cluster', () => {
+    for (const lang of LANGS) {
+      const html = renderPrerenderedPage(
+        shell,
+        renderPrivacyPage(lang, getDict(lang)),
+        lang,
+        META.privacy[lang],
+        hreflangCluster('/privacy'),
+      );
+      expect(html, lang).toContain(`<html lang="${lang}">`);
+      expect(html, lang).toContain(`<title>${META.privacy[lang].title}</title>`);
+      expect(metaContent(html, 'property', 'og:url')).toBe(META.privacy[lang].canonical);
+      expect(html, lang).toContain('hreflang="sv" href="https://oresund.live/sv/privacy"');
+      expect(html, lang).toContain('hreflang="da" href="https://oresund.live/da/privacy"');
+      expect(html, lang).toContain('hreflang="x-default" href="https://oresund.live/privacy"');
+    }
+  });
+
+  it('the en variants also carry the hreflang cluster (x-default -> en)', () => {
+    const methodology = renderPrerenderedPage(
+      shell,
+      renderMethodologyPage('en', getDict('en')),
+      'en',
+      META.methodology.en,
+      hreflangCluster('/methodology'),
+    );
+    expect(methodology).toContain('<html lang="en">');
+    expect(methodology).toContain('hreflang="en" href="https://oresund.live/methodology"');
+    expect(methodology).toContain('hreflang="sv" href="https://oresund.live/sv/methodology"');
+    expect(methodology).toContain('hreflang="da" href="https://oresund.live/da/methodology"');
+    expect(methodology).toContain('hreflang="x-default" href="https://oresund.live/methodology"');
+  });
+});
+
+describe('localized home shells (sv/, da/)', () => {
+  const LANGS: Lang[] = ['sv', 'da'];
+
+  it('emits lang-attr + localized title + hreflang while keeping the SPA shell intacts', () => {
+    for (const lang of LANGS) {
+      const html = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/'));
+      expect(html, lang).toContain(`<html lang="${lang}">`);
+      expect(html, lang).toContain(`<title>${META.dashboard[lang].title}</title>`);
+      expect(html, lang).toContain(`<link rel="canonical" href="${META.dashboard[lang].canonical}" />`);
+      expect(html, lang).toContain('hreflang="en" href="https://oresund.live/"');
+      expect(html, lang).toContain(`hreflang="sv" href="https://oresund.live/sv/"`);
+      expect(html, lang).toContain(`hreflang="da" href="https://oresund.live/da/"`);
+      expect(html, lang).toContain('hreflang="x-default" href="https://oresund.live/"');
+      // The home page must keep its dashboard-only fallbacks.
+      expect(html, lang).toContain('id="static-shell"');
+      expect(html, lang).toContain('<noscript>');
+      expect(html, lang).toContain('type="module"');
+    }
+  });
+
+  it('the en home shell keeps lang="en" and gains the hreflang cluster', () => {
+    const html = renderLocalizedHome(shell, 'en', META.dashboard.en, hreflangCluster('/'));
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain('<title>Øresund.live — live train status across the Sound</title>');
+    expect(html).toContain('hreflang="sv" href="https://oresund.live/sv/"');
+    expect(html).toContain('hreflang="x-default" href="https://oresund.live/"');
   });
 });

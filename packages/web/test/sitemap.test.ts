@@ -61,4 +61,34 @@ describe('buildSitemap', () => {
     expect(buildSitemap([], [])).toContain('<?xml version="1.0" encoding="UTF-8"?>');
     expect(buildSitemap([], [])).toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
   });
+
+  it('adds the 6 localized sv/da static URLs (home, methodology, privacy)', () => {
+    const locs = [...buildSitemap([], []).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    expect(locs).toContain('https://oresund.live/sv/');
+    expect(locs).toContain('https://oresund.live/da/');
+    expect(locs).toContain('https://oresund.live/sv/methodology');
+    expect(locs).toContain('https://oresund.live/da/methodology');
+    expect(locs).toContain('https://oresund.live/sv/privacy');
+    expect(locs).toContain('https://oresund.live/da/privacy');
+  });
+
+  it('annotates each static URL with the full hreflang cluster (en/sv/da/x-default)', () => {
+    const xml = buildSitemap([], []);
+    expect(xml).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"');
+    // Every non-archive static URL must carry the x:html link set. Sample the
+    // methodology cluster (all four variants present, on each of its 3 URLs).
+    const links = [
+      'xhtml:link rel="alternate" hreflang="en" href="https://oresund.live/methodology"',
+      'xhtml:link rel="alternate" hreflang="sv" href="https://oresund.live/sv/methodology"',
+      'xhtml:link rel="alternate" hreflang="da" href="https://oresund.live/da/methodology"',
+      'xhtml:link rel="alternate" hreflang="x-default" href="https://oresund.live/methodology"',
+    ];
+    for (const link of links) {
+      // 3 methodology URLs each carry the cluster.
+      expect(xml.split(link).length - 1).toBe(3);
+    }
+    // And the homepage cluster links to the localized root URLs.
+    expect(xml).toContain('hreflang="sv" href="https://oresund.live/sv/"');
+    expect(xml).toContain('hreflang="da" href="https://oresund.live/da/"');
+  });
 });
