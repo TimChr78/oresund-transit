@@ -62,13 +62,11 @@ const DEFAULT_BASE_URL = 'https://realtime-api.trafiklab.se/v1/departures';
  * trains via isCrossborderTrain, København H monitors Sweden-bound trains via
  * isSwedenBoundTrain. Kastrup Lufthavn mirrors København H's filter.
  *
- * ⚠️ UNVERIFIED SITE IDS — VERIFY ON FIRST DEPLOY:
- * Malmö C 740000001 and Kastrup Lufthavn 840004349 come from the ResRobot
- * site registry documentation, NOT from a live Trafiklab poll. On the first
- * deploy, confirm each id fetches real departures (a manual poll of
- * /v1/departures/740000001 and /v1/departures/840004349 with the live key)
- * before trusting their data — a wrong id would silently collect nothing (or
- * worse, a different stop).
+ * ✅ VERIFIED LIVE 2026-08-22: Malmö C 740000001 and Kastrup 860000858 both
+ * returned real departures against the live Trafiklab key. The earlier
+ * 840004349 Kastrup id was a registry misinterpretation — Danish stops use
+ * the 86xxxx range (København H = 860000626); polled against the live key,
+ * 840004349 matched nothing.
  *
  * Trafiklab quota: polling every 5 minutes costs ~288 requests/day per stop,
  * ≈ 8.6k requests/month. Four monitored stops therefore consume ≈ 35k
@@ -86,8 +84,8 @@ const MONITORED_STOPS = [
   { id: '860000626', name: 'København H', slug: 'kobenhavn-h', filter: isSwedenBoundTrain, crossborder: true },
   // ⚠️ ResRobot-doc id 740000001 — verify live on first deploy (see above).
   { id: '740000001', name: 'Malmö C', slug: 'malmo-c', filter: isAnyTrain, crossborder: false },
-  // ⚠️ ResRobot-doc id 840004349 — verify live on first deploy (see above).
-  { id: '840004349', name: 'Kastrup Lufthavn', slug: 'kastrup', filter: isSwedenBoundTrain, crossborder: true },
+  // ✅ Verified live 2026-08-22: 860000858 = 'Kastrup flygplats' (ResRobot exact name) — real departures.
+  { id: '860000858', name: 'Københavns Lufthavn (Kastrup)', slug: 'kastrup', filter: isSwedenBoundTrain, crossborder: true },
 ] as const;
 
 /** The stable archive URL slug for a monitored stop (ASCII, URL-safe). */

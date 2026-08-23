@@ -12,7 +12,7 @@ const HYLLIE_ID = '740001586';
 const KBH_ID = '860000626';
 // ResRobot-doc SiteIds for the two added stops (unverified — see MONITORED_STOPS).
 const MALMO_C_ID = '740000001';
-const KASTRUP_ID = '840004349';
+const KASTRUP_ID = '860000858';
 
 /** Column order of the departures INSERT (see src/db.ts). */
 const DEP_COLS = [
@@ -774,7 +774,7 @@ describe('handleFetch — archive: stations / station', () => {
         { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
         { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
         { slug: 'malmo-c', stop_id: '740000001', stop_name: 'Malmö C' },
-        { slug: 'kastrup', stop_id: '840004349', stop_name: 'Kastrup Lufthavn' },
+        { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
       ],
     });
   });
@@ -832,12 +832,12 @@ describe('handleFetch — archive: stations / station', () => {
       recent: unknown[];
     };
     expect(body.slug).toBe('kastrup');
-    expect(body.stop_name).toBe('Kastrup Lufthavn');
-    expect(body.stop_id).toBe('840004349');
+    expect(body.stop_name).toBe('Københavns Lufthavn (Kastrup)');
+    expect(body.stop_id).toBe('860000858');
     expect(body.total_departures).toBe(0);
     expect(body.on_time_pct).toBe(0);
     expect(body.recent).toEqual([]);
-    expect(db.lastBindsFor('WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY')).toEqual(['840004349', '2026-07-08', '2026-08-07']);
+    expect(db.lastBindsFor('WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY')).toEqual(['860000858', '2026-07-08', '2026-08-07']);
   });
 
   it('GET /api/transit/station/unknown returns 404', async () => {
