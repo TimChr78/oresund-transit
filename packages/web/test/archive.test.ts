@@ -216,8 +216,8 @@ describe('archive renderers', () => {
     const empty: ArchiveStationStats = {
       ...stationStats,
       slug: 'kastrup',
-      stop_id: '840004349',
-      stop_name: 'Kastrup Lufthavn',
+      stop_id: '860000858',
+      stop_name: 'Københavns Lufthavn (Kastrup)',
       total_departures: 0,
       on_time_count: 0,
       delayed_count: 0,
@@ -230,7 +230,7 @@ describe('archive renderers', () => {
       recent: [],
     };
     const html = renderStationPage(empty, stationStatsSlugList());
-    expect(html).toContain('<title>Kastrup Lufthavn — punctuality archive — Øresund.live</title>');
+    expect(html).toContain('<title>Københavns Lufthavn (Kastrup) — punctuality archive — Øresund.live</title>');
     expect(html).toContain('No data yet — this station\'s archive starts once live monitoring begins.');
     expect(html).toContain('No departures recorded yet.');
     expect(html).toContain('0%'); // zeroed stats, never NaN
@@ -265,7 +265,7 @@ function stationStatsSlugList() {
     { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
     { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
     { slug: 'malmo-c', stop_id: '740000001', stop_name: 'Malmö C' },
-    { slug: 'kastrup', stop_id: '840004349', stop_name: 'Kastrup Lufthavn' },
+    { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
   ];
 }
 

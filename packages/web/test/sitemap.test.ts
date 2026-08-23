@@ -36,7 +36,7 @@ describe('buildSitemap', () => {
       { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
       { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
       { slug: 'malmo-c', stop_id: '740000001', stop_name: 'Malmö C' },
-      { slug: 'kastrup', stop_id: '840004349', stop_name: 'Kastrup Lufthavn' },
+      { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
     ]).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 
     expect(locs).toContain('https://oresund.live/line');
