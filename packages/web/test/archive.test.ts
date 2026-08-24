@@ -238,6 +238,38 @@ describe('archive renderers', () => {
     expect(html).not.toContain('noindex');
   });
 
+  it('station pages collapse pre-monitoring empty days into ONE monitoring note but keep post-monitoring empty rows', () => {
+    // Ascending daily series: two zero-filled pre-monitoring days (2026-08-04..05,
+    // before MONITORING_START), a real-data day at monitoring start, and a quiet
+    // (empty) day AFTER monitoring began — which is a genuine data point.
+    const mixed: ArchiveStationStats = {
+      ...stationStats,
+      days: 5,
+      date_from: '2026-08-03',
+      date_to: '2026-08-07',
+      daily: [
+        { date: '2026-08-03', total: 12, on_time: 11, delayed: 1, canceled: 0, on_time_pct: 91.7, avg_delay_seconds: 200 },
+        { date: '2026-08-04', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+        { date: '2026-08-05', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+        { date: '2026-08-06', total: 15, on_time: 14, delayed: 1, canceled: 0, on_time_pct: 93.3, avg_delay_seconds: 180 },
+        { date: '2026-08-07', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+      ],
+    };
+    const html = renderStationPage(mixed, stationStatsSlugList());
+    // The pre-monitoring zero days collapse into EXACTLY one explanatory note row.
+    expect(html).toContain('Monitoring began 2026-08-06');
+    expect((html.match(/Monitoring began 2026-08-06/g) ?? []).length).toBe(1);
+    expect(html).not.toContain('>2026-08-05<');
+    expect(html).not.toContain('>2026-08-04<');
+    // A real-data day (pre- or post-monitoring) still renders as a row.
+    expect(html).toContain('>2026-08-03<');
+    expect(html).toContain('>2026-08-06<');
+    // 2026-08-07 is empty AFTER monitoring start: a genuine quiet day stays a row.
+    expect(html).toContain('>2026-08-07<');
+    // Not a brand-new stop — no "no data yet" banner.
+    expect(html).not.toContain('No data yet');
+  });
+
   it('station index renders the monitored stops', () => {
     const html = renderStationIndex(stationStatsSlugList());
     expect(html).toContain('href="/station/hyllie"');
@@ -387,6 +419,24 @@ describe('archive SEO pass — intro paragraphs, summary stats, monitoring note'
     expect(html).toContain('<span class="stat"><b>3</b><span>Delays</span></span>');
     expect(html).toContain('<span class="stat"><b>0</b><span>Alerts</span></span>');
     expect(html).toContain('<span class="stat"><b>11 min</b><span>Avg delay</span></span>');
+  });
+
+  it('weights the avg delay by delayed records, not the total disruption count (cancellations must not skew it)', () => {
+    // Day A has 10 disruptions but only 3 delays (7 cancellations); weighting
+    // by count would over-weight it 3.3x. Day B has 2 delays, 0 cancellations.
+    const weighted: ArchiveHistory = {
+      ...history,
+      days: 7,
+      total_disruptions: 12,
+      daily: [
+        { date: '2026-08-06', count: 10, cancellations: 7, delays: 3, alerts: 0, avg_delay: 600 },
+        { date: '2026-08-05', count: 2, cancellations: 0, delays: 2, alerts: 0, avg_delay: 1200 },
+      ],
+    };
+    const html = renderHistoryPage(7, weighted);
+    // Correct: (600*3 + 1200*2) / (3+2) = 840s → "14 min".
+    // Count-weighting would yield (600*10 + 1200*2) / (10+2) = 700s → "12 min".
+    expect(html).toContain('<span class="stat"><b>14 min</b><span>Avg delay</span></span>');
   });
 
   it('replaces pre-monitoring empty days with the monitoring-began note', () => {

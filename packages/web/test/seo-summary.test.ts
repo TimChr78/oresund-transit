@@ -96,9 +96,19 @@ describe('cancellationBuckets', () => {
       mkDisruption('2026-08-21T11:59:00'), // < 24h ago -> last24
       mkDisruption('2026-08-20T12:00:00'), // exactly 24h ago -> last24 (>= bound)
       mkDisruption('2026-08-20T11:59:59'), // just past 24h -> prev24
-      mkDisruption('2026-08-19T00:00:00'), // older -> prev24
+      mkDisruption('2026-08-19T13:00:00'), // older, but inside the 48h window -> prev24
     ];
     expect(cancellationBuckets(disruptions, NOW)).toEqual({ last24: 2, prev24: 2 });
+  });
+
+  it('skips cancellations outside the 48h window entirely', () => {
+    const disruptions = [
+      mkDisruption('2026-08-21T10:00:00'), // last24
+      mkDisruption('2026-08-19T12:00:00'), // exactly at now-48h -> prev24 (inclusive lower bound)
+      mkDisruption('2026-08-19T11:59:59'), // just before now-48h -> neither bucket
+      mkDisruption('2026-08-17T00:00:00'), // far outside the window -> neither bucket
+    ];
+    expect(cancellationBuckets(disruptions, NOW)).toEqual({ last24: 1, prev24: 1 });
   });
 
   it('ignores non-cancellation disruptions and unparseable timestamps', () => {

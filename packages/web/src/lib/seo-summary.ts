@@ -78,7 +78,11 @@ export function cancellationBuckets(
   disruptions: Disruption[],
   now: Date,
 ): { last24: number; prev24: number } {
+  // Half-open windows over naive local stamps: last24 = [now-24h, now),
+  // prev24 = [now-48h, now-24h). Records outside both are dropped — the
+  // collector returns a 48h window, so older rows must not leak into prev24.
   const boundary = naiveLocalStamp(new Date(now.getTime() - DAY_MS));
+  const cutoff = naiveLocalStamp(new Date(now.getTime() - 2 * DAY_MS));
   let last24 = 0;
   let prev24 = 0;
   for (const d of disruptions) {
@@ -86,7 +90,7 @@ export function cancellationBuckets(
     const ts = normalizeTimestamp(d.timestamp);
     if (ts === null) continue;
     if (ts >= boundary) last24 += 1;
-    else prev24 += 1;
+    else if (ts >= cutoff) prev24 += 1;
   }
   return { last24, prev24 };
 }

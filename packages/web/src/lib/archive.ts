@@ -355,9 +355,12 @@ function summarizeDaily(rows: ArchiveHistory['daily']): { cancellations: number;
     cancellations += r.cancellations;
     delays += r.delays;
     alerts += r.alerts;
-    if (r.avg_delay != null) {
-      delaySum += r.avg_delay * r.count;
-      delayN += r.count;
+    // Weight by delayed records, not total count: count includes cancellations
+    // and alerts, which would skew the delay average toward days with many
+    // cancellations. A day with avg_delay but zero delays contributes nothing.
+    if (r.avg_delay != null && r.delays > 0) {
+      delaySum += r.avg_delay * r.delays;
+      delayN += r.delays;
     }
   }
   return {
