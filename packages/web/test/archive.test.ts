@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CANONICAL_LINES,
-  renderHistoryIndex,
+  MONITORING_START,
   renderHistoryPage,
   renderLineIndex,
   renderLinePage,
@@ -121,10 +121,8 @@ describe('archive renderers', () => {
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
 
-  it('history index lists the day ranges', () => {
-    const html = renderHistoryIndex();
-    expect(html).toContain('<h1>Disruption history</h1>');
-    for (const d of [7, 14, 30, 90]) expect(html).toContain(`href="/history/${d}"`);
+  it('MONITORING_START is the live-monitoring start date (2026-08-06)', () => {
+    expect(MONITORING_START).toBe('2026-08-06');
   });
 
   it('line pages escape external line/cause/raw text and carry breadcrumb JSON-LD', () => {
@@ -284,11 +282,15 @@ describe('handleArchiveRequest dispatch', () => {
     );
   }
 
-  it('renders /history as the index (no fetch)', async () => {
+  it('redirects /history to the default 30-day window (H5: no duplicate index)', async () => {
+    // No fetch — the redirect is served before any collector call.
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('must not fetch'); }));
     const res = await handleArchiveRequest('/history');
-    expect(res?.status).toBe(200);
-    expect(res?.headers.get('content-type')).toContain('text/html');
-    expect(await res?.text()).toContain('<h1>Disruption history</h1>');
+    expect(res?.status).toBe(301);
+    expect(res?.headers.get('location')).toBe('/history/30');
+    const trailing = await handleArchiveRequest('/history/');
+    expect(trailing?.status).toBe(301);
+    expect(trailing?.headers.get('location')).toBe('/history/30');
   });
 
   it('renders /history/30 from the collector', async () => {
@@ -357,5 +359,96 @@ describe('handleArchiveRequest dispatch', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({})));
     const res = await handleArchiveRequest('/methodology');
     expect(res).toBeNull();
+  });
+});
+
+describe('archive SEO pass — intro paragraphs, summary stats, monitoring note', () => {
+  it('gives each history window a unique intro paragraph (H5)', () => {
+    const phrases: Record<number, string> = {
+      7: 'A snapshot of the last 7 days',
+      14: 'Two weeks of service history',
+      30: 'A month of service history',
+      90: 'Three months of service history',
+    };
+    for (const days of [7, 14, 30, 90] as const) {
+      const html = renderHistoryPage(days, history);
+      expect(html, `window ${days}`).toContain(phrases[days]!);
+    }
+    // Intros are window-specific, not shared boilerplate.
+    expect(renderHistoryPage(30, history)).not.toContain('A snapshot of the last 7 days');
+    expect(renderHistoryPage(7, history)).not.toContain('Three months of service history');
+  });
+
+  it('prerenders a summary stats row on history pages (total, cancellations, delays, alerts, avg delay)', () => {
+    const html = renderHistoryPage(7, history);
+    // history fixture: total 4; cancellations 1; delays 3; alerts 0; avg 650 → "11 min"
+    expect(html).toContain('<span class="stat"><b>4</b><span>Total</span></span>');
+    expect(html).toContain('<span class="stat"><b>1</b><span>Cancellations</span></span>');
+    expect(html).toContain('<span class="stat"><b>3</b><span>Delays</span></span>');
+    expect(html).toContain('<span class="stat"><b>0</b><span>Alerts</span></span>');
+    expect(html).toContain('<span class="stat"><b>11 min</b><span>Avg delay</span></span>');
+  });
+
+  it('replaces pre-monitoring empty days with the monitoring-began note', () => {
+    const withGap: ArchiveHistory = {
+      ...history,
+      days: 90,
+      date_from: '2026-06-01',
+      date_to: '2026-08-06',
+      total_disruptions: 5,
+      daily: [
+        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+        { date: '2026-08-05', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-04', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-06-01', count: 2, cancellations: 0, delays: 2, alerts: 0, avg_delay: 300 },
+      ],
+    };
+    const html = renderHistoryPage(90, withGap);
+    // The zero-filled pre-monitoring run collapses into one explanatory row.
+    expect(html).toContain('Monitoring began 2026-08-06');
+    expect(html).not.toContain('>2026-08-05<');
+    expect(html).not.toContain('>2026-08-04<');
+    // Real data days still render as rows.
+    expect(html).toContain('>2026-08-06<');
+    expect(html).toContain('>2026-06-01<');
+  });
+
+  it('keeps empty days AFTER monitoring began as ordinary zero rows', () => {
+    const withQuietDay: ArchiveHistory = {
+      ...history,
+      total_disruptions: 3,
+      daily: [
+        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+        { date: '2026-08-07', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+      ],
+    };
+    const html = renderHistoryPage(7, withQuietDay);
+    // 2026-08-07 is after monitoring start: a genuine quiet day stays a table row.
+    expect(html).toContain('>2026-08-07<');
+    expect(html).not.toContain('Monitoring began 2026-08-06');
+  });
+
+  it('line pages carry an intro paragraph and a summary stats row', () => {
+    const html = renderLinePage('804', lineStats, [{ line: '803', disruptions: 1 }]);
+    expect(html).toContain('Disruptions recorded for line 804');
+    expect(html).toContain('<span class="stat"><b>4</b><span>Total</span></span>');
+    expect(html).toContain('<span class="stat"><b>1</b><span>Cancellations</span></span>');
+    expect(html).toContain('<span class="stat"><b>3</b><span>Delays</span></span>');
+    expect(html).toContain('<span class="stat"><b>11 min</b><span>Avg delay</span></span>');
+  });
+
+  it('escapes the line value inside the new intro copy', () => {
+    const evil = { ...lineStats, line: '<script>alert(1)</script>' };
+    const html = renderLinePage(evil.line, evil, []);
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('station pages carry an intro paragraph', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    expect(html).toContain('On-time performance at Malmö Hyllie');
+    // The existing summary stats row stays intact.
+    expect(html).toContain('<span class="stat"><b>99</b><span>Departures</span></span>');
+    expect(html).toContain('<span class="stat"><b>92.9%</b><span>On time</span></span>');
   });
 });

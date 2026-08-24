@@ -55,7 +55,8 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): 
   addStatic('/methodology', STATIC_CHANGEFREQ.page);
   addStatic('/privacy', STATIC_CHANGEFREQ.page);
 
-  add(`${SITE_URL}/history`, ARCHIVE_CHANGEFREQ);
+  // /history itself 301s to /history/30 (H5) — only the canonical window URLs
+  // are indexable, so only the ranges are listed.
   for (const d of DAY_RANGES) add(`${SITE_URL}/history/${d}`, ARCHIVE_CHANGEFREQ);
 
   add(`${SITE_URL}/line`, ARCHIVE_CHANGEFREQ);
