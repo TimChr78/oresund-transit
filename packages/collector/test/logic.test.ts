@@ -14,6 +14,7 @@ import {
   isCrossborderTrain,
   isSwedenBoundTrain,
   isAnyTrain,
+  isOresundTrain,
   isGottorpHyllieBus,
   delayStatus,
   disruptionTypeRank,
@@ -352,6 +353,47 @@ describe('isAnyTrain', () => {
     expect(isAnyTrain(hyllieRaw.departures[1]!)).toBe(false); // 10 → Svågertorp (BUS)
     expect(isAnyTrain(hyllieRaw.departures[4]!)).toBe(false); // 6 → Toftanäs (BUS)
     expect(isAnyTrain(gottorpRaw.departures[0]!)).toBe(false);
+  });
+});
+
+describe('isOresundTrain', () => {
+  it('flags agency-110 trains (VR Sverige AB) — the Øresundståg operator', () => {
+    // 804 → Østerport, agency id 500000000000000110
+    expect(isOresundTrain(hyllieRaw.departures[0]!)).toBe(true);
+    // 803 → Østerport, agency 110
+    expect(isOresundTrain(hyllieRaw.departures[7]!)).toBe(true);
+  });
+
+  it('flags any 8xx designation even without agency 110', () => {
+    const base = hyllieRaw.departures[0]!;
+    const withRoute = (route: Partial<typeof base.route>, agency: Partial<typeof base.agency>) => ({
+      ...base, route: { ...base.route, ...route }, agency: { ...base.agency, ...agency },
+    });
+    // Øresundståg line number, but agency id wiped → still Øresund
+    expect(isOresundTrain(withRoute({ designation: '806' }, { id: '' }))).toBe(true);
+  });
+
+  it('rejects Pågatåg local trains (12xx-19xx designations)', () => {
+    const base = hyllieRaw.departures[0]!;
+    const withRoute = (route: Partial<typeof base.route>, agency: Partial<typeof base.agency>) => ({
+      ...base, route: { ...base.route, ...route }, agency: { ...base.agency, ...agency },
+    });
+    // agency 505000000000000012 = Skånetrafiken
+    expect(isOresundTrain(withRoute({ designation: '1209' }, { id: '505000000000000012' }))).toBe(false);
+    expect(isOresundTrain(withRoute({ designation: '1506' }, { id: '505000000000000012' }))).toBe(false);
+  });
+
+  it('rejects buses and long-distance (SJ/Snälltåget) trains', () => {
+    const base = hyllieRaw.departures[0]!;
+    const withRoute = (route: Partial<typeof base.route>, agency: Partial<typeof base.agency>) => ({
+      ...base, route: { ...base.route, ...route }, agency: { ...base.agency, ...agency },
+    });
+    // BUS line 10 → Svågertorp
+    expect(isOresundTrain(hyllieRaw.departures[1]!)).toBe(false);
+    // SJ 530 → Stockholm
+    expect(isOresundTrain(withRoute({ designation: '530', transport_mode: 'TRAIN' }, { id: '1' }))).toBe(false);
+    // Snälltåget 3940 → Stockholm
+    expect(isOresundTrain(withRoute({ designation: '3940', transport_mode: 'TRAIN' }, { id: '2' }))).toBe(false);
   });
 });
 
