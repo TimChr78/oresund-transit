@@ -23,7 +23,6 @@ import {
   isCrossborderTrain,
   isEveryAlertResumed,
   isSwedenBoundTrain,
-  isAnyTrain,
   isOresundTrain,
 } from './logic.js';
 import {
