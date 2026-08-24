@@ -304,17 +304,27 @@ export function isSwedenBoundTrain(dep: TrafiklabDeparture): boolean {
 }
 
 /**
- * Any TRAIN/RAIL-mode departure, regardless of destination. Malmö C's
- * monitor filter: both Øresundståg bridge services (800-series) and Pågatåg
- * local/regional trains call there, so a destination-scoped helper (like
- * isCrossborderTrain / isSwedenBoundTrain) would drop half the traffic the
- * station archive should cover. Intentionally destination-agnostic; the
- * shutdown detector does NOT count this stop (see MONITORED_STOPS), since a
- * station with purely local traffic cannot attest cross-border service.
+ * Any TRAIN/RAIL-mode departure, regardless of destination (kept for tests/
+ * compatibility; no monitored stop uses it after the Malmö C fix).
  */
 export function isAnyTrain(dep: TrafiklabDeparture): boolean {
   const mode = (dep.route?.transport_mode ?? '').toUpperCase();
   return mode.includes('TRAIN') || mode.includes('RAIL');
+}
+
+/**
+ * Øresundståg train: the bridge operator (agency code 110, VR Sverige AB)
+ * OR any 8xx-series designation. This is the ONLY train family the user
+ * wants at Malmö C — not Pågatåg (12xx/13xx/14xx/15xx/17xx/19xx), not SJ,
+ * not Snälltåget.
+ */
+export function isOresundTrain(dep: TrafiklabDeparture): boolean {
+  const mode = (dep.route?.transport_mode ?? '').toUpperCase();
+  if (!mode.includes('TRAIN') && !mode.includes('RAIL')) return false;
+  const agency = String(dep.agency?.id ?? '');
+  if (agency === '110') return true;
+  const line = String(dep.route?.designation ?? '');
+  return /^8\d{2}$/.test(line);
 }
 
 /** BUS, designation 6 or 16, and (lowercased, un-normalized) dest contains "hyllie". */

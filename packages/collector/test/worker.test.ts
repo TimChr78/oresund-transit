@@ -11,7 +11,7 @@ import { FakeD1 } from './fake-d1.js';
 const HYLLIE_ID = '740001586';
 const KBH_ID = '860000626';
 // ResRobot-doc SiteIds for the two added stops (unverified — see MONITORED_STOPS).
-const MALMO_C_ID = '740000001';
+const MALMO_C_ID = '740000003';
 const KASTRUP_ID = '860000858';
 
 /** Column order of the departures INSERT (see src/db.ts). */
@@ -90,13 +90,12 @@ describe('runScheduled — service shutdown detection', () => {
     expect(writtenStatus(db).service_shutdown).toBe(true);
   });
 
-  it('flags shutdown even when Malmö C still reports local trains (all-trains stop cannot mask it)', async () => {
+  it('flags shutdown even when Malmö C still reports a Øresundståg (non-crossborder stop cannot mask it)', async () => {
     const db = new FakeD1();
     // 12:00 UTC = 14:00 Europe/Stockholm — inside 06:00–22:00. Hyllie /
     // København H / Kastrup are empty (no cross-border service), but Malmö C
-    // still answers a real 804 TRAIN (Østerport-bound). Because Malmö C's
-    // filter admits purely local Pågatåg traffic, it is flagged
-    // `crossborder: false` and must NOT keep the shutdown detector green.
+    // still answers a real 804 TRAIN (Østerport-bound). Because Malmö C is
+    // `crossborder: false`, it must NOT keep the shutdown detector green.
     const now = new Date('2026-08-06T12:00:00Z');
     const status = await runScheduled(
       env(db),
@@ -773,7 +772,7 @@ describe('handleFetch — archive: stations / station', () => {
       stations: [
         { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
         { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
-        { slug: 'malmo-c', stop_id: '740000001', stop_name: 'Malmö C' },
+        { slug: 'malmo-c', stop_id: '740000003', stop_name: 'Malmö C' },
         { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
       ],
     });

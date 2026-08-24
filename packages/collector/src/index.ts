@@ -24,6 +24,7 @@ import {
   isEveryAlertResumed,
   isSwedenBoundTrain,
   isAnyTrain,
+  isOresundTrain,
 } from './logic.js';
 import {
   logDisruption,
@@ -62,11 +63,11 @@ const DEFAULT_BASE_URL = 'https://realtime-api.trafiklab.se/v1/departures';
  * trains via isCrossborderTrain, København H monitors Sweden-bound trains via
  * isSwedenBoundTrain. Kastrup Lufthavn mirrors København H's filter.
  *
- * ✅ VERIFIED LIVE 2026-08-22: Malmö C 740000001 and Kastrup 860000858 both
- * returned real departures against the live Trafiklab key. The earlier
- * 840004349 Kastrup id was a registry misinterpretation — Danish stops use
- * the 86xxxx range (København H = 860000626); polled against the live key,
- * 840004349 matched nothing.
+ * ✅ VERIFIED LIVE 2026-08-22: Kastrup 860000858 returned real departures
+ * against the live Trafiklab key. The earlier 840004349 Kastrup id was a
+ * registry misinterpretation — Danish stops use the 86xxxx range (København
+ * H = 860000626); polled against the live key, 840004349 matched nothing.
+ * ⚠️ Malmö C 740000001 was WRONG (Stockholm C); real id is 740000003.
  *
  * Trafiklab quota: polling every 5 minutes costs ~288 requests/day per stop,
  * ≈ 8.6k requests/month. Four monitored stops therefore consume ≈ 35k
@@ -82,8 +83,10 @@ const DEFAULT_BASE_URL = 'https://realtime-api.trafiklab.se/v1/departures';
 const MONITORED_STOPS = [
   { id: '740001586', name: 'Malmö Hyllie', slug: 'hyllie', filter: isCrossborderTrain, crossborder: true },
   { id: '860000626', name: 'København H', slug: 'kobenhavn-h', filter: isSwedenBoundTrain, crossborder: true },
-  // ⚠️ ResRobot-doc id 740000001 — verify live on first deploy (see above).
-  { id: '740000001', name: 'Malmö C', slug: 'malmo-c', filter: isAnyTrain, crossborder: false },
+  // ✅ Verified 2026-08-24 against ResRobot: real Malmö Centralstation is
+  // 740000003 (740000001 was Stockholm C — collected Arlanda Express/Uppsala).
+  // Filter = Øresundståg only (agency 110 / 8xx line): no Pågatåg/SJ/buses.
+  { id: '740000003', name: 'Malmö C', slug: 'malmo-c', filter: isOresundTrain, crossborder: false },
   // ✅ Verified live 2026-08-22: 860000858 = 'Kastrup flygplats' (ResRobot exact name) — real departures.
   { id: '860000858', name: 'Københavns Lufthavn (Kastrup)', slug: 'kastrup', filter: isSwedenBoundTrain, crossborder: true },
 ] as const;
