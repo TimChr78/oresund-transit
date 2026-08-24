@@ -40,6 +40,17 @@ describe('self-hosted fonts', () => {
     expect(existsSync(new URL('../public/fonts/SpaceGrotesk-OFL.txt', import.meta.url))).toBe(true);
   });
 
+  it('preloads both woff2 files (as=font, crossorigin) so the first render is not font-blocked', () => {
+    expect(indexHtml).toContain('<link rel="preload" href="/fonts/Inter.woff2" as="font" type="font/woff2" crossorigin />');
+    expect(indexHtml).toContain('<link rel="preload" href="/fonts/SpaceGrotesk.woff2" as="font" type="font/woff2" crossorigin />');
+  });
+
+  it('the prerendered static pages keep the font preloads', () => {
+    const html = renderPrerenderedPage(indexHtml, renderMethodologyPage('en', getDict('en')), 'en', META.methodology.en);
+    expect(html).toContain('rel="preload" href="/fonts/Inter.woff2" as="font"');
+    expect(html).toContain('rel="preload" href="/fonts/SpaceGrotesk.woff2" as="font"');
+  });
+
   it('the prerendered static pages inherit the Google-free shell', () => {
     const shell = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
     const html = renderPrerenderedPage(shell, renderMethodologyPage('en', getDict('en')), 'en', META.methodology.en);

@@ -13,6 +13,7 @@ import {
   type ArchiveStationStats,
 } from '../src/lib/archive';
 import { handleArchiveRequest } from '../src/lib/archive-http';
+import { translate } from '../src/i18n';
 
 /** A minimal valid history payload for the last 7 days. */
 const history: ArchiveHistory = {
@@ -203,13 +204,18 @@ describe('archive renderers', () => {
 
   it('station pages include on-time stats, daily table and breadcrumb JSON-LD', () => {
     const html = renderStationPage(stationStats, stationStatsSlugList());
-    expect(html).toContain('<title>Malmö Hyllie — punctuality archive — Øresund.live</title>');
+    expect(html).toContain('<title>Malmö Hyllie — punctuality — Øresund.live</title>');
     expect(html).toContain('<link rel="canonical" href="https://oresund.live/station/hyllie" />');
     expect(html).toContain('92.9%'); // on_time_pct stat
     expect(html).toContain('"@type":"BreadcrumbList"');
     expect(html).toContain('København H'); // sibling link
     expect(html).toContain('Malmö C'); // new sibling link
     expect(html).not.toContain('No data yet'); // non-empty archive has no empty-state note
+    // L4/L5 — every og-tagged page ships the large-image twitter card and og:image (+alt).
+    expect(html).toContain('property="og:image" content="https://oresund.live/og-card.png"');
+    expect(html).toContain('property="og:image:alt" content="Øresund.live — Øresundståg departures across the Sound"');
+    expect(html).toContain('name="twitter:card" content="summary_large_image"');
+    expect(html).toContain('name="twitter:image" content="https://oresund.live/og-card.png"');
   });
 
   it('station pages with an empty archive render graceful "no data yet" copy (no div-by-zero)', () => {
@@ -230,7 +236,7 @@ describe('archive renderers', () => {
       recent: [],
     };
     const html = renderStationPage(empty, stationStatsSlugList());
-    expect(html).toContain('<title>Københavns Lufthavn (Kastrup) — punctuality archive — Øresund.live</title>');
+    expect(html).toContain('<title>Københavns Lufthavn (Kastrup) — punctuality — Øresund.live</title>');
     expect(html).toContain('No data yet — this station\'s archive starts once live monitoring begins.');
     expect(html).toContain('No departures recorded yet.');
     expect(html).toContain('0%'); // zeroed stats, never NaN
@@ -246,6 +252,33 @@ describe('archive renderers', () => {
     expect(html).toContain('href="/station/kobenhavn-h"');
     expect(html).toContain('href="/station/malmo-c"');
     expect(html).toContain('href="/station/kastrup"');
+  });
+
+  it('station archive title template keeps the longest monitored stop ≤ 60 chars (L3)', () => {
+    // "Københavns Lufthavn (Kastrup)" is 29 chars — the longest name; the old
+    // "… — punctuality archive — Øresund.live" template produced a 66-char
+    // <title>. The i18n template must keep the rendered title within limits.
+    const kastrup: ArchiveStationStats = {
+      ...stationStats,
+      slug: 'kastrup',
+      stop_id: '860000858',
+      stop_name: 'Københavns Lufthavn (Kastrup)',
+      total_departures: 0,
+      on_time_count: 0,
+      delayed_count: 0,
+      canceled_count: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: null,
+      daily: [
+        { date: '2026-08-06', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+      ],
+      recent: [],
+    };
+    const title = translate('station_archive_title', 'en', { name: kastrup.stop_name });
+    expect(title.length).toBeLessThanOrEqual(60);
+    // And it renders verbatim into the page <title>.
+    const html = renderStationPage(kastrup, stationStatsSlugList());
+    expect(html).toContain(`<title>${title}</title>`);
   });
 
   it('JSON-LD does not allow </script> breakout via line values', () => {

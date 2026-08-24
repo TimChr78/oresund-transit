@@ -182,6 +182,7 @@ export const da: Dict = {
   meth_def_by_cause: 'Antal forstyrrelser grupperet efter årsagskategori.',
   meth_def_by_hour: 'Andel af forstyrrelserne pr. time — sidste 30 dage.',
   meth_def_peak: 'Andel af forstyrrelserne i myldretiden (07–09 og 16–18) sammenlignet med resten af dagen.',
+  station_archive_title: '{name} — rettidighed — Øresund.live',
   // Footer
   footer_attribution: 'Data fra Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligge ~10–15 min. efter officielle apps; aflyste afgange kan blive overset.',

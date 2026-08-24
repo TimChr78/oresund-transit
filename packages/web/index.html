@@ -20,6 +20,11 @@
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='32' cy='18' r='7' fill='%2310b981'/><circle cx='32' cy='32' r='7' fill='%23f59e0b'/><circle cx='32' cy='46' r='7' fill='%23ef4444'/></svg>"
     />
+    <!-- Self-hosted fonts (see @font-face in styles.css) — preloaded so the
+         first render is not blocked on font discovery. crossorigin is required
+         for font preloads (anonymous-mode CORS). -->
+    <link rel="preload" href="/fonts/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/SpaceGrotesk.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Øresund.live — live train status across the Sound" />
@@ -32,16 +37,20 @@
     <meta property="og:image" content="https://oresund.live/og-card.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Øresund.live — Øresundståg departures across the Sound" />
     <!-- Twitter card -->
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Øresund.live — live train status across the Sound" />
     <meta
       name="twitter:description"
       content="Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
     />
+    <meta name="twitter:image" content="https://oresund.live/og-card.png" />
     <!-- Umami analytics — cookieless, anonymized; no consent interaction needed. -->
     <script defer src="https://analytics.martechsignal.com/script.js" data-website-id="5e9194d0-7e30-4b99-beeb-eb08e02dcd71"></script>
-    <!-- Structured data: WebSite + Organization, factual only (name/url/description). -->
+    <!-- Structured data: WebSite + Organization, factual only (name/url/description,
+         logo/sameAs/contactPoint — the contact email is the public one on the
+         Privacy page). -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -58,7 +67,15 @@
             "@id": "https://oresund.live/#organization",
             "name": "Øresund.live",
             "url": "https://oresund.live/",
-            "description": "Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
+            "description": "Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab.",
+            "logo": "https://oresund.live/og-card.png",
+            "sameAs": ["https://github.com/TimChr78/oresund-transit"],
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "email": "mailto:hello@oresund.live",
+              "contactType": "customer support",
+              "url": "https://oresund.live/privacy"
+            }
           }
         ]
       }
