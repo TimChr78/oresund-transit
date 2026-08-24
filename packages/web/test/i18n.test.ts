@@ -138,4 +138,24 @@ describe('i18n dictionaries', () => {
     expect(statusKeyFor({ status: 'green', service_shutdown: true })).toBe('status_service_shutdown');
     expect(statusKeyFor({ status: 'purple', service_shutdown: false })).toBe('status_normal');
   });
+
+  it('provides the SEO batch keys (hub intros, attribution, zero-data notes, line href) in every language', () => {
+    const seoBatchKeys = [
+      'hub_line_intro',
+      'hub_station_intro',
+      'archive_attribution',
+      'line_archive_href',
+      'line_no_disruptions_note',
+      'station_no_data_note',
+    ] as Key[];
+    for (const lang of ALL_LANGS) {
+      for (const key of seoBatchKeys) {
+        expect(DICTS[lang][key].trim().length, `${lang}.${key} is empty`).toBeGreaterThan(0);
+      }
+    }
+    // En attribution is English — never the Swedish fragment (M2).
+    expect(translate('archive_attribution', 'en')).toBe('Data from Trafiklab.se');
+    // The line href interpolation carries route context (M4).
+    expect(translate('line_archive_href', 'en', { line: '801' })).toBe('Line 801 delays & history');
+  });
 });

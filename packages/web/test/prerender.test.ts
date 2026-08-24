@@ -346,4 +346,15 @@ describe('localized home shells (sv/, da/)', () => {
     expect(html).toContain('hreflang="sv" href="https://oresund.live/sv/"');
     expect(html).toContain('hreflang="x-default" href="https://oresund.live/"');
   });
+
+  it('sv/da home variants localize the static-shell lead (M2 — no verbatim English lead)', () => {
+    for (const lang of LANGS) {
+      const html = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/'));
+      expect(html, lang).toContain(`<h2 class="lead">${getDict(lang).lead_tagline}</h2>`);
+      expect(html, lang).not.toContain('Live Øresundståg / train departures');
+    }
+    // The en home keeps the shell lead verbatim.
+    const en = renderLocalizedHome(shell, 'en', META.dashboard.en, hreflangCluster('/'));
+    expect(en).toContain('Live Øresundståg / train departures');
+  });
 });

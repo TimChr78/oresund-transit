@@ -112,13 +112,38 @@ describe('archive renderers', () => {
     expect(html).toContain('<html lang="en">');
     expect(html).toContain('<title>Disruption history — last 7 days — Øresund.live</title>');
     expect(html).toContain('<link rel="canonical" href="https://oresund.live/history/7" />');
-    expect(html).toContain('Data från Trafiklab.se');
+    // M2: the EN archive must use the English (i18n) attribution, never the
+    // Swedish "Data från Trafiklab.se" fragment.
+    expect(html).toContain('Data from Trafiklab.se');
+    expect(html).not.toContain('Data från Trafiklab.se');
     expect(html).toContain('2026-08-06');
     expect(html).toContain('11 min'); // fmtDelay(650/60) → "11 min"
     // JSON-LD: a BreadcrumbList graph and the site identity.
     const graphs = parseJsonLd(html);
     expect(graphs.length).toBeGreaterThan(0);
     expect(html).toContain('"@type":"BreadcrumbList"');
+  });
+
+  it('every archive page carries og:image (1200x630 og-card) + twitter:card=summary_large_image', () => {
+    const pages = [
+      renderHistoryIndex(),
+      renderHistoryPage(7, history),
+      renderLineIndex([]),
+      renderLinePage('804', lineStats, []),
+      renderStationIndex(stationStatsSlugList()),
+      renderStationPage(stationStats, stationStatsSlugList()),
+    ];
+    for (const html of pages) {
+      expect(html).toContain('property="og:title"');
+      expect(html).toContain('property="og:description"');
+      expect(html).toContain('property="og:url"');
+      expect(html).toContain('property="og:image" content="https://oresund.live/og-card.png"');
+      expect(html).toContain('property="og:image:width" content="1200"');
+      expect(html).toContain('property="og:image:height" content="630"');
+      expect(html).toContain('name="twitter:card" content="summary_large_image"');
+      expect(html).toContain('name="twitter:title"');
+      expect(html).toContain('name="twitter:description"');
+    }
   });
 
   it('history index lists the day ranges', () => {
@@ -154,15 +179,37 @@ describe('archive renderers', () => {
     expect(html).toContain('"@type":"ItemList"');
   });
 
+  it('hub indexes carry descriptive intro paragraphs (M3)', () => {
+    const lineIntro = renderLineIndex([]);
+    expect(lineIntro).toContain('This hub covers every train service');
+    expect(lineIntro).toContain('Øresundståg');
+    expect(lineIntro).toContain('last 30 days');
+    const stationIntro = renderStationIndex(stationStatsSlugList());
+    expect(stationIntro).toContain('This hub covers the monitored stops');
+    expect(stationIntro).toContain('København H');
+    expect(stationIntro).toContain('last 30 days');
+  });
+
   it('line index lists every canonical line, even with no discovered data', () => {
     const html = renderLineIndex([]);
     // Every canonical line archive is linked, including empty ones.
     for (const l of CANONICAL_LINES) expect(html).toContain(`href="/line/${encodeURIComponent(l)}"`);
-    // Disruptions default to 0 for canonical lines with no recorded data.
-    expect(html).toContain('Line 807</a> <span class="meta">— 0 disruptions recorded</span>');
+    // M4: anchors carry route context ("delays & history"), not a bare line number.
+    expect(html).toContain('>Line 807 delays &amp; history</a> <span class="meta">— 0 disruptions recorded</span>');
     // No duplicates in the ItemList.
     const hrefs = [...html.matchAll(/href="\/line\/[^"]+"/g)].map((m) => m[0]);
     expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
+
+  it('line index anchors carry route context even with recorded disruptions', () => {
+    const html = renderLineIndex([{ line: '804', disruptions: 40 }]);
+    expect(html).toContain('>Line 804 delays &amp; history</a> <span class="meta">— 40 disruptions recorded</span>');
+  });
+
+  it('line page sibling links carry the same descriptive anchor text', () => {
+    const html = renderLinePage('804', lineStats, [{ line: '807', disruptions: 1 }]);
+    expect(html).toContain('>Line 807 delays &amp; history</a>');
+    expect(html).not.toContain('<a href="/line/807">Line 807</a>');
   });
 
   it('empty-archive line page renders correct SEO markup (index,follow, no noindex)', () => {
@@ -180,9 +227,30 @@ describe('archive renderers', () => {
     // Empty archives must stay indexable — never noindex.
     expect(html).toContain('<meta name="robots" content="index,follow" />');
     expect(html).not.toContain('noindex');
-    expect(html).toContain('None recorded in this range.');
+    // M1: an annotation replaces the zero-data sections (no blank tables).
+    expect(html).toContain('No disruptions recorded since monitoring began 2026-08-06.');
     // Sibling links still list the canonical line set.
     expect(html).toContain('href="/line/801"');
+  });
+
+  it('empty line archives annotate instead of rendering empty <ul>/<table> sections', () => {
+    const empty: ArchiveLineStats = {
+      ...lineStats,
+      line: '801',
+      total_disruptions: 0,
+      daily: [],
+      by_cause: [],
+      recent: [],
+    };
+    const html = renderLinePage('801', empty, []);
+    // M1: one clear annotation replaces the zero-data sections.
+    expect(html).toContain('No disruptions recorded since monitoring began 2026-08-06.');
+    expect(html).not.toContain('<h2>Most common causes</h2>');
+    expect(html).not.toContain('<h2>Daily breakdown</h2>');
+    expect(html).not.toContain('<h2>Recent disruptions</h2>');
+    expect(html).not.toMatch(/<tbody>\s*<\/tbody>/);
+    // The line is a known archive — no duplicate "Other lines" self-link.
+    expect(html).not.toContain('href="/line/801"');
   });
 
   it('unionCanonicalLines keeps discovered counts and appends non-canonical lines', () => {
@@ -231,13 +299,21 @@ describe('archive renderers', () => {
     };
     const html = renderStationPage(empty, stationStatsSlugList());
     expect(html).toContain('<title>Københavns Lufthavn (Kastrup) — punctuality archive — Øresund.live</title>');
-    expect(html).toContain('No data yet — this station\'s archive starts once live monitoring begins.');
-    expect(html).toContain('No departures recorded yet.');
-    expect(html).toContain('0%'); // zeroed stats, never NaN
+    // M1: one annotation replaces the zero-filled table/stat rows entirely.
+    expect(html).toContain('No departures recorded since monitoring began 2026-08-06.');
+    expect(html).not.toContain('<tbody>');
+    expect(html).not.toContain('No data yet');
+    expect(html).not.toContain('<span class="stat">'); // zeroed stat cards are collapsed too
     expect(html).not.toContain('NaN');
     // Empty archives must stay indexable — never noindex.
     expect(html).toContain('<meta name="robots" content="index,follow" />');
     expect(html).not.toContain('noindex');
+  });
+
+  it('station recent observations include the destination where available (M4)', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    // On time | line 804 → Østerport (route context from Departure.destination).
+    expect(html).toMatch(/line 804 → Østerport/);
   });
 
   it('station index renders the monitored stops', () => {

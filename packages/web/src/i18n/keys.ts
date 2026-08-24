@@ -182,6 +182,13 @@ export interface Dict {
   footer_lang: string;
   footer_license: string;
   footer_rss: string;
+  // Archive pages (server-rendered hubs — en is what crawlers see)
+  hub_line_intro: string;
+  hub_station_intro: string;
+  archive_attribution: string;
+  line_archive_href: string;
+  line_no_disruptions_note: string;
+  station_no_data_note: string;
 }
 
 /** Union of every translation key. */
