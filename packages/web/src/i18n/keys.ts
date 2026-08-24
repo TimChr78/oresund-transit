@@ -22,6 +22,19 @@ export interface Dict {
   hero_disruptions: string;
   // SEO lead (H2 under the brand) — one sentence, natural train wording
   lead_tagline: string;
+  // Build-time corridor status summary (no-JS/crawler home shell) — the
+  // three-sentence snapshot injected at build time from collector data
+  seo_status_normal: string;
+  seo_status_delayed: string;
+  seo_status_cancellations: string;
+  seo_status_alerts: string;
+  seo_status_shutdown: string;
+  seo_cancel_24h_zero: string;
+  seo_cancel_24h_one: string;
+  seo_cancel_24h_many: string;
+  seo_trend_up: string;
+  seo_trend_down: string;
+  seo_trend_flat: string;
   // Direction tabs
   tab_to_denmark: string;
   tab_to_sweden: string;
@@ -182,6 +195,22 @@ export interface Dict {
   footer_lang: string;
   footer_license: string;
   footer_rss: string;
+  // Archive pages — prerendered intros, summary stats row, monitoring note.
+  // The archive SSG renderers serve en by default; the keys still live in all
+  // three dictionaries for parity and future localized archive pages.
+  arch_stat_total: string;
+  arch_stat_cancellations: string;
+  arch_stat_delays: string;
+  arch_stat_alerts: string;
+  arch_stat_avg_delay: string;
+  arch_hist_intro_7: string;
+  arch_hist_intro_14: string;
+  arch_hist_intro_30: string;
+  arch_hist_intro_90: string;
+  arch_intro_line: string;
+  arch_intro_station: string;
+  arch_empty_period: string;
+  arch_empty_day: string;
 }
 
 /** Union of every translation key. */

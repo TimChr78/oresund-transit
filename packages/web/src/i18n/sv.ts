@@ -19,6 +19,19 @@ export const sv: Dict = {
   // SEO lead (H2 under the brand)
   lead_tagline:
     'Live Øresundståg / tågavgångar Hyllie ↔ Köpenhamn H — förseningar, inställda avgångar och trafikstörningar, uppdaterat var 5:e minut (Trafiklab).',
+  // Byggtids-citat av trafikläget (hemmets no-JS/crawler-skal) — skrivet som
+  // vanliga meningar så att sökmotorer och besökare utan JS får lägesbilden.
+  seo_status_normal: 'Tågen går normalt över Öresund.',
+  seo_status_delayed: 'Förseningar påverkar tågen över Öresund.',
+  seo_status_cancellations: 'Störningar påverkar tågen över Öresund.',
+  seo_status_alerts: 'Mindre trafikstörningar är aktiva för tågen över Öresund.',
+  seo_status_shutdown: 'Tågtrafiken över Öresund är avstängd.',
+  seo_cancel_24h_zero: 'Inga inställda avgångar de senaste 24 timmarna.',
+  seo_cancel_24h_one: '1 inställd avgång de senaste 24 timmarna.',
+  seo_cancel_24h_many: '{n} inställda avgångar de senaste 24 timmarna.',
+  seo_trend_up: 'Det är fler än de föregående 24 timmarna.',
+  seo_trend_down: 'Det är färre än de föregående 24 timmarna.',
+  seo_trend_flat: 'Det är i nivå med de föregående 24 timmarna.',
   // Direction tabs
   tab_to_denmark: 'Mot Danmark',
   tab_to_sweden: 'Mot Sverige',
@@ -189,4 +202,21 @@ export const sv: Dict = {
   footer_lang: 'Språk',
   footer_license: 'CC-BY 4.0-licensen',
   footer_rss: 'RSS-flöde',
+  // Arkivsidor — prerenderade introtexter, sammanfattningsrad och not om
+  // övervakningsstart. Arkiv-sidornas SSG-renderare servar en som standard;
+  // nycklarna finns ändå i alla tre ordböcker för paritet och framtida
+  // lokaliserade arkivsidor.
+  arch_stat_total: 'Totalt',
+  arch_stat_cancellations: 'Inställda',
+  arch_stat_delays: 'Förseningar',
+  arch_stat_alerts: 'Varningar',
+  arch_stat_avg_delay: 'Snittförsening',
+  arch_hist_intro_7: 'En bild av de senaste 7 dagarna — hur inställda avgångar, förseningar och varningar utvecklades över Öresund den här veckan.',
+  arch_hist_intro_14: 'Två veckors trafikhistorik — en tydligare bild av hur störningarna över bron har utvecklats.',
+  arch_hist_intro_30: 'En månads trafikhistorik — de senaste 30 dagarnas inställda avgångar, förseningar och varningar över Öresund.',
+  arch_hist_intro_90: 'Tre månaders trafikhistorik — det långsiktiga mönstret av inställda avgångar, förseningar och varningar över bron.',
+  arch_intro_line: 'Störningar registrerade för linje {line} — inställda avgångar, förseningar och varningar med de vanligaste orsakerna och en dag-för-dag-uppdelning.',
+  arch_intro_station: 'Punktlighet på {station} — hur många avgångar som gick i tid, blev försenade eller ställdes in, dag för dag.',
+  arch_empty_period: 'Övervakningen startade {date} — {from} till {to} registrerade ingen data.',
+  arch_empty_day: 'Övervakningen startade {date} — {from} registrerade ingen data.',
 };

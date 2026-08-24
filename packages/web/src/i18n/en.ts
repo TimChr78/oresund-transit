@@ -19,6 +19,19 @@ export const en: Dict = {
   // SEO lead (H2 under the brand)
   lead_tagline:
     'Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts, updated every 5 min (Trafiklab).',
+  // Build-time corridor status summary (no-JS/crawler home shell) — written
+  // as plain sentences so crawlers and JS-disabled visitors get the snapshot.
+  seo_status_normal: 'Trains are running normally across the Øresund crossing.',
+  seo_status_delayed: 'Delays are affecting trains across the Øresund crossing.',
+  seo_status_cancellations: 'Disruptions are affecting trains across the Øresund crossing.',
+  seo_status_alerts: 'Minor alerts are active for trains across the Øresund crossing.',
+  seo_status_shutdown: 'Train service across the Øresund crossing is suspended.',
+  seo_cancel_24h_zero: 'No cancellations in the last 24 hours.',
+  seo_cancel_24h_one: '1 cancellation in the last 24 hours.',
+  seo_cancel_24h_many: '{n} cancellations in the last 24 hours.',
+  seo_trend_up: 'That is more than the previous 24 hours.',
+  seo_trend_down: 'That is fewer than the previous 24 hours.',
+  seo_trend_flat: 'That is in line with the previous 24 hours.',
   // Direction tabs
   tab_to_denmark: '→ DK',
   tab_to_sweden: '→ SE',
@@ -189,4 +202,18 @@ export const en: Dict = {
   footer_lang: 'Language',
   footer_license: 'CC-BY 4.0 license',
   footer_rss: 'RSS feed',
+  // Archive pages — prerendered intros, summary stats row, monitoring note.
+  arch_stat_total: 'Total',
+  arch_stat_cancellations: 'Cancellations',
+  arch_stat_delays: 'Delays',
+  arch_stat_alerts: 'Alerts',
+  arch_stat_avg_delay: 'Avg delay',
+  arch_hist_intro_7: 'A snapshot of the last 7 days — how cancellations, delays and alerts played out across the Øresund crossing this week.',
+  arch_hist_intro_14: 'Two weeks of service history — a clearer picture of how disruptions on the crossing have evolved.',
+  arch_hist_intro_30: 'A month of service history — the last 30 days of cancellations, delays and alerts on the Øresund crossing.',
+  arch_hist_intro_90: 'Three months of service history — the long-term pattern of cancellations, delays and alerts across the crossing.',
+  arch_intro_line: 'Disruptions recorded for line {line} — cancellations, delays and alerts with the most common causes and a day-by-day breakdown.',
+  arch_intro_station: 'On-time performance at {station} — how many departures left on time, were delayed or canceled, day by day.',
+  arch_empty_period: 'Monitoring began {date} — {from} to {to} recorded no data.',
+  arch_empty_day: 'Monitoring began {date} — {from} recorded no data.',
 };
