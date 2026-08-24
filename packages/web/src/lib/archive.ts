@@ -301,7 +301,9 @@ type TableRow<T> = T | { gapFrom: string; gapTo: string };
  * MONITORING_START into a single note marker — those days are pre-monitoring
  * gaps (the collector zero-fills the whole range), not real zero days.
  * Empty days after monitoring began stay as ordinary rows (a quiet day IS
- * data). Rows are assumed already ascending by date.
+ * data). Rows may arrive in either order (the collector returns them
+ * newest-first); the gap bounds are normalized chronologically below so the
+ * note never reads an inverted period.
  */
 function collapseGaps<T extends { date: string }>(rows: T[], isEmpty: (r: T) => boolean): TableRow<T>[] {
   const out: TableRow<T>[] = [];
@@ -309,7 +311,11 @@ function collapseGaps<T extends { date: string }>(rows: T[], isEmpty: (r: T) => 
   let gapEnd: T | null = null;
   const flush = (): void => {
     if (gapStart && gapEnd) {
-      out.push({ gapFrom: gapStart.date, gapTo: gapEnd.date });
+      // Latest-first input makes the first empty row the NEWER bound; sort
+      // the two ISO dates so gapFrom is always the oldest day displayed.
+      const from = gapStart.date <= gapEnd.date ? gapStart.date : gapEnd.date;
+      const to = gapStart.date <= gapEnd.date ? gapEnd.date : gapStart.date;
+      out.push({ gapFrom: from, gapTo: to });
       gapStart = null;
       gapEnd = null;
     }

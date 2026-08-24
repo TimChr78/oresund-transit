@@ -4,6 +4,7 @@ import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
 import { META, hreflangCluster } from '../src/lib/seo';
+import { COLLECTOR_BASE } from '../src/lib/config';
 import { renderPrerenderedPage, renderLocalizedHome, renderHomeWithSummary, type HomeSummary } from '../src/lib/prerender';
 
 /**
@@ -406,6 +407,17 @@ describe('home shell build-time corridor status summary', () => {
   it('the prerender script fetches the corridor status at build time and injects it into home variants', () => {
     expect(prerenderScript).toContain('fetchBuildSummary');
     expect(prerenderScript).toContain('renderHomeWithSummary');
-    expect(prerenderScript).toContain('oresund-transit-collector.tchristensen78.workers.dev');
+    // The collector base is NOT hard-coded in the script — it comes from the
+    // shared build config module (asserted below).
+    expect(prerenderScript).not.toContain('oresund-transit-collector.tchristensen78.workers.dev');
+  });
+
+  it('collector base lives in the shared build config, and the script consumes it via import', () => {
+    // The config module carries the sane default…
+    expect(COLLECTOR_BASE).toBe('https://oresund-transit-collector.tchristensen78.workers.dev/api/transit');
+    const configSrc = readFileSync(new URL('../src/lib/config.ts', import.meta.url), 'utf8');
+    expect(configSrc).toContain("process.env.COLLECTOR_BASE");
+    // …and the prerender script imports it instead of restating the URL.
+    expect(prerenderScript).toMatch(/import\s*\{[^}]*COLLECTOR_BASE[^}]*\}\s*from\s*['"]\.\.\/src\/lib\/config['"]/);
   });
 });

@@ -28,6 +28,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
+import { COLLECTOR_BASE } from '../src/lib/config';
 import { renderPrerenderedPage, renderHomeWithSummary } from '../src/lib/prerender';
 import { fetchBuildSummary } from '../src/lib/seo-summary';
 import { STATIC_PAGES, STATIC_LANGS, staticFilePath, type StaticPageId, type PrerenderedPageId } from '../src/lib/static-pages';
@@ -35,9 +36,6 @@ import { META, hreflangCluster, type PageMeta } from '../src/lib/seo';
 import type { Route } from '../src/lib/route';
 
 const shell = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
-
-/** The collector Worker's API base (matches packages/collector deployment). */
-const COLLECTOR_BASE = 'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit';
 
 /** SSG renderers keyed by the shared static route ids (PrerenderedPageId). */
 const RENDERERS: Record<PrerenderedPageId, (lang: Lang) => string> = {

@@ -458,6 +458,10 @@ describe('archive SEO pass — intro paragraphs, summary stats, monitoring note'
     expect(html).toContain('Monitoring began 2026-08-06');
     expect(html).not.toContain('>2026-08-05<');
     expect(html).not.toContain('>2026-08-04<');
+    // The fixture's daily rows are NEWEST-first (collector order), so the gap
+    // row must still read oldest → newest — never an inverted period.
+    expect(html).toContain('4 Aug 2026 to 5 Aug 2026');
+    expect(html).not.toContain('5 Aug 2026 to 4 Aug 2026');
     // Real data days still render as rows.
     expect(html).toContain('>2026-08-06<');
     expect(html).toContain('>2026-06-01<');
