@@ -1,0 +1,8 @@
+# Security headers (Cloudflare Pages).
+# Applies to every static response served from dist/ (HTML pages, fonts,
+# og-card.png, llms.txt, robots.txt…). Copied verbatim by Vite from public/.
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY

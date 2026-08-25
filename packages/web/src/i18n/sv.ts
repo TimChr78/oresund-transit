@@ -182,6 +182,7 @@ export const sv: Dict = {
   meth_def_by_cause: 'Antal störningar grupperade efter orsakskategori.',
   meth_def_by_hour: 'Andel av störningarna per timme — senaste 30 dagarna.',
   meth_def_peak: 'Andel av störningarna under rusningstid (07–09 och 16–18) jämfört med övrig tid.',
+  station_archive_title: '{name} — punktlighet — Øresund.live',
   // Footer
   footer_attribution: 'Data från Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligga ~10–15 min efter officiella appar; inställda avgångar kan missas.',
