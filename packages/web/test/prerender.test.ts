@@ -4,7 +4,8 @@ import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
 import { META, hreflangCluster } from '../src/lib/seo';
-import { renderPrerenderedPage, renderLocalizedHome } from '../src/lib/prerender';
+import { COLLECTOR_BASE } from '../src/lib/config';
+import { renderPrerenderedPage, renderLocalizedHome, renderHomeWithSummary, type HomeSummary } from '../src/lib/prerender';
 
 /**
  * SEO prerender: /methodology and /privacy must ship their content in the
@@ -408,5 +409,78 @@ describe('localized home shells (sv/, da/)', () => {
     // The en home keeps the shell lead verbatim.
     const en = renderLocalizedHome(shell, 'en', META.dashboard.en, hreflangCluster('/'));
     expect(en).toContain('Live Øresundståg / train departures');
+  });
+});
+
+describe('home shell build-time corridor status summary', () => {
+  const SUMMARY: HomeSummary = { statusKey: 'seo_status_normal', cancellations24h: 3, trendKey: 'seo_trend_down' };
+
+  it('injects the three-sentence status summary into #static-shell', () => {
+    const html = renderHomeWithSummary(shell, 'en', META.dashboard.en, undefined, SUMMARY);
+    expect(html).toContain('id="static-shell"');
+    expect(html).toContain('class="seo-summary"');
+    // status sentence + 24h cancellation count + trend sentence
+    expect(html).toContain('Trains are running normally across the Øresund crossing.');
+    expect(html).toContain('3 cancellations in the last 24 hours.');
+    expect(html).toContain('That is fewer than the previous 24 hours.');
+    // the SPA fallbacks survive — boot() still strips this block client-side
+    expect(html).toContain('<h1 class="lead"');
+    expect(html).toContain('<noscript>');
+    expect(html).toContain('type="module"');
+  });
+
+  it('keeps the home SEO wiring (canonical + hreflang + localized title)', () => {
+    const html = renderHomeWithSummary(shell, 'en', META.dashboard.en, hreflangCluster('/'), SUMMARY);
+    expect(html.match(/<link rel="canonical"[^>]*\/>/g) ?? []).toHaveLength(1);
+    expect(html).toContain('<link rel="canonical" href="https://oresund.live/" />');
+    expect(html).toContain(`<title>${META.dashboard.en.title}</title>`);
+    expect(html).toContain('hreflang="x-default" href="https://oresund.live/"');
+  });
+
+  it('localizes the summary sentences for sv and da', () => {
+    const svHtml = renderHomeWithSummary(shell, 'sv', META.dashboard.sv, undefined, SUMMARY);
+    const daHtml = renderHomeWithSummary(shell, 'da', META.dashboard.da, undefined, SUMMARY);
+    expect(svHtml).toContain('Tågen går normalt över Öresund.');
+    expect(svHtml).toContain('3 inställda avgångar de senaste 24 timmarna.');
+    expect(svHtml).toContain('Det är färre än de föregående 24 timmarna.');
+    expect(daHtml).toContain('Togene kører normalt over Øresund.');
+    expect(daHtml).toContain('3 aflysninger inden for de seneste 24 timer.');
+    expect(daHtml).toContain('Det er færre end de foregående 24 timer.');
+  });
+
+  it('renders zero and one cancellation with their dedicated copy', () => {
+    const zero = renderHomeWithSummary(shell, 'en', META.dashboard.en, undefined, {
+      ...SUMMARY,
+      cancellations24h: 0,
+      trendKey: 'seo_trend_flat',
+    });
+    expect(zero).toContain('No cancellations in the last 24 hours.');
+    const one = renderHomeWithSummary(shell, 'en', META.dashboard.en, undefined, { ...SUMMARY, cancellations24h: 1 });
+    expect(one).toContain('1 cancellation in the last 24 hours.');
+    expect(one).not.toContain('cancellations in the last 24 hours.');
+  });
+
+  it('falls back to the plain localized shell when no build-time data resolved', () => {
+    const withNull = renderHomeWithSummary(shell, 'en', META.dashboard.en, hreflangCluster('/'), null);
+    const plain = renderLocalizedHome(shell, 'en', META.dashboard.en, hreflangCluster('/'));
+    expect(withNull).toBe(plain);
+    expect(withNull).not.toContain('seo-summary');
+  });
+
+  it('the prerender script fetches the corridor status at build time and injects it into home variants', () => {
+    expect(prerenderScript).toContain('fetchBuildSummary');
+    expect(prerenderScript).toContain('renderHomeWithSummary');
+    // The collector base is NOT hard-coded in the script — it comes from the
+    // shared build config module (asserted below).
+    expect(prerenderScript).not.toContain('oresund-transit-collector.tchristensen78.workers.dev');
+  });
+
+  it('collector base lives in the shared build config, and the script consumes it via import', () => {
+    // The config module carries the sane default…
+    expect(COLLECTOR_BASE).toBe('https://oresund-transit-collector.tchristensen78.workers.dev/api/transit');
+    const configSrc = readFileSync(new URL('../src/lib/config.ts', import.meta.url), 'utf8');
+    expect(configSrc).toContain("process.env.COLLECTOR_BASE");
+    // …and the prerender script imports it instead of restating the URL.
+    expect(prerenderScript).toMatch(/import\s*\{[^}]*COLLECTOR_BASE[^}]*\}\s*from\s*['"]\.\.\/src\/lib\/config['"]/);
   });
 });

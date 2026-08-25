@@ -19,7 +19,8 @@ describe('buildSitemap', () => {
     expect(locs).toContain('https://oresund.live/');
     expect(locs).toContain('https://oresund.live/methodology');
     expect(locs).toContain('https://oresund.live/privacy');
-    expect(locs).toContain('https://oresund.live/history');
+    // /history 301s to /history/30 (H5) — only the canonical window is listed.
+    expect(locs).not.toContain('https://oresund.live/history');
     expect(locs).toContain('https://oresund.live/line');
     expect(locs).toContain('https://oresund.live/station');
     for (const d of [7, 14, 30, 90]) expect(locs).toContain(`https://oresund.live/history/${d}`);
@@ -109,8 +110,8 @@ describe('buildSitemap', () => {
     }
 
     // Archive alternates point at the archive URL itself (no /sv/ /da/ twins).
+    // /history itself 301s to /history/30 (H5) so it is intentionally absent.
     const archiveUrls = [
-      'https://oresund.live/history',
       'https://oresund.live/history/7',
       'https://oresund.live/history/30',
       'https://oresund.live/history/90',

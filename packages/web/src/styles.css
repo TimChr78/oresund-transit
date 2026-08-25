@@ -138,6 +138,14 @@ body::after {
   max-width: 48em;
   margin: 0 2px 14px;
 }
+/* Build-time corridor status summary in the no-JS/crawler shell (#static-shell) */
+.seo-summary {
+  font-size: 13px;
+  color: var(--faint);
+  line-height: 1.5;
+  max-width: 48em;
+  margin: 0 2px 14px;
+}
 
 /* ------------------------------------------------------- status banner
    The signature element: a departure-board strip. Colored band, dark ink,

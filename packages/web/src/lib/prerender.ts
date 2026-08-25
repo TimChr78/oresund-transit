@@ -1,6 +1,10 @@
 import type { Lang } from '../i18n';
 import { translate } from '../i18n';
 import type { PageMeta } from './seo';
+import { esc } from './html';
+import type { HomeSummary } from './seo-summary';
+
+export type { HomeSummary } from './seo-summary';
 
 /**
  * Prerender a static route (/methodology, /privacy) as a real HTML document.
@@ -65,6 +69,53 @@ export function renderLocalizedHome(shell: string, lang: Lang, meta: PageMeta, h
     html = html.replace(/<h1 class="lead">[\s\S]*?<\/h1>/, () => `<h1 class="lead">${lead}</h1>`);
   }
   return html;
+}
+
+/**
+ * Localized home shell with the build-time corridor status summary.
+ *
+ * Same as renderLocalizedHome, but when a HomeSummary snapshot was resolved
+ * at build time it also injects the three-sentence status block into
+ * #static-shell (the no-JS/crawler fallback): status sentence, last-24h
+ * cancellation count, trend line. The block is plain <p> text so the static
+ * pages' strip regex (which assumes #static-shell contains no nested <div>)
+ * keeps working, and boot() removes the whole block client-side on load.
+ *
+ * `summary` is null when the build-time fetch failed (collector unreachable /
+ * no snapshot yet) — the shell then ships exactly like renderLocalizedHome.
+ */
+export function renderHomeWithSummary(
+  shell: string,
+  lang: Lang,
+  meta: PageMeta,
+  hreflang: string | undefined,
+  summary: HomeSummary | null,
+): string {
+  let html = renderLocalizedHome(shell, lang, meta, hreflang);
+  if (summary) html = injectHomeSummary(html, lang, summary);
+  return html;
+}
+
+/** Build and inject the three-sentence summary into #static-shell. */
+function injectHomeSummary(html: string, lang: Lang, summary: HomeSummary): string {
+  const sentences = [
+    translate(summary.statusKey, lang),
+    translate(
+      summary.cancellations24h === 0
+        ? 'seo_cancel_24h_zero'
+        : summary.cancellations24h === 1
+          ? 'seo_cancel_24h_one'
+          : 'seo_cancel_24h_many',
+      lang,
+      { n: summary.cancellations24h },
+    ),
+    translate(summary.trendKey, lang),
+  ];
+  const block = `<p class="seo-summary">${sentences.map((s) => esc(s)).join(' ')}</p>`;
+  // The lead H2 is the last element inside #static-shell; inject after it,
+  // still within the block (plain <p>s only — no nested <div>, so the
+  // static-page strip regex and boot()'s removal both keep working).
+  return html.replace('</h1>', `</h1>\n      ${block}`);
 }
 
 /**

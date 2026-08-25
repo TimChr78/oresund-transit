@@ -19,6 +19,20 @@ export const da: Dict = {
   // SEO lead (H1 under the brand wordmark)
   lead_tagline:
     'Live Øresundstog / togafgange Hyllie ↔ København H — forsinkelser, aflysninger og forstyrrelser — opdateret hvert 5. minut (Trafiklab).',
+  // Byggetids-øjebliksbillede af trafikken (hjemmesidens no-JS/crawler-skal)
+  // — skrevet som almindelige sætninger, så søgemaskiner og besøgende uden JS
+  // får statusbilledet.
+  seo_status_normal: 'Togene kører normalt over Øresund.',
+  seo_status_delayed: 'Forsinkelser påvirker togene over Øresund.',
+  seo_status_cancellations: 'Driftsforstyrrelser påvirker togene over Øresund.',
+  seo_status_alerts: 'Mindre driftsforstyrrelser er aktive for togene over Øresund.',
+  seo_status_shutdown: 'Togtrafikken over Øresund er indstillet.',
+  seo_cancel_24h_zero: 'Ingen aflysninger inden for de seneste 24 timer.',
+  seo_cancel_24h_one: '1 aflysning inden for de seneste 24 timer.',
+  seo_cancel_24h_many: '{n} aflysninger inden for de seneste 24 timer.',
+  seo_trend_up: 'Det er flere end de foregående 24 timer.',
+  seo_trend_down: 'Det er færre end de foregående 24 timer.',
+  seo_trend_flat: 'Det er på niveau med de foregående 24 timer.',
   // Direction tabs
   tab_to_denmark: 'Til Danmark',
   tab_to_sweden: 'Til Sverige',
@@ -190,6 +204,24 @@ export const da: Dict = {
   footer_lang: 'Sprog',
   footer_license: 'CC-BY 4.0-licensen',
   footer_rss: 'RSS-feed',
+  // Arkivsider — prerenderede introtekster, opsummeringsrække og note om
+  // overvågningsstart. Arkivsidernes SSG-rendere serverer en som standard;
+  // nøglerne findes alligevel i alle tre ordbøger for paritet og fremtidige
+  // lokaliserede arkivsider.
+  arch_stat_total: 'I alt',
+  arch_stat_cancellations: 'Aflysninger',
+  arch_stat_delays: 'Forsinkelser',
+  arch_stat_alerts: 'Varsler',
+  arch_stat_avg_delay: 'Snitforsinkelse',
+  arch_hist_intro_7: 'Et øjebliksbillede af de seneste 7 dage — hvordan aflysninger, forsinkelser og varsler formede sig over Øresund i denne uge.',
+  arch_hist_intro_14: 'To ugers trafikhistorik — et tydeligere billede af, hvordan driftsforstyrrelserne over broen har udviklet sig.',
+  arch_hist_intro_30: 'En måneds trafikhistorik — de seneste 30 dages aflysninger, forsinkelser og varsler over Øresund.',
+  arch_hist_intro_90: 'Tre måneders trafikhistorik — det langsigtede mønster af aflysninger, forsinkelser og varsler over broen.',
+  arch_intro_line: 'Driftsforstyrrelser registreret for linje {line} — aflysninger, forsinkelser og varsler med de mest almindelige årsager og en dag-for-dag-opdeling.',
+  arch_intro_station: 'Rettidighed på {station} — hvor mange afgange der kørte til tiden, blev forsinket eller aflyst, dag for dag.',
+  arch_empty_period: 'Overvågningen startede {date} — {from} til {to} registrerede ingen data.',
+  arch_empty_day: 'Overvågningen startede {date} — {from} registrerede ingen data.',
+
   // Archive pages (server-rendered hubs — en is what crawlers see)
   hub_line_intro:
     'Denne hub dækker alle toglinjer, der kører over Øresund — de grænseoverskridende Øresundståg (linje 802–805) og de regionale linjer, der deler korridoren. Hver lineside viser de forstyrrelser, der er registreret for linjen: aflysninger, forsinkelser og alarmer, med de hyppigste årsager og en dag-for-dag-opdeling over de seneste 30 dage.',

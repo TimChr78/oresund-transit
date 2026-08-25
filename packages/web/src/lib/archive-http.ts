@@ -15,7 +15,6 @@
 import { esc } from './html';
 import {
   DAY_RANGES,
-  renderHistoryIndex,
   renderHistoryPage,
   renderLineIndex,
   renderLinePage,
@@ -152,8 +151,17 @@ export async function handleArchiveRequest(pathname: string, fetchImpl: FetchLik
 
   try {
     // --- /history ---
+    // /history duplicates the window pages (H5): 301 to the default 30-day
+    // window so there is exactly one canonical history URL. Served by routing
+    // (the history Pages Function owns /history/*), before any fetch.
     if (p === '/history') {
-      return html(renderHistoryIndex());
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: '/history/30',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
     }
     const hist = /^\/history\/(7|14|30|90)$/.exec(p);
     if (hist) {

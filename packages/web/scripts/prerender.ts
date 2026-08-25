@@ -16,14 +16,21 @@
  * (/methodology, /sv/methodology, /sv/ …), bypassing the SPA catch-all.
  *
  * The home page has no SSG renderer (it is the SPA shell), so its variants
- * are the shell re-issued with a localized lang/title/canonical + hreflang;
- * the actual board content still renders client-side.
+ * are the shell re-issued with a localized lang/title/canonical + hreflang.
+ * BUILD-TIME-ONLY status summary: the collector's /live + last-48h
+ * /disruptions are fetched ONCE here and the three-sentence corridor summary
+ * is baked into each home variant's #static-shell, so JS-less crawlers get
+ * real status copy with no runtime API dependency. If the collector is
+ * unreachable the summary is skipped — the shell ships its plain lead and the
+ * build still succeeds.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
-import { renderPrerenderedPage, renderLocalizedHome } from '../src/lib/prerender';
+import { COLLECTOR_BASE } from '../src/lib/config';
+import { renderPrerenderedPage, renderHomeWithSummary } from '../src/lib/prerender';
+import { fetchBuildSummary } from '../src/lib/seo-summary';
 import { STATIC_PAGES, STATIC_LANGS, staticFilePath, type StaticPageId, type PrerenderedPageId } from '../src/lib/static-pages';
 import { META, hreflangCluster, type PageMeta } from '../src/lib/seo';
 import type { Route } from '../src/lib/route';
@@ -43,6 +50,8 @@ const META_ROUTE: Record<StaticPageId, Route> = {
   privacy: 'privacy',
 };
 
+const summary = await fetchBuildSummary(COLLECTOR_BASE, fetch, new Date());
+
 for (const page of STATIC_PAGES) {
   for (const lang of STATIC_LANGS) {
     const meta: PageMeta = META[META_ROUTE[page.id]][lang];
@@ -50,7 +59,7 @@ for (const page of STATIC_PAGES) {
 
     const html =
       page.id === 'home'
-        ? renderLocalizedHome(shell, lang, meta, hreflang)
+        ? renderHomeWithSummary(shell, lang, meta, hreflang, summary)
         : renderPrerenderedPage(shell, RENDERERS[page.id](lang), lang, meta, hreflang);
 
     // e2e guard: every emitted page must load the BUILT bundle + stylesheet.

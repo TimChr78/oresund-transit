@@ -528,11 +528,10 @@ describe('handleArchiveRequest dispatch', () => {
     );
   }
 
-  it('renders /history as the index (no fetch)', async () => {
+  it('renders /history as a 301 to /history/30 (H5 — one canonical window)', async () => {
     const res = await handleArchiveRequest('/history');
-    expect(res?.status).toBe(200);
-    expect(res?.headers.get('content-type')).toContain('text/html');
-    expect(await res?.text()).toContain('<h1>Disruption history</h1>');
+    expect(res?.status).toBe(301);
+    expect(res?.headers.get('location')).toBe('/history/30');
   });
 
   it('renders /history/30 from the collector', async () => {
