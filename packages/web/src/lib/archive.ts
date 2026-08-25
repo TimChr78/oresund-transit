@@ -254,12 +254,16 @@ function crumb(name: string, url: string, position: number): { '@type': 'ListIte
   return { '@type': 'ListItem', position, name, item: url };
 }
 
-/** BreadcrumbList JSON-LD for a page nested under the dashboard. */
+/**
+ * BreadcrumbList JSON-LD for a page nested under the dashboard. @context is
+ * declared ONCE at the block root (audit M10) — nodes inside @graph must not
+ * carry their own.
+ */
 function breadcrumb(crumbs: { name: string; url: string }[]): unknown {
   const items = [{ name: 'Øresund.live', url: `${SITE_URL}/` }, ...crumbs].map((c, i) =>
     crumb(c.name, c.url, i + 1),
   );
-  return { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: items };
+  return { '@type': 'BreadcrumbList', itemListElement: items };
 }
 
 /** The factual site identity fragment shared by archive JSON-LD. */
@@ -269,6 +273,70 @@ const siteIdentity = {
   name: 'Øresund.live',
   url: `${SITE_URL}/`,
 };
+
+/** Live Trafiklab polling started 2026-08-06; earlier disruption history was
+ * backfilled from KoDa's historical archive (May 2026 onward). */
+const LIVE_DATA_SINCE = '2026-08-06';
+
+const TRAFIKLAB_CREATOR = { '@type': 'Organization', name: 'Trafiklab', url: 'https://www.trafiklab.se' };
+const KODA_CREATOR = { '@type': 'Organization', name: 'KoDa' };
+
+/** CC-BY 4.0 — the license the published data is distributed under. */
+const CC_BY_4_0 = 'https://creativecommons.org/licenses/by/4.0/';
+
+/**
+ * Dataset creators for a data window. Disruption histories that extend before
+ * the live-data start include KoDa's backfill; windows entirely inside the
+ * live era (and station punctuality, which only ever comes from live
+ * departures) are Trafiklab-only.
+ */
+function creatorsFor(dateFrom: string): unknown[] {
+  return dateFrom < LIVE_DATA_SINCE ? [TRAFIKLAB_CREATOR, KODA_CREATOR] : [TRAFIKLAB_CREATOR];
+}
+
+/** Dataset JSON-LD (audit H4) — the structured description of the CC-BY
+ * time-series an archive page publishes: window, creators, license, the page
+ * as distribution, and the measured variables. */
+function dataset(opts: {
+  name: string;
+  description: string;
+  pageUrl: string;
+  dateFrom: string;
+  dateTo: string;
+  creators: unknown[];
+  variables: string[];
+}): unknown {
+  return {
+    '@type': 'Dataset',
+    name: opts.name,
+    description: opts.description,
+    url: opts.pageUrl,
+    temporalCoverage: `${opts.dateFrom}/${opts.dateTo}`,
+    creator: opts.creators,
+    license: CC_BY_4_0,
+    distribution: { '@type': 'DataDownload', contentUrl: opts.pageUrl, encodingFormat: 'text/html' },
+    variableMeasured: opts.variables,
+  };
+}
+
+/**
+ * ItemList JSON-LD (audit M9) of the available history windows, mirroring the
+ * visible range list on the page: all ranges on /history, the other ranges on
+ * each /history/{days} page.
+ */
+function historyRangesItemList(exclude?: ArchiveDays): unknown {
+  const ranges = DAY_RANGES.filter((d) => d !== exclude);
+  return {
+    '@type': 'ItemList',
+    numberOfItems: ranges.length,
+    itemListElement: ranges.map((d, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: `Last ${d} days`,
+      url: `${SITE_URL}/history/${d}`,
+    })),
+  };
+}
 
 function fmtDelay(seconds: number | null | undefined): string {
   if (seconds == null) return '—';
@@ -337,6 +405,7 @@ ${links}
       '@context': 'https://schema.org',
       '@graph': [
         breadcrumb([{ name: 'History', url: `${SITE_URL}/history` }]),
+        historyRangesItemList(),
         siteIdentity,
       ],
     },
@@ -368,6 +437,22 @@ ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/$
           { name: 'History', url: `${SITE_URL}/history` },
           { name: `${days} days`, url: `${SITE_URL}/history/${days}` },
         ]),
+        dataset({
+          name: `Disruption history — last ${days} days`,
+          description,
+          pageUrl: `${SITE_URL}/history/${days}`,
+          dateFrom: history.date_from,
+          dateTo: history.date_to,
+          creators: creatorsFor(history.date_from),
+          variables: [
+            'Total disruptions per day',
+            'Cancellations per day',
+            'Delays per day',
+            'Alerts per day',
+            'Average delay per day',
+          ],
+        }),
+        historyRangesItemList(days),
         siteIdentity,
       ],
     },
@@ -464,6 +549,22 @@ ${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${enco
           { name: 'Lines', url: `${SITE_URL}/line` },
           { name: `Line ${line}`, url: `${SITE_URL}/line/${encodeURIComponent(line)}` },
         ]),
+        dataset({
+          name: `Line ${line} disruption archive`,
+          description,
+          pageUrl: `${SITE_URL}/line/${encodeURIComponent(line)}`,
+          dateFrom: stats.date_from,
+          dateTo: stats.date_to,
+          creators: creatorsFor(stats.date_from),
+          variables: [
+            'Total disruptions',
+            'Cancellations per day',
+            'Delays per day',
+            'Alerts per day',
+            'Disruptions by cause',
+            'Average delay per day',
+          ],
+        }),
         siteIdentity,
       ],
     },
@@ -575,6 +676,23 @@ ${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href
           { name: 'Stations', url: `${SITE_URL}/station` },
           { name: stats.stop_name, url: `${SITE_URL}/station/${stats.slug}` },
         ]),
+        dataset({
+          name: `${stats.stop_name} punctuality archive`,
+          description,
+          pageUrl: `${SITE_URL}/station/${stats.slug}`,
+          dateFrom: stats.date_from,
+          dateTo: stats.date_to,
+          // Punctuality only ever comes from live Trafiklab departures (no KoDa backfill).
+          creators: [TRAFIKLAB_CREATOR],
+          variables: [
+            'Departures per day',
+            'On-time departures per day',
+            'Delayed departures per day',
+            'Cancelled departures per day',
+            'On-time percentage per day',
+            'Average delay per day',
+          ],
+        }),
         siteIdentity,
       ],
     },

@@ -102,10 +102,10 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
   return `
   <div class="wrap">
     <header class="topbar">
-      <h1 class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></h1>
+      <div class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></div>
       <span class="board-label">Hyllie ↔ København H</span>
     </header>
-    <h2 class="lead">${translate('lead_tagline', lang)}</h2>
+    <h1 class="lead">${translate('lead_tagline', lang)}</h1>
     ${banner}
     <main class="board">
       ${stats}

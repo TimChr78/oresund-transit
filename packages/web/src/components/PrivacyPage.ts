@@ -14,11 +14,11 @@ export function renderPrivacyPage(lang: Lang, dict: Dict): string {
   return `
   <div class="wrap privacy-wrap">
     <header class="topbar">
-      <h1 class="brand">${esc(dict.brand_name)} <span class="brand-sub">${esc(dict.brand_sub)}</span></h1>
+      <div class="brand">${esc(dict.brand_name)} <span class="brand-sub">${esc(dict.brand_sub)}</span></div>
       <a class="privacy-back" href="/">${esc(dict.privacy_back)}</a>
     </header>
     <main class="privacy">
-      <h2 class="privacy-title">${esc(dict.privacy_title)}</h2>
+      <h1 class="privacy-title">${esc(dict.privacy_title)}</h1>
       <p class="privacy-lead">${esc(dict.privacy_intro)}</p>
       <p>${esc(dict.privacy_analytics)}</p>
       <p class="privacy-source">${esc(dict.privacy_data_source)}
