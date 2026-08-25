@@ -124,6 +124,28 @@ function findNode(html: string, type: string): Record<string, unknown> | undefin
 }
 
 describe('archive renderers', () => {
+  it('every archive page emits the self-referencing hreflang set (en + x-default) in <head>', () => {
+    // Archive routes exist as ONE URL per page (no /sv/ or /da/ twins — the
+    // site is trilingual but only the static pages ship localized variants),
+    // so each must carry at least the en + x-default alternates pointing at
+    // itself. Mirrors the hreflang pattern of the static pages (seo.ts).
+    const pages: [string, string][] = [
+      [renderHistoryIndex(), 'https://oresund.live/history'],
+      [renderHistoryPage(7, history), 'https://oresund.live/history/7'],
+      [renderLineIndex([{ line: '804', disruptions: 40 }]), 'https://oresund.live/line'],
+      [renderLinePage('804', lineStats, []), 'https://oresund.live/line/804'],
+      [renderStationIndex(stationStatsSlugList()), 'https://oresund.live/station'],
+      [renderStationPage(stationStats, stationStatsSlugList()), 'https://oresund.live/station/hyllie'],
+    ];
+    for (const [html, url] of pages) {
+      expect(html, url).toContain(`<link rel="alternate" hreflang="en" href="${url}" />`);
+      expect(html, url).toContain(`<link rel="alternate" hreflang="x-default" href="${url}" />`);
+      // The alternates live in <head>, next to the canonical, never in <body>.
+      const head = html.slice(0, html.indexOf('</head>'));
+      expect(head, url).toContain(`hreflang="x-default"`);
+    }
+  });
+
   it('history pages carry SEO head, canonical, attribution and daily table', () => {
     const html = renderHistoryPage(7, history);
     expect(html).toContain('<html lang="en">');

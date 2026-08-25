@@ -148,6 +148,24 @@ function attr(value: string): string {
 }
 
 /**
+ * Minimal hreflang set for a page that exists as ONE URL (no localized
+ * twins): the archive routes (/line/*, /station/*, /history/*) are served
+ * in English only — the trilingual board handles language switching
+ * client-side, so no /sv/ or /da/ variants exist. Per Google's hreflang
+ * guidance a single-URL page still announces itself: `en` (its document
+ * language) plus a self-referencing `x-default`. Same <link rel="alternate">
+ * shape as the static pages' hreflang cluster (src/lib/seo.ts), so both page
+ * families emit the same markup. `url` is the absolute canonical URL, already
+ * escaped by the caller exactly like the canonical link it mirrors.
+ */
+function hreflangSelf(url: string): string {
+  return [
+    `    <link rel="alternate" hreflang="en" href="${url}" />`,
+    `    <link rel="alternate" hreflang="x-default" href="${url}" />`,
+  ].join('\n');
+}
+
+/**
  * The shared document shell for every archive page. Lightweight, fully
  * self-contained (no SPA bundle — these are static archives for crawlers and
  * no-JS clients), with the site favicon, SEO tags and the mandatory
@@ -161,6 +179,11 @@ function pageShell({ title, description, canonical, jsonLd, body }: ShellOpts): 
     <meta property="og:url" content="${attr(canonical)}" />
     <meta property="og:site_name" content="Øresund.live" />`;
   const jsonLdBlock = jsonLd === undefined ? '' : `\n    <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`;
+  // These routes exist as one URL per page — no /sv/ /da/ twins exist for the
+  // archives (language switching on the board is client-side), so each page
+  // self-announces en + x-default in <head>, mirroring the hreflang cluster
+  // the static pages emit. Escaped exactly like the canonical it points at.
+  const hreflang = hreflangSelf(attr(canonical));
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -169,6 +192,7 @@ function pageShell({ title, description, canonical, jsonLd, body }: ShellOpts): 
     <title>${attr(title)}</title>
     <meta name="description" content="${attr(description)}" />
     <link rel="canonical" href="${attr(canonical)}" />
+${hreflang}
     <meta name="robots" content="index,follow" />${ogTags}${jsonLdBlock}
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='32' cy='18' r='7' fill='%2310b981'/><circle cx='32' cy='32' r='7' fill='%23f59e0b'/><circle cx='32' cy='46' r='7' fill='%23ef4444'/></svg>" />
     <style>
