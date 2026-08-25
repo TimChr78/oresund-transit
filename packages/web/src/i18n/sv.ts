@@ -16,7 +16,7 @@ export const sv: Dict = {
   banner_disruptions_many: '{n} störningar',
   // Disruption hero strip
   hero_disruptions: 'Just nu',
-  // SEO lead (H2 under the brand)
+  // SEO lead (H1 under the brand wordmark)
   lead_tagline:
     'Live Øresundståg / tågavgångar Hyllie ↔ Köpenhamn H — förseningar, inställda avgångar och trafikstörningar, uppdaterat var 5:e minut (Trafiklab).',
   // Byggtids-citat av trafikläget (hemmets no-JS/crawler-skal) — skrivet som

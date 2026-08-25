@@ -41,11 +41,12 @@ export function renderPrerenderedPage(
   // The noscript "requires JavaScript" block is for the dashboard; the static
   // page content is already in the HTML.
   html = html.replace(/<noscript>[\s\S]*?<\/noscript>/, '');
-  // The shell's no-JS/crawler fallback (static H1 + SEO lead) is dashboard
-  // content — the static route injects its own page into #app, so the
-  // fallback must not leak into /methodology or /privacy. The block itself
-  // contains no nested <div>, so the first </div> closes it.
-  html = html.replace(/<div id="static-shell"[^>]*>[\s\S]*?<\/div>\s*/, '');
+  // The shell's no-JS/crawler fallback (brand wordmark + H1 lead) is dashboard
+  // content — the static route injects its own page into #app, so the fallback
+  // must not leak into /methodology or /privacy. The block may contain nested
+  // <div> elements (the brand wordmark), so consume up to the closing </div>
+  // that sits immediately before the site footer, not the first </div> found.
+  html = html.replace(/<div id="static-shell"[^>]*>[\s\S]*?<\/div>\s*(?=<footer)/, '');
   return html;
 }
 
@@ -107,7 +108,7 @@ function injectHomeSummary(html: string, lang: Lang, summary: HomeSummary): stri
   // The lead H2 is the last element inside #static-shell; inject after it,
   // still within the block (plain <p>s only — no nested <div>, so the
   // static-page strip regex and boot()'s removal both keep working).
-  return html.replace('</h2>', `</h2>\n      ${block}`);
+  return html.replace('</h1>', `</h1>\n      ${block}`);
 }
 
 /**

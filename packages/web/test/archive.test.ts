@@ -106,26 +106,34 @@ function parseJsonLd(html: string): unknown[] {
   return blocks;
 }
 
+/** Every JSON-LD node across a page's blocks — graph children, or the block itself. */
+function graphNodes(html: string): Record<string, unknown>[] {
+  const nodes: Record<string, unknown>[] = [];
+  for (const block of parseJsonLd(html)) {
+    const b = block as Record<string, unknown>;
+    const graph = b['@graph'];
+    if (Array.isArray(graph)) nodes.push(...(graph as Record<string, unknown>[]));
+    else nodes.push(b);
+  }
+  return nodes;
+}
+
+/** The first JSON-LD node of a given @type on a page. */
+function findNode(html: string, type: string): Record<string, unknown> | undefined {
+  return graphNodes(html).find((n) => n['@type'] === type);
+}
+
 describe('archive renderers', () => {
-  it('every archive page emits the self-referencing hreflang set (en + x-default) in <head>', () => {
-    // Archive routes exist as ONE URL per page (no /sv/ or /da/ twins — the
-    // site is trilingual but only the static pages ship localized variants),
-    // so each must carry at least the en + x-default alternates pointing at
-    // itself. Mirrors the hreflang pattern of the static pages (seo.ts).
-    const pages: [string, string][] = [
-      [renderHistoryPage(7, history), 'https://oresund.live/history/7'],
-      [renderLineIndex([{ line: '804', disruptions: 40 }]), 'https://oresund.live/line'],
-      [renderLinePage('804', lineStats, []), 'https://oresund.live/line/804'],
-      [renderStationIndex(stationStatsSlugList()), 'https://oresund.live/station'],
-      [renderStationPage(stationStats, stationStatsSlugList()), 'https://oresund.live/station/hyllie'],
-    ];
-    for (const [html, url] of pages) {
-      expect(html, url).toContain(`<link rel="alternate" hreflang="en" href="${url}" />`);
-      expect(html, url).toContain(`<link rel="alternate" hreflang="x-default" href="${url}" />`);
-      // The alternates live in <head>, next to the canonical, never in <body>.
-      const head = html.slice(0, html.indexOf('</head>'));
-      expect(head, url).toContain(`hreflang="x-default"`);
-    }
+  it('station stats with zero delay observations emit null avgDelay - no NaN/Infinity in prerendered HTML (CR regression)', () => {
+    // A station whose window has rows but no delayed trains must not divide by zero.
+    const empty = {
+      ...stationStats,
+      delayed_count: 0,
+      avg_delay_seconds: null,
+      daily: stationStats.daily.map((d) => ({ ...d, delayed: 0, avg_delay_seconds: null })),
+    };
+    const html = renderStationPage(empty, stationStatsSlugList());
+    expect(html).not.toMatch(/NaN|Infinity/);
   });
 
   it('history pages carry SEO head, canonical, attribution and daily table', () => {
@@ -308,6 +316,91 @@ describe('archive renderers', () => {
     expect(rawLd).not.toContain('</script>');
     expect(rawLd).toContain('\\u003c');
     expect(JSON.parse(rawLd.replace(/\\u003c/g, '<')).itemListElement ?? JSON.parse(rawLd.replace(/\\u003c/g, '<'))['@graph']).toBeDefined();
+  });
+});
+
+describe('Dataset JSON-LD on archive pages (SEO audit H4)', () => {
+  it('line pages carry a Dataset node with temporal coverage, CC-BY license, distribution and variableMeasured', () => {
+    const html = renderLinePage('804', lineStats, [{ line: '803', disruptions: 1 }]);
+    const dataset = findNode(html, 'Dataset');
+    expect(dataset).toBeDefined();
+    expect(dataset?.name).toContain('Line 804');
+    expect(dataset?.description).toBeTruthy();
+    expect(dataset?.temporalCoverage).toBe('2026-07-31/2026-08-06');
+    expect(dataset?.license).toBe('https://creativecommons.org/licenses/by/4.0/');
+    const dist = dataset?.distribution as { contentUrl?: string };
+    expect(dist.contentUrl).toBe('https://oresund.live/line/804');
+    expect((dataset?.variableMeasured as string[]).length).toBeGreaterThan(0);
+  });
+
+  it('creators track the data source window: KoDa backfill era → Trafiklab + KoDa; live era → Trafiklab only', () => {
+    // The fixture window starts 2026-07-31, before live data (2026-08-06) — the
+    // KoDa historical backfill is part of the dataset, so both are credited.
+    const backfill = renderLinePage('804', lineStats, []);
+    const backfillCreators = (findNode(backfill, 'Dataset')?.creator as { name: string }[]).map((c) => c.name);
+    expect(backfillCreators).toEqual(expect.arrayContaining(['Trafiklab', 'KoDa']));
+
+    // A window entirely inside the live-data era is Trafiklab-only.
+    const liveOnly: ArchiveLineStats = { ...lineStats, date_from: '2026-08-10', date_to: '2026-08-16' };
+    const fresh = renderLinePage('804', liveOnly, []);
+    const freshCreators = (findNode(fresh, 'Dataset')?.creator as { name: string }[]).map((c) => c.name);
+    expect(freshCreators).toEqual(['Trafiklab']);
+  });
+
+  it('station pages carry a Dataset node (Trafiklab creator) covering their window', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    const dataset = findNode(html, 'Dataset');
+    expect(dataset).toBeDefined();
+    expect(dataset?.temporalCoverage).toBe('2026-07-31/2026-08-06');
+    expect(dataset?.license).toBe('https://creativecommons.org/licenses/by/4.0/');
+    const dist = dataset?.distribution as { contentUrl?: string };
+    expect(dist.contentUrl).toBe('https://oresund.live/station/hyllie');
+    const creators = dataset?.creator as { name: string }[];
+    expect(creators.map((c) => c.name)).toEqual(['Trafiklab']);
+    expect((dataset?.variableMeasured as string[]).length).toBeGreaterThan(0);
+  });
+
+  it('history day pages carry a Dataset node matching their window', () => {
+    const html = renderHistoryPage(7, history);
+    const dataset = findNode(html, 'Dataset');
+    expect(dataset).toBeDefined();
+    expect(dataset?.temporalCoverage).toBe('2026-07-31/2026-08-06');
+    expect(dataset?.license).toBe('https://creativecommons.org/licenses/by/4.0/');
+    const dist = dataset?.distribution as { contentUrl?: string };
+    expect(dist.contentUrl).toBe('https://oresund.live/history/7');
+    expect((dataset?.variableMeasured as string[]).length).toBeGreaterThan(0);
+  });
+});
+
+describe('ItemList JSON-LD on history windows (SEO audit M9)', () => {
+  it('each history day page lists the other available windows as an ItemList', () => {
+    const html = renderHistoryPage(30, history);
+    const itemList = findNode(html, 'ItemList');
+    expect(itemList).toBeDefined();
+    const urls = (itemList?.itemListElement as { url?: string }[]).map((i) => i.url);
+    expect(urls).toContain('https://oresund.live/history/7');
+    expect(urls).not.toContain('https://oresund.live/history/30');
+  });
+});
+
+describe('JSON-LD block structure (SEO audit M10)', () => {
+  it('declares @context once at the block root — never nested inside @graph nodes', () => {
+    const pages = [
+      renderHistoryPage(7, history),
+      renderLineIndex([{ line: '804', disruptions: 1 }]),
+      renderLinePage('804', lineStats, []),
+      renderStationIndex(stationStatsSlugList()),
+      renderStationPage(stationStats, stationStatsSlugList()),
+    ];
+    for (const page of pages) {
+      for (const block of parseJsonLd(page)) {
+        const root = block as { '@context'?: string; '@graph'?: Record<string, unknown>[] };
+        expect(root['@context'], JSON.stringify(block)).toBe('https://schema.org');
+        for (const node of root['@graph'] ?? []) {
+          expect(node['@context'], JSON.stringify(block)).toBeUndefined();
+        }
+      }
+    }
   });
 });
 

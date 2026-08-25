@@ -179,3 +179,14 @@ describe('renderApp — disruption hero strip', () => {
     expect(renderApp(state, 'da', 'declined')).toContain('Lige nu');
   });
 });
+
+describe('renderApp — descriptive H1 (SEO audit H3)', () => {
+  it('renders exactly one H1: the keyword-bearing lead sentence, never the bare brand', () => {
+    const html = renderApp(createInitialState(), 'en', 'declined');
+    const h1s = html.match(/<h1\b[^>]*>/g) ?? [];
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0]).toContain('class="lead"');
+    expect(html).toContain('<div class="brand">');
+    expect(html).not.toContain('<h1 class="brand">');
+  });
+});

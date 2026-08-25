@@ -16,7 +16,7 @@ export const da: Dict = {
   banner_disruptions_many: '{n} forstyrrelser',
   // Disruption hero strip
   hero_disruptions: 'Lige nu',
-  // SEO lead (H2 under the brand)
+  // SEO lead (H1 under the brand wordmark)
   lead_tagline:
     'Live Øresundstog / togafgange Hyllie ↔ København H — forsinkelser, aflysninger og forstyrrelser — opdateret hvert 5. minut (Trafiklab).',
   // Byggetids-øjebliksbillede af trafikken (hjemmesidens no-JS/crawler-skal)
