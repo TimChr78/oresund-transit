@@ -666,14 +666,13 @@ ${(stats.recent.length ? stats.recent : []).map(departureListItem).join('\n') ||
     <ul class="plain">
 ${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href="/station/${encodeURIComponent(s.slug)}">${esc(s.stop_name)}</a></li>`).join('\n')}
     </ul>`;
+  // SERP-safe short name for <title> only: strip parenthetical qualifiers
+  // ('Københavns Lufthavn (Kastrup)' -> 'Københavns Lufthavn') so even the
+  // longest stop name stays ≤ 60 chars after the i18n template. H1/body keep
+  // the official display name.
+  const titleName = stats.stop_name.replace(
+    /\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ').trim() || stats.stop_name;
   return pageShell({
-    // i18n title template — keeps even the longest stop name ≤ 60 chars (L3).
-    // Long display names get a SERP-safe short form in <title> only; H1/body
-    // keep the official name. (Audit2 H1: 'Københavns Lufthavn (Kastrup)'
-    // pushed the title to 58ch, past the ~600px truncation line.)
-    const titleName = stats.stop_name.replace(
-      /\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ')
-      .trim() || stats.stop_name;
     title: translate('station_archive_title', 'en', { name: titleName }),
     description,
     canonical: `${SITE_URL}/station/${stats.slug}`,
