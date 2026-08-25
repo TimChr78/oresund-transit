@@ -195,6 +195,9 @@ export const en: Dict = {
   meth_def_by_cause: 'Disruption count grouped by cause category.',
   meth_def_by_hour: 'Share of disruptions per hour of day — last 30 days.',
   meth_def_peak: 'Share of disruptions during peak hours (07–09 and 16–18) versus the rest of the day.',
+  // Archive page titles — template must keep the rendered <title> ≤ 60 chars
+  // even for the longest monitored stop name ("Københavns Lufthavn (Kastrup)").
+  station_archive_title: '{name} — punctuality — Øresund.live',
   // Footer
   footer_attribution: 'Data from Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data can lag official apps by ~10–15 min; cancellations may be missed.',

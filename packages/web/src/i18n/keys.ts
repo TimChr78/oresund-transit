@@ -188,6 +188,9 @@ export interface Dict {
   meth_def_by_cause: string;
   meth_def_by_hour: string;
   meth_def_peak: string;
+  // Archive page titles (station archives — template must keep rendered
+  // <title> ≤ 60 chars even for the longest monitored stop name)
+  station_archive_title: string;
   // Footer
   footer_attribution: string;
   footer_disclaimer: string;

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && tsx scripts/prerender.ts",
+    "build": "vite build && tsx scripts/prerender.ts && tsx scripts/generate-llms.ts",
     "dev": "vite",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

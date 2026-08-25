@@ -136,6 +136,22 @@ describe('per-route canonical', () => {
     expect(shell).toContain('<link rel="canonical" href="https://oresund.live/" />');
     expect(shell).not.toContain('href="https://oresund.live/index.html"');
   });
+
+  it('ships the summary_large_image twitter card and og:image:alt on every og-tagged page (L4/L5)', () => {
+    // The dashboard shell sets the card type + image (with alt)…
+    expect(shell).toContain('name="twitter:card" content="summary_large_image"');
+    expect(shell).not.toContain('name="twitter:card" content="summary"');
+    expect(shell).toContain('name="twitter:image" content="https://oresund.live/og-card.png"');
+    expect(shell).toContain('property="og:image:alt" content="Øresund.live — Øresundståg departures across the Sound"');
+    // …and the prerendered variants inherit them unchanged.
+    const methodology = renderPrerenderedPage(shell, renderMethodologyPage('en', getDict('en')), 'en', META.methodology.en);
+    const svHome = renderLocalizedHome(shell, 'sv', META.dashboard.sv, hreflangCluster('/'));
+    for (const html of [methodology, svHome]) {
+      expect(html).toContain('name="twitter:card" content="summary_large_image"');
+      expect(html).toContain('name="twitter:image" content="https://oresund.live/og-card.png"');
+      expect(html).toContain('property="og:image:alt" content="Øresund.live — Øresundståg departures across the Sound"');
+    }
+  });
 });
 
 describe('JSON-LD structured data', () => {
@@ -178,6 +194,17 @@ describe('JSON-LD structured data', () => {
     const first = parsed[0];
     expect(first).toBeDefined();
     expect(types(first as object)).toEqual(expect.arrayContaining(['WebSite', 'Organization']));
+  });
+
+  it('the Organization node carries logo, sameAs repo link and the public contactPoint email (M6)', () => {
+    const graph = (blocks(shell)[0] as { '@graph': { '@type': string; logo?: string; sameAs?: string[]; contactPoint?: unknown }[] })['@graph'];
+    const org = graph.find((n) => n['@type'] === 'Organization');
+    expect(org).toBeDefined();
+    expect(org!.logo).toBe('https://oresund.live/og-card.png');
+    expect(org!.sameAs).toEqual(['https://github.com/TimChr78/oresund-transit']);
+    const cp = org!.contactPoint as { '@type'?: string; email?: string } | undefined;
+    expect(cp?.['@type']).toBe('ContactPoint');
+    expect(cp?.email).toBe('mailto:hello@oresund.live');
   });
 });
 
