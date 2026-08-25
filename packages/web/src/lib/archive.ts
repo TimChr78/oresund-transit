@@ -668,7 +668,13 @@ ${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href
     </ul>`;
   return pageShell({
     // i18n title template — keeps even the longest stop name ≤ 60 chars (L3).
-    title: translate('station_archive_title', 'en', { name: stats.stop_name }),
+    // Long display names get a SERP-safe short form in <title> only; H1/body
+    // keep the official name. (Audit2 H1: 'Københavns Lufthavn (Kastrup)'
+    // pushed the title to 58ch, past the ~600px truncation line.)
+    const titleName = stats.stop_name.replace(
+      /\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ')
+      .trim() || stats.stop_name;
+    title: translate('station_archive_title', 'en', { name: titleName }),
     description,
     canonical: `${SITE_URL}/station/${stats.slug}`,
     jsonLd: {
