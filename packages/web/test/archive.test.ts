@@ -343,7 +343,9 @@ describe('archive renderers', () => {
       recent: [],
     };
     const html = renderStationPage(empty, stationStatsSlugList());
-    expect(html).toContain('<title>Københavns Lufthavn (Kastrup) — punctuality — Øresund.live</title>');
+    // SERP-safe title: parenthetical qualifier stripped from <title> (audit2 H1)
+    expect(html).toContain('<title>Københavns Lufthavn — punctuality — Øresund.live</title>');
+    expect(html).toContain('Københavns Lufthavn (Kastrup)'); // official name kept in body
     expect(html).toContain('No departures recorded since monitoring began 2026-08-06.');
     expect(html).toContain('0%'); // zeroed stats, never NaN
     expect(html).not.toContain('NaN');
