@@ -192,4 +192,13 @@ export const en: Dict = {
   footer_lang: 'Language',
   footer_license: 'CC-BY 4.0 license',
   footer_rss: 'RSS feed',
+  // Archive pages (server-rendered hubs — en is what crawlers see)
+  hub_line_intro:
+    'This hub covers every train service running across the Øresund — the cross-border Øresundståg services (lines 802–805) and the regional lines that share the corridor. Each line page tracks the disruptions recorded against that service: cancellations, delays and alerts, with the most common causes and a day-by-day breakdown over the last 30 days.',
+  hub_station_intro:
+    'This hub covers the monitored stops on the Øresund corridor, from Malmö C and Hyllie across the bridge to Kastrup Lufthavn and København H. Each station page shows punctuality — the share of departures on time, cancellations and the average delay — with a day-by-day record over the last 30 days.',
+  archive_attribution: 'Data from Trafiklab.se',
+  line_archive_href: 'Line {line} delays & history',
+  line_no_disruptions_note: 'No disruptions recorded since monitoring began 2026-08-06.',
+  station_no_data_note: 'No departures recorded since monitoring began 2026-08-06.',
 };

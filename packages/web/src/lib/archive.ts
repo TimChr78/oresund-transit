@@ -214,6 +214,7 @@ ${hreflang}
       h1 { font-size: 1.6rem; margin: 0 0 .4rem; }
       h2 { font-size: 1.15rem; margin: 2rem 0 .6rem; color: #c7d0e0; }
       .sub { color: #8b93a7; margin: 0 0 1.2rem; font-size: .95rem; }
+      .intro { color: #b9c1d4; margin: 0 0 1.2rem; }
       .crumb { font-size: .85rem; color: #7c8498; margin: 0 0 1rem; }
       .crumb a { color: #7c8498; text-decoration: none; }
       .crumb a:hover { color: #10b981; }
@@ -242,7 +243,7 @@ ${hreflang}
     <header><a class="brand" href="/">Øresund.live</a></header>
     <main>${body}</main>
     <footer>
-      <p>Data från Trafiklab.se · <a href="/">Live board</a> · <a href="/methodology">Methodology</a> · <a href="/privacy">Privacy</a></p>
+      <p>${esc(translate('archive_attribution', 'en'))} · <a href="/">Live board</a> · <a href="/methodology">Methodology</a> · <a href="/privacy">Privacy</a></p>
     </footer>
   </body>
 </html>
@@ -419,7 +420,7 @@ export function renderHistoryPage(days: ArchiveDays, history: ArchiveHistory): s
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › <a href="/history">History</a> › ${days} days</p>
     <h1>Disruption history — last ${days} days</h1>
-    <p class="sub">${history.total_disruptions} disruptions between ${fmtDate(history.date_from)} and ${fmtDate(history.date_to)}. Data från Trafiklab.se.</p>
+    <p class="sub">${history.total_disruptions} disruptions between ${fmtDate(history.date_from)} and ${fmtDate(history.date_to)}. ${esc(translate('archive_attribution', 'en'))}.</p>
     <h2>Daily breakdown</h2>
     ${dailyTable(history.daily)}
     <h2>Other ranges</h2>
@@ -467,13 +468,14 @@ export function renderLineIndex(lines: ArchiveLine[]): string {
   const list = all
     .map(
       (l) =>
-        `<li><a href="/line/${encodeURIComponent(l.line)}">Line ${esc(l.line)}</a> <span class="meta">— ${l.disruptions} disruptions recorded</span></li>`,
+        `<li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate('line_archive_href', 'en', { line: l.line }))}</a> <span class="meta">— ${l.disruptions} disruptions recorded</span></li>`,
     )
     .join('\n');
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › Lines</p>
     <h1>Line archives</h1>
-    <p class="sub">Historical disruption records for each service across the Øresund. Data från Trafiklab.se.</p>
+    <p class="sub">Historical disruption records for each service across the Øresund. ${esc(translate('archive_attribution', 'en'))}.</p>
+    <p class="intro">${esc(translate('hub_line_intro', 'en'))}</p>
     <ul class="plain">
 ${list}
     </ul>`;
@@ -506,23 +508,36 @@ ${list}
 export function renderLinePage(line: string, stats: ArchiveLineStats, allLines: ArchiveLine[]): string {
   const all = unionCanonicalLines(allLines);
   const description = `Disruption history for line ${line} on the Øresund crossing — ${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)}.`;
+  // M1: a line with no recorded disruptions collapses its zero-data sections
+  // into one annotation instead of rendering empty <ul>/<table> blocks.
+  const empty = stats.total_disruptions === 0;
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › <a href="/line">Lines</a> › Line ${esc(line)}</p>
     <h1>Line ${esc(line)} — disruption archive</h1>
-    <p class="sub">${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)} (last ${stats.days} days). Data från Trafiklab.se.</p>
-    <h2>Most common causes</h2>
-    <ul class="plain">
-${(stats.by_cause.length ? stats.by_cause : []).map((c) => `      <li>${esc(c.cause)} <span class="meta">— ${c.count}</span></li>`).join('\n')}
-    </ul>
-    <h2>Daily breakdown</h2>
-    ${dailyTable(stats.daily)}
+    <p class="sub">${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)} (last ${stats.days} days). ${esc(translate('archive_attribution', 'en'))}.</p>
+${
+    empty
+      ? `    <p class="meta">${esc(translate('line_no_disruptions_note', 'en'))}</p>`
+      : `    <h2>Most common causes</h2>
+${
+        stats.by_cause.length
+          ? `    <ul class="plain">
+${stats.by_cause.map((c) => `      <li>${esc(c.cause)} <span class="meta">— ${c.count}</span></li>`).join('\n')}
+    </ul>`
+          : ''
+      }
+${
+        stats.daily.length ? `    <h2>Daily breakdown</h2>
+    ${dailyTable(stats.daily)}` : ''
+      }
     <h2>Recent disruptions</h2>
     <ul class="plain">
 ${(stats.recent.length ? stats.recent : []).map(disruptionListItem).join('\n') || '      <li class="meta">None recorded in this range.</li>'}
-    </ul>
+    </ul>`
+  }
     <h2>Other lines</h2>
     <ul class="plain">
-${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">Line ${esc(l.line)}</a></li>`).join('\n')}
+${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate('line_archive_href', 'en', { line: l.line }))}</a></li>`).join('\n')}
     </ul>`;
   return pageShell({
     title: `Line ${line} — disruption archive — Øresund.live`,
@@ -571,7 +586,8 @@ export function renderStationIndex(stations: ArchiveStation[]): string {
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › Stations</p>
     <h1>Station archives</h1>
-    <p class="sub">Historical on-time performance for each monitored stop on the Øresund crossing. Data från Trafiklab.se.</p>
+    <p class="sub">Historical on-time performance for each monitored stop on the Øresund crossing. ${esc(translate('archive_attribution', 'en'))}.</p>
+    <p class="intro">${esc(translate('hub_station_intro', 'en'))}</p>
     <div class="cards">
 ${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent(s.slug)}"><span class="lbl">Station</span><span class="num">${esc(s.stop_name)}</span></a>`).join('\n')}
     </div>`;
@@ -622,23 +638,30 @@ export function renderStationPage(stats: ArchiveStationStats, allStations: Archi
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › <a href="/station">Stations</a> › ${esc(stats.stop_name)}</p>
     <h1>${esc(stats.stop_name)} — punctuality archive</h1>
-    <p class="sub">Observed departures over the last ${stats.days} days (${fmtDate(stats.date_from)}–${fmtDate(stats.date_to)}). Data från Trafiklab.se.</p>
-${empty ? '    <p class="meta">No data yet — this station\'s archive starts once live monitoring begins.</p>' : ''}
-    <div>
+    <p class="sub">Observed departures over the last ${stats.days} days (${fmtDate(stats.date_from)}–${fmtDate(stats.date_to)}). ${esc(translate('archive_attribution', 'en'))}.</p>
+${
+    empty
+      ? `    <p class="meta">${esc(translate('station_no_data_note', 'en'))}</p>`
+      : `    <div>
       <span class="stat"><b>${stats.total_departures}</b><span>Departures</span></span>
       <span class="stat"><b>${stats.on_time_pct}%</b><span>On time</span></span>
       <span class="stat"><b>${stats.canceled_count}</b><span>Cancelled</span></span>
       <span class="stat"><b>${fmtDelay(stats.avg_delay_seconds)}</b><span>Avg delay</span></span>
     </div>
-    <h2>Daily on-time performance</h2>
+${
+        stats.daily.length
+          ? `    <h2>Daily on-time performance</h2>
     <table>
       <thead><tr><th>Date</th><th>Departures</th><th>On time</th><th>Delayed</th><th>Cancelled</th><th>On time %</th><th>Avg delay</th></tr></thead>
       <tbody>${dailyRows}</tbody>
-    </table>
+    </table>`
+          : ''
+      }
     <h2>Recent observations</h2>
     <ul class="plain">
 ${(stats.recent.length ? stats.recent : []).map(departureListItem).join('\n') || '      <li class="meta">No departures recorded yet.</li>'}
-    </ul>
+    </ul>`
+  }
     <h2>Other stations</h2>
     <ul class="plain">
 ${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href="/station/${encodeURIComponent(s.slug)}">${esc(s.stop_name)}</a></li>`).join('\n')}
@@ -684,5 +707,8 @@ function departureListItem(d: Departure): string {
     d.status === 'on_time' ? 'On time' : d.status === 'delayed' ? `Delayed ${fmtDelay(d.delay_seconds)}` : d.status === 'canceled' ? 'Cancelled' : 'Unknown';
   const when = d.sched_time ? ` <span class="meta">· ${esc(String(d.sched_time).replace('T', ' '))}</span>` : '';
   const line = d.line ? ` line ${esc(d.line)}` : '';
-  return `      <li>${esc(status)}${line}${when}</li>`;
+  // M4: route context — the destination is the most descriptive bit of a
+  // departure ("delay on line 804 → Østerport" beats a bare line number).
+  const dest = d.destination ? ` → ${esc(d.destination)}` : '';
+  return `      <li>${esc(status)}${line}${dest}${when}</li>`;
 }

@@ -190,4 +190,13 @@ export const sv: Dict = {
   footer_lang: 'Språk',
   footer_license: 'CC-BY 4.0-licensen',
   footer_rss: 'RSS-flöde',
+  // Archive pages (server-rendered hubs — en is what crawlers see)
+  hub_line_intro:
+    'Den här hubben täcker alla tåglinjer som trafikerar Öresund — de gränsöverskridande Øresundstågen (linje 802–805) och regionala linjer som delar korridoren. Varje linjesida visar de störningar som registrerats för just den linjen: inställda avgångar, förseningar och larm, med de vanligaste orsakerna och en dag-för-dag-uppdelning över de senaste 30 dagarna.',
+  hub_station_intro:
+    'Den här hubben täcker de övervakade hållplatserna på Öresundskorridoren, från Malmö C och Hyllie över bron till Kastrup Lufthavn och Köpenhamn H. Varje stationssida visar punktlighet — andel avgångar i tid, inställda avgångar och snittförsening — med en daglig sammanställning över de senaste 30 dagarna.',
+  archive_attribution: 'Data från Trafiklab.se',
+  line_archive_href: 'Linje {line} — förseningar & historik',
+  line_no_disruptions_note: 'Inga störningar registrerade sedan övervakningen startade 2026-08-06.',
+  station_no_data_note: 'Inga avgångar registrerade sedan övervakningen startade 2026-08-06.',
 };
