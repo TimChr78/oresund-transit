@@ -86,15 +86,15 @@
     <div id="static-shell" class="wrap">
       <!--
         No-JS / crawler fallback: the dashboard itself is client-rendered, so
-        the SEO-critical lead (H2 with Øresundståg + train wording) is shipped
+        the SEO-critical lead (H1 with Øresundståg + train wording) is shipped
         in the initial HTML. boot() removes this element on startup and renders
         the live board into #app; the static routes remove it via prerender.
       -->
       <header class="topbar">
-        <h1 class="brand">Øresund <span class="brand-sub">live</span></h1>
+        <div class="brand">Øresund <span class="brand-sub">live</span></div>
         <span class="board-label">Hyllie ↔ København H</span>
       </header>
-      <h2 class="lead">Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).</h2>
+      <h1 class="lead">Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).</h1>
     </div>
     <footer class="site-footer">
       <nav aria-label="Site sections">

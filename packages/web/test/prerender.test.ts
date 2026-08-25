@@ -234,16 +234,23 @@ describe('prerender build pipeline', () => {
 describe('SEO — train + Øresundståg in the served HTML', () => {
   it('the dashboard shell keeps the live-train <title> and ships the lead paragraph without JS', () => {
     // 3x train was the SEO gap; the title stays, and the no-JS/crawler
-    // fallback block now carries the H2 lead with train + Øresundståg wording
+    // fallback block now carries the H1 lead with train + Øresundståg wording
     // in the INITIAL HTML (visible without JavaScript).
     expect(shell).toContain('<title>Øresund.live — live train status across the Sound</title>');
     expect(shell).toContain('id="static-shell"');
-    const leadNode = /<h2 class="lead">([\s\S]*?)<\/h2>/.exec(shell)?.[1] ?? '';
+    const leadNode = /<h1 class="lead">([\s\S]*?)<\/h1>/.exec(shell)?.[1] ?? '';
     expect(leadNode).toMatch(/train/i);
     expect(leadNode).toMatch(/Øresundståg/);
-    // the fallback mirrors the client-rendered H1 brand (so the static HTML
-    // has an H1 + H2 hierarchy, not just an empty #app)
-    expect(shell).toContain('<h1 class="brand">Øresund <span class="brand-sub">live</span></h1>');
+    // descriptive-H1 pass: the keyword-bearing lead sentence is the page's H1;
+    // the brand wordmark is an un-semantic (non-heading) element.
+    expect(shell).not.toContain('<h1 class="brand">');
+    expect(shell).toContain('<div class="brand">Øresund <span class="brand-sub">live</span></div>');
+  });
+
+  it('the home shell has exactly one H1 — the descriptive lead, never the bare brand', () => {
+    const h1s = shell.match(/<h1\b[^>]*>/g) ?? [];
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0]).toContain('class="lead"');
   });
 
   it('META.dashboard.en.description is one sentence with natural train + Øresundståg wording', () => {
@@ -268,6 +275,24 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
     expect(privacy).not.toContain('static-shell');
     expect(methodology).not.toContain('train departures');
     expect(privacy).not.toContain('train departures');
+  });
+
+  it('static pages promote their keyword title to a single descriptive H1 (brand is non-heading)', () => {
+    const methodology = renderPrerenderedPage(
+      shell,
+      renderMethodologyPage('en', getDict('en')),
+      'en',
+      META.methodology.en,
+    );
+    const privacy = renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy.en);
+    for (const html of [methodology, privacy]) {
+      const h1s = html.match(/<h1\b[^>]*>/g) ?? [];
+      expect(h1s).toHaveLength(1);
+      expect(h1s[0]).toContain('class="privacy-title"');
+      // bare brand must never be a heading — the wordmark is a styled div.
+      expect(html).not.toContain('<h1 class="brand">');
+      expect(html).toContain('<div class="brand">');
+    }
   });
 });
 
