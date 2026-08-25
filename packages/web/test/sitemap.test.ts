@@ -110,8 +110,8 @@ describe('buildSitemap', () => {
     }
 
     // Archive alternates point at the archive URL itself (no /sv/ /da/ twins).
+    // /history itself 301s to /history/30 (H5) so it is intentionally absent.
     const archiveUrls = [
-      'https://oresund.live/history',
       'https://oresund.live/history/7',
       'https://oresund.live/history/30',
       'https://oresund.live/history/90',

@@ -113,7 +113,6 @@ describe('archive renderers', () => {
     // so each must carry at least the en + x-default alternates pointing at
     // itself. Mirrors the hreflang pattern of the static pages (seo.ts).
     const pages: [string, string][] = [
-      [renderHistoryIndex(), 'https://oresund.live/history'],
       [renderHistoryPage(7, history), 'https://oresund.live/history/7'],
       [renderLineIndex([{ line: '804', disruptions: 40 }]), 'https://oresund.live/line'],
       [renderLinePage('804', lineStats, []), 'https://oresund.live/line/804'],
