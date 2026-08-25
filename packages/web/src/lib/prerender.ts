@@ -61,7 +61,14 @@ export function renderPrerenderedPage(
  * to emit dist/index.html (en, gains hreflang) and dist/{sv,da}/index.html.
  */
 export function renderLocalizedHome(shell: string, lang: Lang, meta: PageMeta, hreflang?: string): string {
-  return applySeo(shell, lang, meta, hreflang);
+  let html = applySeo(shell, lang, meta, hreflang);
+  // M2: the sv/da variants must not ship the English static-shell lead
+  // verbatim — swap in the localized tagline (en keeps the shell text).
+  if (lang !== 'en') {
+    const lead = translate('lead_tagline', lang);
+    html = html.replace(/<h1 class="lead">[\s\S]*?<\/h1>/, () => `<h1 class="lead">${lead}</h1>`);
+  }
+  return html;
 }
 
 /**

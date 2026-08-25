@@ -14,17 +14,8 @@
 import type { Disruption, Departure } from '@oresund/shared';
 import { translate } from '../i18n';
 import { esc } from './html';
-import type { Key } from '../i18n';
 
 export const SITE_URL = 'https://oresund.live';
-
-/**
- * The day live monitoring began (see the methodology page copy). Calendar
- * days BEFORE this date that are zero-filled by the collector are pre-
- * monitoring gaps, not real quiet days — archive pages replace them with an
- * explanatory note instead of a misleading all-zero row.
- */
-export const MONITORING_START = '2026-08-06';
 
 /** The day ranges the history archive supports (mirrors the collector API). */
 export const DAY_RANGES = [7, 14, 30, 90] as const;
@@ -223,6 +214,7 @@ ${hreflang}
       h1 { font-size: 1.6rem; margin: 0 0 .4rem; }
       h2 { font-size: 1.15rem; margin: 2rem 0 .6rem; color: #c7d0e0; }
       .sub { color: #8b93a7; margin: 0 0 1.2rem; font-size: .95rem; }
+      .intro { color: #b9c1d4; margin: 0 0 1.2rem; }
       .crumb { font-size: .85rem; color: #7c8498; margin: 0 0 1rem; }
       .crumb a { color: #7c8498; text-decoration: none; }
       .crumb a:hover { color: #10b981; }
@@ -251,7 +243,7 @@ ${hreflang}
     <header><a class="brand" href="/">Øresund.live</a></header>
     <main>${body}</main>
     <footer>
-      <p>Data från Trafiklab.se · <a href="/">Live board</a> · <a href="/methodology">Methodology</a> · <a href="/privacy">Privacy</a></p>
+      <p>${esc(translate('archive_attribution', 'en'))} · <a href="/">Live board</a> · <a href="/methodology">Methodology</a> · <a href="/privacy">Privacy</a></p>
     </footer>
   </body>
 </html>
@@ -381,9 +373,8 @@ function directionLabel(direction: string | null): string {
 function dailyTable(rows: ArchiveHistory['daily']): string {
   const head =
     '<thead><tr><th>Date</th><th>Total</th><th>Cancellations</th><th>Delays</th><th>Alerts</th><th>Avg delay</th></tr></thead>';
-  const body = collapseGaps(rows, isHistoryRowEmpty)
+  const body = rows
     .map((r) => {
-      if ('gapFrom' in r) return gapRow(r.gapFrom, r.gapTo, 6);
       const cells = [r.date, r.count, r.cancellations, r.delays, r.alerts, fmtDelay(r.avg_delay)]
         .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(typeof v === 'number' ? String(v) : v)}</td>`)
         .join('');
@@ -393,125 +384,43 @@ function dailyTable(rows: ArchiveHistory['daily']): string {
   return `<table>${head}<tbody>${body}</tbody></table>`;
 }
 
-/** A daily row, or a contiguous run of pre-monitoring empty days collapsed into one note. */
-type TableRow<T> = T | { gapFrom: string; gapTo: string };
-
-/**
- * Collapse contiguous daily rows that are fully empty AND fall before
- * MONITORING_START into a single note marker — those days are pre-monitoring
- * gaps (the collector zero-fills the whole range), not real zero days.
- * Empty days after monitoring began stay as ordinary rows (a quiet day IS
- * data). Rows may arrive in either order (the collector returns them
- * newest-first); the gap bounds are normalized chronologically below so the
- * note never reads an inverted period.
- */
-function collapseGaps<T extends { date: string }>(rows: T[], isEmpty: (r: T) => boolean): TableRow<T>[] {
-  const out: TableRow<T>[] = [];
-  let gapStart: T | null = null;
-  let gapEnd: T | null = null;
-  const flush = (): void => {
-    if (gapStart && gapEnd) {
-      // Latest-first input makes the first empty row the NEWER bound; sort
-      // the two ISO dates so gapFrom is always the oldest day displayed.
-      const from = gapStart.date <= gapEnd.date ? gapStart.date : gapEnd.date;
-      const to = gapStart.date <= gapEnd.date ? gapEnd.date : gapStart.date;
-      out.push({ gapFrom: from, gapTo: to });
-      gapStart = null;
-      gapEnd = null;
-    }
-  };
-  for (const r of rows) {
-    if (isEmpty(r) && r.date < MONITORING_START) {
-      gapStart ??= r;
-      gapEnd = r;
-    } else {
-      flush();
-      out.push(r);
-    }
-  }
-  flush();
-  return out;
+/** /history — index of the day-range archives. */
+export function renderHistoryIndex(): string {
+  const description = 'Archived disruption history for the Øresund crossing — daily totals, cancellations, delays and alerts across 7, 14, 30 and 90 days.';
+  const links = DAY_RANGES.map(
+    (d) => `<li><a href="/history/${d}">Last ${d} days</a> <span class="meta">— daily disruption counts &amp; delays</span></li>`,
+  ).join('\n');
+  const body = `
+    <p class="crumb"><a href="/">Øresund.live</a> › History</p>
+    <h1>Disruption history</h1>
+    <p class="sub">Archived disruption totals for the Øresund crossing — cancellations, delays and alerts per day, over the range you choose.</p>
+    <h2>Choose a range</h2>
+    <ul class="plain">
+${links}
+    </ul>`;
+  return pageShell({
+    title: 'Disruption history — Øresund.live',
+    description,
+    canonical: `${SITE_URL}/history`,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        breadcrumb([{ name: 'History', url: `${SITE_URL}/history` }]),
+        historyRangesItemList(),
+        siteIdentity,
+      ],
+    },
+    body,
+  });
 }
 
-function isHistoryRowEmpty(r: ArchiveHistory['daily'][number]): boolean {
-  return r.count === 0 && r.cancellations === 0 && r.delays === 0 && r.alerts === 0 && r.avg_delay == null;
-}
-
-function isStationRowEmpty(r: ArchiveStationStats['daily'][number]): boolean {
-  return r.total === 0 && r.on_time === 0 && r.delayed === 0 && r.canceled === 0 && r.avg_delay_seconds == null;
-}
-
-/** One explanatory table row replacing a pre-monitoring gap. */
-function gapRow(from: string, to: string, colspan: number): string {
-  const note =
-    from === to
-      ? translate('arch_empty_day', 'en', { date: MONITORING_START, from: fmtDate(from) })
-      : translate('arch_empty_period', 'en', { date: MONITORING_START, from: fmtDate(from), to: fmtDate(to) });
-  return `<tr><td class="meta" colspan="${colspan}">${esc(note)}</td></tr>`;
-}
-
-/** Sum a daily series into the summary stats shown at the top of archive pages. */
-function summarizeDaily(rows: ArchiveHistory['daily']): { cancellations: number; delays: number; alerts: number; avgDelaySeconds: number | null } {
-  let cancellations = 0;
-  let delays = 0;
-  let alerts = 0;
-  let delaySum = 0;
-  let delayN = 0;
-  for (const r of rows) {
-    cancellations += r.cancellations;
-    delays += r.delays;
-    alerts += r.alerts;
-    // Weight by delayed records, not total count: count includes cancellations
-    // and alerts, which would skew the delay average toward days with many
-    // cancellations. A day with avg_delay but zero delays contributes nothing.
-    if (r.avg_delay != null && r.delays > 0) {
-      delaySum += r.avg_delay * r.delays;
-      delayN += r.delays;
-    }
-  }
-  return {
-    cancellations,
-    delays,
-    alerts,
-    avgDelaySeconds: delayN > 0 ? Math.round(delaySum / delayN) : null,
-  };
-}
-
-/** The `.stat` summary row shared by /history and /line/{line} pages. */
-function statsRow(total: number, summary: { cancellations: number; delays: number; alerts: number; avgDelaySeconds: number | null }): string {
-  const t = (key: Key): string => translate(key, 'en');
-  return `<div>
-      <span class="stat"><b>${total}</b><span>${t('arch_stat_total')}</span></span>
-      <span class="stat"><b>${summary.cancellations}</b><span>${t('arch_stat_cancellations')}</span></span>
-      <span class="stat"><b>${summary.delays}</b><span>${t('arch_stat_delays')}</span></span>
-      <span class="stat"><b>${summary.alerts}</b><span>${t('arch_stat_alerts')}</span></span>
-      <span class="stat"><b>${fmtDelay(summary.avgDelaySeconds)}</b><span>${t('arch_stat_avg_delay')}</span></span>
-    </div>`;
-}
-
-/** The unique intro key for each history window (H5: no shared boilerplate). */
-const HIST_INTRO: Record<ArchiveDays, Key> = {
-  7: 'arch_hist_intro_7',
-  14: 'arch_hist_intro_14',
-  30: 'arch_hist_intro_30',
-  90: 'arch_hist_intro_90',
-};
-
-/**
- * /history/{days} — one day range of daily disruption totals, with a
- * window-specific intro, a summary stats row and (for windows that reach back
- * before monitoring began) an explanatory note instead of misleading all-zero
- * rows. /history itself 301s to /history/30 (see archive-http dispatch).
- */
+/** /history/{days} — one day range of daily disruption totals. */
 export function renderHistoryPage(days: ArchiveDays, history: ArchiveHistory): string {
   const description = `Archived disruption history for the Øresund crossing, last ${days} days — daily totals for cancellations, delays and alerts ${history.date_from} to ${history.date_to}.`;
-  const summary = summarizeDaily(history.daily);
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › <a href="/history">History</a> › ${days} days</p>
     <h1>Disruption history — last ${days} days</h1>
-    <p class="sub">${esc(translate(HIST_INTRO[days], 'en'))}</p>
-    <p class="sub">${history.total_disruptions} disruptions between ${fmtDate(history.date_from)} and ${fmtDate(history.date_to)}. Data från Trafiklab.se.</p>
-    ${statsRow(history.total_disruptions, summary)}
+    <p class="sub">${history.total_disruptions} disruptions between ${fmtDate(history.date_from)} and ${fmtDate(history.date_to)}. ${esc(translate('archive_attribution', 'en'))}.</p>
     <h2>Daily breakdown</h2>
     ${dailyTable(history.daily)}
     <h2>Other ranges</h2>
@@ -559,13 +468,14 @@ export function renderLineIndex(lines: ArchiveLine[]): string {
   const list = all
     .map(
       (l) =>
-        `<li><a href="/line/${encodeURIComponent(l.line)}">Line ${esc(l.line)}</a> <span class="meta">— ${l.disruptions} disruptions recorded</span></li>`,
+        `<li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate('line_archive_href', 'en', { line: l.line }))}</a> <span class="meta">— ${l.disruptions} disruptions recorded</span></li>`,
     )
     .join('\n');
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › Lines</p>
     <h1>Line archives</h1>
-    <p class="sub">Historical disruption records for each service across the Øresund. Data från Trafiklab.se.</p>
+    <p class="sub">Historical disruption records for each service across the Øresund. ${esc(translate('archive_attribution', 'en'))}.</p>
+    <p class="intro">${esc(translate('hub_line_intro', 'en'))}</p>
     <ul class="plain">
 ${list}
     </ul>`;
@@ -597,27 +507,37 @@ ${list}
 /** /line/{line} — one line's disruption archive. */
 export function renderLinePage(line: string, stats: ArchiveLineStats, allLines: ArchiveLine[]): string {
   const all = unionCanonicalLines(allLines);
-  const summary = summarizeDaily(stats.daily);
   const description = `Disruption history for line ${line} on the Øresund crossing — ${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)}.`;
+  // M1: a line with no recorded disruptions collapses its zero-data sections
+  // into one annotation instead of rendering empty <ul>/<table> blocks.
+  const empty = stats.total_disruptions === 0;
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › <a href="/line">Lines</a> › Line ${esc(line)}</p>
     <h1>Line ${esc(line)} — disruption archive</h1>
-    <p class="sub">${esc(translate('arch_intro_line', 'en', { line }))}</p>
-    <p class="sub">${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)} (last ${stats.days} days). Data från Trafiklab.se.</p>
-    ${statsRow(stats.total_disruptions, summary)}
-    <h2>Most common causes</h2>
-    <ul class="plain">
-${(stats.by_cause.length ? stats.by_cause : []).map((c) => `      <li>${esc(c.cause)} <span class="meta">— ${c.count}</span></li>`).join('\n')}
-    </ul>
-    <h2>Daily breakdown</h2>
-    ${dailyTable(stats.daily)}
+    <p class="sub">${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)} (last ${stats.days} days). ${esc(translate('archive_attribution', 'en'))}.</p>
+${
+    empty
+      ? `    <p class="meta">${esc(translate('line_no_disruptions_note', 'en'))}</p>`
+      : `    <h2>Most common causes</h2>
+${
+        stats.by_cause.length
+          ? `    <ul class="plain">
+${stats.by_cause.map((c) => `      <li>${esc(c.cause)} <span class="meta">— ${c.count}</span></li>`).join('\n')}
+    </ul>`
+          : ''
+      }
+${
+        stats.daily.length ? `    <h2>Daily breakdown</h2>
+    ${dailyTable(stats.daily)}` : ''
+      }
     <h2>Recent disruptions</h2>
     <ul class="plain">
 ${(stats.recent.length ? stats.recent : []).map(disruptionListItem).join('\n') || '      <li class="meta">None recorded in this range.</li>'}
-    </ul>
+    </ul>`
+  }
     <h2>Other lines</h2>
     <ul class="plain">
-${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">Line ${esc(l.line)}</a></li>`).join('\n')}
+${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate('line_archive_href', 'en', { line: l.line }))}</a></li>`).join('\n')}
     </ul>`;
   return pageShell({
     title: `Line ${line} — disruption archive — Øresund.live`,
@@ -666,7 +586,8 @@ export function renderStationIndex(stations: ArchiveStation[]): string {
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › Stations</p>
     <h1>Station archives</h1>
-    <p class="sub">Historical on-time performance for each monitored stop on the Øresund crossing. Data från Trafiklab.se.</p>
+    <p class="sub">Historical on-time performance for each monitored stop on the Øresund crossing. ${esc(translate('archive_attribution', 'en'))}.</p>
+    <p class="intro">${esc(translate('hub_station_intro', 'en'))}</p>
     <div class="cards">
 ${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent(s.slug)}"><span class="lbl">Station</span><span class="num">${esc(s.stop_name)}</span></a>`).join('\n')}
     </div>`;
@@ -706,9 +627,8 @@ export function renderStationPage(stats: ArchiveStationStats, allStations: Archi
   const description = empty
     ? `Punctuality history for ${stats.stop_name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.`
     : `Punctuality history for ${stats.stop_name} on the Øresund crossing — ${stats.total_departures} departures, ${stats.on_time_pct}% on time over the last ${stats.days} days.`;
-  const dailyRows = collapseGaps(stats.daily, isStationRowEmpty)
+  const dailyRows = stats.daily
     .map((r) => {
-      if ('gapFrom' in r) return gapRow(r.gapFrom, r.gapTo, 7);
       const cells = [r.date, r.total, r.on_time, r.delayed, r.canceled, `${r.on_time_pct}%`, fmtDelay(r.avg_delay_seconds)]
         .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(typeof v === 'number' ? String(v) : v)}</td>`)
         .join('');
@@ -718,24 +638,30 @@ export function renderStationPage(stats: ArchiveStationStats, allStations: Archi
   const body = `
     <p class="crumb"><a href="/">Øresund.live</a> › <a href="/station">Stations</a> › ${esc(stats.stop_name)}</p>
     <h1>${esc(stats.stop_name)} — punctuality archive</h1>
-    <p class="sub">${esc(translate('arch_intro_station', 'en', { station: stats.stop_name }))}</p>
-    <p class="sub">Observed departures over the last ${stats.days} days (${fmtDate(stats.date_from)}–${fmtDate(stats.date_to)}). Data från Trafiklab.se.</p>
-${empty ? '    <p class="meta">No data yet — this station\'s archive starts once live monitoring begins.</p>' : ''}
-    <div>
+    <p class="sub">Observed departures over the last ${stats.days} days (${fmtDate(stats.date_from)}–${fmtDate(stats.date_to)}). ${esc(translate('archive_attribution', 'en'))}.</p>
+${
+    empty
+      ? `    <p class="meta">${esc(translate('station_no_data_note', 'en'))}</p>`
+      : `    <div>
       <span class="stat"><b>${stats.total_departures}</b><span>Departures</span></span>
       <span class="stat"><b>${stats.on_time_pct}%</b><span>On time</span></span>
       <span class="stat"><b>${stats.canceled_count}</b><span>Cancelled</span></span>
       <span class="stat"><b>${fmtDelay(stats.avg_delay_seconds)}</b><span>Avg delay</span></span>
     </div>
-    <h2>Daily on-time performance</h2>
+${
+        stats.daily.length
+          ? `    <h2>Daily on-time performance</h2>
     <table>
       <thead><tr><th>Date</th><th>Departures</th><th>On time</th><th>Delayed</th><th>Cancelled</th><th>On time %</th><th>Avg delay</th></tr></thead>
       <tbody>${dailyRows}</tbody>
-    </table>
+    </table>`
+          : ''
+      }
     <h2>Recent observations</h2>
     <ul class="plain">
 ${(stats.recent.length ? stats.recent : []).map(departureListItem).join('\n') || '      <li class="meta">No departures recorded yet.</li>'}
-    </ul>
+    </ul>`
+  }
     <h2>Other stations</h2>
     <ul class="plain">
 ${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href="/station/${encodeURIComponent(s.slug)}">${esc(s.stop_name)}</a></li>`).join('\n')}
@@ -781,5 +707,8 @@ function departureListItem(d: Departure): string {
     d.status === 'on_time' ? 'On time' : d.status === 'delayed' ? `Delayed ${fmtDelay(d.delay_seconds)}` : d.status === 'canceled' ? 'Cancelled' : 'Unknown';
   const when = d.sched_time ? ` <span class="meta">· ${esc(String(d.sched_time).replace('T', ' '))}</span>` : '';
   const line = d.line ? ` line ${esc(d.line)}` : '';
-  return `      <li>${esc(status)}${line}${when}</li>`;
+  // M4: route context — the destination is the most descriptive bit of a
+  // departure ("delay on line 804 → Østerport" beats a bare line number).
+  const dest = d.destination ? ` → ${esc(d.destination)}` : '';
+  return `      <li>${esc(status)}${line}${dest}${when}</li>`;
 }

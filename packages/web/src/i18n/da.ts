@@ -221,4 +221,14 @@ export const da: Dict = {
   arch_intro_station: 'Rettidighed på {station} — hvor mange afgange der kørte til tiden, blev forsinket eller aflyst, dag for dag.',
   arch_empty_period: 'Overvågningen startede {date} — {from} til {to} registrerede ingen data.',
   arch_empty_day: 'Overvågningen startede {date} — {from} registrerede ingen data.',
+
+  // Archive pages (server-rendered hubs — en is what crawlers see)
+  hub_line_intro:
+    'Denne hub dækker alle toglinjer, der kører over Øresund — de grænseoverskridende Øresundståg (linje 802–805) og de regionale linjer, der deler korridoren. Hver lineside viser de forstyrrelser, der er registreret for linjen: aflysninger, forsinkelser og alarmer, med de hyppigste årsager og en dag-for-dag-opdeling over de seneste 30 dage.',
+  hub_station_intro:
+    'Denne hub dækker de overvågede stationer på Øresundskorridoren, fra Malmö C og Hyllie over broen til Kastrup Lufthavn og København H. Hver stationsside viser rettidigheden — andelen af afgange til tiden, aflysninger og gennemsnitlig forsinkelse — med en daglig oversigt over de seneste 30 dage.',
+  archive_attribution: 'Data fra Trafiklab.se',
+  line_archive_href: 'Linje {line} — forsinkelser & historik',
+  line_no_disruptions_note: 'Ingen forstyrrelser registreret, siden overvågningen startede 2026-08-06.',
+  station_no_data_note: 'Ingen afgange registreret, siden overvågningen startede 2026-08-06.',
 };

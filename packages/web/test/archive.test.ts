@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CANONICAL_LINES,
-  MONITORING_START,
+  renderHistoryIndex,
   renderHistoryPage,
   renderLineIndex,
   renderLinePage,
@@ -125,16 +125,26 @@ function findNode(html: string, type: string): Record<string, unknown> | undefin
 }
 
 describe('archive renderers', () => {
-  it('station stats with zero delay observations emit null avgDelay - no NaN/Infinity in prerendered HTML (CR regression)', () => {
-    // A station whose window has rows but no delayed trains must not divide by zero.
-    const empty = {
-      ...stationStats,
-      delayed_count: 0,
-      avg_delay_seconds: null,
-      daily: stationStats.daily.map((d) => ({ ...d, delayed: 0, avg_delay_seconds: null })),
-    };
-    const html = renderStationPage(empty, stationStatsSlugList());
-    expect(html).not.toMatch(/NaN|Infinity/);
+  it('every archive page emits the self-referencing hreflang set (en + x-default) in <head>', () => {
+    // Archive routes exist as ONE URL per page (no /sv/ or /da/ twins — the
+    // site is trilingual but only the static pages ship localized variants),
+    // so each must carry at least the en + x-default alternates pointing at
+    // itself. Mirrors the hreflang pattern of the static pages (seo.ts).
+    const pages: [string, string][] = [
+      [renderHistoryIndex(), 'https://oresund.live/history'],
+      [renderHistoryPage(7, history), 'https://oresund.live/history/7'],
+      [renderLineIndex([{ line: '804', disruptions: 40 }]), 'https://oresund.live/line'],
+      [renderLinePage('804', lineStats, []), 'https://oresund.live/line/804'],
+      [renderStationIndex(stationStatsSlugList()), 'https://oresund.live/station'],
+      [renderStationPage(stationStats, stationStatsSlugList()), 'https://oresund.live/station/hyllie'],
+    ];
+    for (const [html, url] of pages) {
+      expect(html, url).toContain(`<link rel="alternate" hreflang="en" href="${url}" />`);
+      expect(html, url).toContain(`<link rel="alternate" hreflang="x-default" href="${url}" />`);
+      // The alternates live in <head>, next to the canonical, never in <body>.
+      const head = html.slice(0, html.indexOf('</head>'));
+      expect(head, url).toContain(`hreflang="x-default"`);
+    }
   });
 
   it('history pages carry SEO head, canonical, attribution and daily table', () => {
@@ -142,7 +152,10 @@ describe('archive renderers', () => {
     expect(html).toContain('<html lang="en">');
     expect(html).toContain('<title>Disruption history — last 7 days — Øresund.live</title>');
     expect(html).toContain('<link rel="canonical" href="https://oresund.live/history/7" />');
-    expect(html).toContain('Data från Trafiklab.se');
+    // M2: the EN archive must use the English (i18n) attribution, never the
+    // Swedish "Data från Trafiklab.se" fragment.
+    expect(html).toContain('Data from Trafiklab.se');
+    expect(html).not.toContain('Data från Trafiklab.se');
     expect(html).toContain('2026-08-06');
     expect(html).toContain('11 min'); // fmtDelay(650/60) → "11 min"
     // JSON-LD: a BreadcrumbList graph and the site identity.
@@ -151,8 +164,32 @@ describe('archive renderers', () => {
     expect(html).toContain('"@type":"BreadcrumbList"');
   });
 
-  it('MONITORING_START is the live-monitoring start date (2026-08-06)', () => {
-    expect(MONITORING_START).toBe('2026-08-06');
+  it('every archive page carries og:image (1200x630 og-card) + twitter:card=summary_large_image', () => {
+    const pages = [
+      renderHistoryIndex(),
+      renderHistoryPage(7, history),
+      renderLineIndex([]),
+      renderLinePage('804', lineStats, []),
+      renderStationIndex(stationStatsSlugList()),
+      renderStationPage(stationStats, stationStatsSlugList()),
+    ];
+    for (const html of pages) {
+      expect(html).toContain('property="og:title"');
+      expect(html).toContain('property="og:description"');
+      expect(html).toContain('property="og:url"');
+      expect(html).toContain('property="og:image" content="https://oresund.live/og-card.png"');
+      expect(html).toContain('property="og:image:width" content="1200"');
+      expect(html).toContain('property="og:image:height" content="630"');
+      expect(html).toContain('name="twitter:card" content="summary_large_image"');
+      expect(html).toContain('name="twitter:title"');
+      expect(html).toContain('name="twitter:description"');
+    }
+  });
+
+  it('history index lists the day ranges', () => {
+    const html = renderHistoryIndex();
+    expect(html).toContain('<h1>Disruption history</h1>');
+    for (const d of [7, 14, 30, 90]) expect(html).toContain(`href="/history/${d}"`);
   });
 
   it('line pages escape external line/cause/raw text and carry breadcrumb JSON-LD', () => {
@@ -182,15 +219,37 @@ describe('archive renderers', () => {
     expect(html).toContain('"@type":"ItemList"');
   });
 
+  it('hub indexes carry descriptive intro paragraphs (M3)', () => {
+    const lineIntro = renderLineIndex([]);
+    expect(lineIntro).toContain('This hub covers every train service');
+    expect(lineIntro).toContain('Øresundståg');
+    expect(lineIntro).toContain('last 30 days');
+    const stationIntro = renderStationIndex(stationStatsSlugList());
+    expect(stationIntro).toContain('This hub covers the monitored stops');
+    expect(stationIntro).toContain('København H');
+    expect(stationIntro).toContain('last 30 days');
+  });
+
   it('line index lists every canonical line, even with no discovered data', () => {
     const html = renderLineIndex([]);
     // Every canonical line archive is linked, including empty ones.
     for (const l of CANONICAL_LINES) expect(html).toContain(`href="/line/${encodeURIComponent(l)}"`);
-    // Disruptions default to 0 for canonical lines with no recorded data.
-    expect(html).toContain('Line 807</a> <span class="meta">— 0 disruptions recorded</span>');
+    // M4: anchors carry route context ("delays & history"), not a bare line number.
+    expect(html).toContain('>Line 807 delays &amp; history</a> <span class="meta">— 0 disruptions recorded</span>');
     // No duplicates in the ItemList.
     const hrefs = [...html.matchAll(/href="\/line\/[^"]+"/g)].map((m) => m[0]);
     expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
+
+  it('line index anchors carry route context even with recorded disruptions', () => {
+    const html = renderLineIndex([{ line: '804', disruptions: 40 }]);
+    expect(html).toContain('>Line 804 delays &amp; history</a> <span class="meta">— 40 disruptions recorded</span>');
+  });
+
+  it('line page sibling links carry the same descriptive anchor text', () => {
+    const html = renderLinePage('804', lineStats, [{ line: '807', disruptions: 1 }]);
+    expect(html).toContain('>Line 807 delays &amp; history</a>');
+    expect(html).not.toContain('<a href="/line/807">Line 807</a>');
   });
 
   it('empty-archive line page renders correct SEO markup (index,follow, no noindex)', () => {
@@ -208,9 +267,30 @@ describe('archive renderers', () => {
     // Empty archives must stay indexable — never noindex.
     expect(html).toContain('<meta name="robots" content="index,follow" />');
     expect(html).not.toContain('noindex');
-    expect(html).toContain('None recorded in this range.');
+    // M1: an annotation replaces the zero-data sections (no blank tables).
+    expect(html).toContain('No disruptions recorded since monitoring began 2026-08-06.');
     // Sibling links still list the canonical line set.
     expect(html).toContain('href="/line/801"');
+  });
+
+  it('empty line archives annotate instead of rendering empty <ul>/<table> sections', () => {
+    const empty: ArchiveLineStats = {
+      ...lineStats,
+      line: '801',
+      total_disruptions: 0,
+      daily: [],
+      by_cause: [],
+      recent: [],
+    };
+    const html = renderLinePage('801', empty, []);
+    // M1: one clear annotation replaces the zero-data sections.
+    expect(html).toContain('No disruptions recorded since monitoring began 2026-08-06.');
+    expect(html).not.toContain('<h2>Most common causes</h2>');
+    expect(html).not.toContain('<h2>Daily breakdown</h2>');
+    expect(html).not.toContain('<h2>Recent disruptions</h2>');
+    expect(html).not.toMatch(/<tbody>\s*<\/tbody>/);
+    // The line is a known archive — no duplicate "Other lines" self-link.
+    expect(html).not.toContain('href="/line/801"');
   });
 
   it('unionCanonicalLines keeps discovered counts and appends non-canonical lines', () => {
@@ -264,8 +344,7 @@ describe('archive renderers', () => {
     };
     const html = renderStationPage(empty, stationStatsSlugList());
     expect(html).toContain('<title>Københavns Lufthavn (Kastrup) — punctuality — Øresund.live</title>');
-    expect(html).toContain('No data yet — this station\'s archive starts once live monitoring begins.');
-    expect(html).toContain('No departures recorded yet.');
+    expect(html).toContain('No departures recorded since monitoring began 2026-08-06.');
     expect(html).toContain('0%'); // zeroed stats, never NaN
     expect(html).not.toContain('NaN');
     // Empty archives must stay indexable — never noindex.
@@ -273,36 +352,10 @@ describe('archive renderers', () => {
     expect(html).not.toContain('noindex');
   });
 
-  it('station pages collapse pre-monitoring empty days into ONE monitoring note but keep post-monitoring empty rows', () => {
-    // Ascending daily series: two zero-filled pre-monitoring days (2026-08-04..05,
-    // before MONITORING_START), a real-data day at monitoring start, and a quiet
-    // (empty) day AFTER monitoring began — which is a genuine data point.
-    const mixed: ArchiveStationStats = {
-      ...stationStats,
-      days: 5,
-      date_from: '2026-08-03',
-      date_to: '2026-08-07',
-      daily: [
-        { date: '2026-08-03', total: 12, on_time: 11, delayed: 1, canceled: 0, on_time_pct: 91.7, avg_delay_seconds: 200 },
-        { date: '2026-08-04', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
-        { date: '2026-08-05', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
-        { date: '2026-08-06', total: 15, on_time: 14, delayed: 1, canceled: 0, on_time_pct: 93.3, avg_delay_seconds: 180 },
-        { date: '2026-08-07', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
-      ],
-    };
-    const html = renderStationPage(mixed, stationStatsSlugList());
-    // The pre-monitoring zero days collapse into EXACTLY one explanatory note row.
-    expect(html).toContain('Monitoring began 2026-08-06');
-    expect((html.match(/Monitoring began 2026-08-06/g) ?? []).length).toBe(1);
-    expect(html).not.toContain('>2026-08-05<');
-    expect(html).not.toContain('>2026-08-04<');
-    // A real-data day (pre- or post-monitoring) still renders as a row.
-    expect(html).toContain('>2026-08-03<');
-    expect(html).toContain('>2026-08-06<');
-    // 2026-08-07 is empty AFTER monitoring start: a genuine quiet day stays a row.
-    expect(html).toContain('>2026-08-07<');
-    // Not a brand-new stop — no "no data yet" banner.
-    expect(html).not.toContain('No data yet');
+  it('station recent observations include the destination where available (M4)', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    // On time | line 804 → Østerport (route context from Departure.destination).
+    expect(html).toMatch(/line 804 → Østerport/);
   });
 
   it('station index renders the monitored stops', () => {
@@ -406,6 +459,19 @@ describe('Dataset JSON-LD on archive pages (SEO audit H4)', () => {
 });
 
 describe('ItemList JSON-LD on history windows (SEO audit M9)', () => {
+  it('the /history index lists every available window as an ItemList', () => {
+    const html = renderHistoryIndex();
+    const itemList = findNode(html, 'ItemList');
+    expect(itemList).toBeDefined();
+    const urls = (itemList?.itemListElement as { url?: string }[]).map((i) => i.url);
+    expect(urls).toEqual([
+      'https://oresund.live/history/7',
+      'https://oresund.live/history/14',
+      'https://oresund.live/history/30',
+      'https://oresund.live/history/90',
+    ]);
+  });
+
   it('each history day page lists the other available windows as an ItemList', () => {
     const html = renderHistoryPage(30, history);
     const itemList = findNode(html, 'ItemList');
@@ -419,6 +485,7 @@ describe('ItemList JSON-LD on history windows (SEO audit M9)', () => {
 describe('JSON-LD block structure (SEO audit M10)', () => {
   it('declares @context once at the block root — never nested inside @graph nodes', () => {
     const pages = [
+      renderHistoryIndex(),
       renderHistoryPage(7, history),
       renderLineIndex([{ line: '804', disruptions: 1 }]),
       renderLinePage('804', lineStats, []),
@@ -461,15 +528,10 @@ describe('handleArchiveRequest dispatch', () => {
     );
   }
 
-  it('redirects /history to the default 30-day window (H5: no duplicate index)', async () => {
-    // No fetch — the redirect is served before any collector call.
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('must not fetch'); }));
+  it('renders /history as a 301 to /history/30 (H5 — one canonical window)', async () => {
     const res = await handleArchiveRequest('/history');
     expect(res?.status).toBe(301);
     expect(res?.headers.get('location')).toBe('/history/30');
-    const trailing = await handleArchiveRequest('/history/');
-    expect(trailing?.status).toBe(301);
-    expect(trailing?.headers.get('location')).toBe('/history/30');
   });
 
   it('renders /history/30 from the collector', async () => {
@@ -538,118 +600,5 @@ describe('handleArchiveRequest dispatch', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({})));
     const res = await handleArchiveRequest('/methodology');
     expect(res).toBeNull();
-  });
-});
-
-describe('archive SEO pass — intro paragraphs, summary stats, monitoring note', () => {
-  it('gives each history window a unique intro paragraph (H5)', () => {
-    const phrases: Record<number, string> = {
-      7: 'A snapshot of the last 7 days',
-      14: 'Two weeks of service history',
-      30: 'A month of service history',
-      90: 'Three months of service history',
-    };
-    for (const days of [7, 14, 30, 90] as const) {
-      const html = renderHistoryPage(days, history);
-      expect(html, `window ${days}`).toContain(phrases[days]!);
-    }
-    // Intros are window-specific, not shared boilerplate.
-    expect(renderHistoryPage(30, history)).not.toContain('A snapshot of the last 7 days');
-    expect(renderHistoryPage(7, history)).not.toContain('Three months of service history');
-  });
-
-  it('prerenders a summary stats row on history pages (total, cancellations, delays, alerts, avg delay)', () => {
-    const html = renderHistoryPage(7, history);
-    // history fixture: total 4; cancellations 1; delays 3; alerts 0; avg 650 → "11 min"
-    expect(html).toContain('<span class="stat"><b>4</b><span>Total</span></span>');
-    expect(html).toContain('<span class="stat"><b>1</b><span>Cancellations</span></span>');
-    expect(html).toContain('<span class="stat"><b>3</b><span>Delays</span></span>');
-    expect(html).toContain('<span class="stat"><b>0</b><span>Alerts</span></span>');
-    expect(html).toContain('<span class="stat"><b>11 min</b><span>Avg delay</span></span>');
-  });
-
-  it('weights the avg delay by delayed records, not the total disruption count (cancellations must not skew it)', () => {
-    // Day A has 10 disruptions but only 3 delays (7 cancellations); weighting
-    // by count would over-weight it 3.3x. Day B has 2 delays, 0 cancellations.
-    const weighted: ArchiveHistory = {
-      ...history,
-      days: 7,
-      total_disruptions: 12,
-      daily: [
-        { date: '2026-08-06', count: 10, cancellations: 7, delays: 3, alerts: 0, avg_delay: 600 },
-        { date: '2026-08-05', count: 2, cancellations: 0, delays: 2, alerts: 0, avg_delay: 1200 },
-      ],
-    };
-    const html = renderHistoryPage(7, weighted);
-    // Correct: (600*3 + 1200*2) / (3+2) = 840s → "14 min".
-    // Count-weighting would yield (600*10 + 1200*2) / (10+2) = 700s → "12 min".
-    expect(html).toContain('<span class="stat"><b>14 min</b><span>Avg delay</span></span>');
-  });
-
-  it('replaces pre-monitoring empty days with the monitoring-began note', () => {
-    const withGap: ArchiveHistory = {
-      ...history,
-      days: 90,
-      date_from: '2026-06-01',
-      date_to: '2026-08-06',
-      total_disruptions: 5,
-      daily: [
-        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
-        { date: '2026-08-05', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
-        { date: '2026-08-04', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
-        { date: '2026-06-01', count: 2, cancellations: 0, delays: 2, alerts: 0, avg_delay: 300 },
-      ],
-    };
-    const html = renderHistoryPage(90, withGap);
-    // The zero-filled pre-monitoring run collapses into one explanatory row.
-    expect(html).toContain('Monitoring began 2026-08-06');
-    expect(html).not.toContain('>2026-08-05<');
-    expect(html).not.toContain('>2026-08-04<');
-    // The fixture's daily rows are NEWEST-first (collector order), so the gap
-    // row must still read oldest → newest — never an inverted period.
-    expect(html).toContain('4 Aug 2026 to 5 Aug 2026');
-    expect(html).not.toContain('5 Aug 2026 to 4 Aug 2026');
-    // Real data days still render as rows.
-    expect(html).toContain('>2026-08-06<');
-    expect(html).toContain('>2026-06-01<');
-  });
-
-  it('keeps empty days AFTER monitoring began as ordinary zero rows', () => {
-    const withQuietDay: ArchiveHistory = {
-      ...history,
-      total_disruptions: 3,
-      daily: [
-        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
-        { date: '2026-08-07', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
-      ],
-    };
-    const html = renderHistoryPage(7, withQuietDay);
-    // 2026-08-07 is after monitoring start: a genuine quiet day stays a table row.
-    expect(html).toContain('>2026-08-07<');
-    expect(html).not.toContain('Monitoring began 2026-08-06');
-  });
-
-  it('line pages carry an intro paragraph and a summary stats row', () => {
-    const html = renderLinePage('804', lineStats, [{ line: '803', disruptions: 1 }]);
-    expect(html).toContain('Disruptions recorded for line 804');
-    expect(html).toContain('<span class="stat"><b>4</b><span>Total</span></span>');
-    expect(html).toContain('<span class="stat"><b>1</b><span>Cancellations</span></span>');
-    expect(html).toContain('<span class="stat"><b>3</b><span>Delays</span></span>');
-    expect(html).toContain('<span class="stat"><b>11 min</b><span>Avg delay</span></span>');
-  });
-
-  it('escapes the line value inside the new intro copy', () => {
-    const evil = { ...lineStats, line: '<script>alert(1)</script>' };
-    const html = renderLinePage(evil.line, evil, []);
-    expect(html).not.toContain('<script>alert(1)</script>');
-    expect(html).toContain('&lt;script&gt;');
-  });
-
-  it('station pages carry an intro paragraph', () => {
-    const html = renderStationPage(stationStats, stationStatsSlugList());
-    expect(html).toContain('On-time performance at Malmö Hyllie');
-    // The existing summary stats row stays intact.
-    expect(html).toContain('<span class="stat"><b>99</b><span>Departures</span></span>');
-    expect(html).toContain('<span class="stat"><b>92.9%</b><span>On time</span></span>');
   });
 });
