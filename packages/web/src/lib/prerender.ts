@@ -62,7 +62,7 @@ export function renderLocalizedHome(shell: string, lang: Lang, meta: PageMeta, h
   // verbatim — swap in the localized tagline (en keeps the shell text).
   if (lang !== 'en') {
     const lead = translate('lead_tagline', lang);
-    html = html.replace(/<h2 class="lead">[\s\S]*?<\/h2>/, () => `<h2 class="lead">${lead}</h2>`);
+    html = html.replace(/<h1 class="lead">[\s\S]*?<\/h1>/, () => `<h1 class="lead">${lead}</h1>`);
   }
   return html;
 }
