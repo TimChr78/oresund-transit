@@ -92,4 +92,41 @@ describe('buildSitemap', () => {
     expect(xml).toContain('hreflang="sv" href="https://oresund.live/sv/"');
     expect(xml).toContain('hreflang="da" href="https://oresund.live/da/"');
   });
+
+  it('no <url> entry is bare — every archive URL carries self-referencing en + x-default alternates', () => {
+    const xml = buildSitemap([{ line: '7085', disruptions: 3 }], [
+      { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
+      { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
+    ]);
+    // Strict: EVERY <url> block (static or archive) must carry at least one
+    // xhtml:link alternate — archives have no sv/da twins, so their minimum
+    // is the self-referencing en + x-default pair.
+    const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)]
+      .map((m) => m[1])
+      .filter((v): v is string => v !== undefined);
+    expect(entries.length).toBeGreaterThan(0);
+    for (const entry of entries) {
+      expect(entry, entry).toMatch(/<xhtml:link rel="alternate" hreflang="[^"]+" href="[^"]+" \/>/);
+    }
+
+    // Archive alternates point at the archive URL itself (no /sv/ /da/ twins).
+    const archiveUrls = [
+      'https://oresund.live/history',
+      'https://oresund.live/history/7',
+      'https://oresund.live/history/30',
+      'https://oresund.live/history/90',
+      'https://oresund.live/line',
+      'https://oresund.live/line/7085',
+      'https://oresund.live/station',
+      'https://oresund.live/station/hyllie',
+      'https://oresund.live/station/kastrup',
+    ];
+    for (const url of archiveUrls) {
+      const entry = entries.find((e) => e.includes(`<loc>${url}</loc>`));
+      expect(entry, url).toBeDefined();
+      const block = entry!;
+      expect(block, url).toContain(`<xhtml:link rel="alternate" hreflang="en" href="${url}" />`);
+      expect(block, url).toContain(`<xhtml:link rel="alternate" hreflang="x-default" href="${url}" />`);
+    }
+  });
 });
