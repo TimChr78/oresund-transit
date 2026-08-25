@@ -14,7 +14,6 @@
 import type { Disruption, Departure } from '@oresund/shared';
 import { translate } from '../i18n';
 import { esc } from './html';
-import { translate } from '../i18n';
 import type { Key } from '../i18n';
 
 export const SITE_URL = 'https://oresund.live';
