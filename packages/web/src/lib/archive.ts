@@ -12,6 +12,7 @@
  * /privacy).
  */
 import type { Disruption, Departure } from '@oresund/shared';
+import { translate } from '../i18n';
 import { esc } from './html';
 
 export const SITE_URL = 'https://oresund.live';
@@ -177,7 +178,15 @@ function pageShell({ title, description, canonical, jsonLd, body }: ShellOpts): 
     <meta property="og:title" content="${attr(title)}" />
     <meta property="og:description" content="${attr(description)}" />
     <meta property="og:url" content="${attr(canonical)}" />
-    <meta property="og:site_name" content="Øresund.live" />`;
+    <meta property="og:site_name" content="Øresund.live" />
+    <meta property="og:image" content="https://oresund.live/og-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Øresund.live — Øresundståg departures across the Sound" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${attr(title)}" />
+    <meta name="twitter:description" content="${attr(description)}" />
+    <meta name="twitter:image" content="https://oresund.live/og-card.png" />`;
   const jsonLdBlock = jsonLd === undefined ? '' : `\n    <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`;
   // These routes exist as one URL per page — no /sv/ /da/ twins exist for the
   // archives (language switching on the board is client-side), so each page
@@ -635,7 +644,8 @@ ${(stats.recent.length ? stats.recent : []).map(departureListItem).join('\n') ||
 ${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href="/station/${encodeURIComponent(s.slug)}">${esc(s.stop_name)}</a></li>`).join('\n')}
     </ul>`;
   return pageShell({
-    title: `${stats.stop_name} — punctuality archive — Øresund.live`,
+    // i18n title template — keeps even the longest stop name ≤ 60 chars (L3).
+    title: translate('station_archive_title', 'en', { name: stats.stop_name }),
     description,
     canonical: `${SITE_URL}/station/${stats.slug}`,
     jsonLd: {

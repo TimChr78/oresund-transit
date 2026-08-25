@@ -9,7 +9,8 @@
  *
  * Pure function — no I/O — so it is trivially testable.
  */
-import { SITE_URL, DAY_RANGES, unionCanonicalLines, type ArchiveLine, type ArchiveStation } from './archive';
+import { SITE_URL, DAY_RANGES, unionCanonicalLines, CANONICAL_LINES, type ArchiveLine, type ArchiveStation } from './archive';
+import { META } from './seo';
 
 /** changefreq hints — archives are stable enough for daily crawls. */
 const ARCHIVE_CHANGEFREQ = 'daily';
@@ -93,5 +94,65 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): 
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${locs.join('\n')}
 </urlset>
+`;
+}
+
+/**
+ * The monitored stops, as a STATIC set for build-time artifacts (llms.txt
+ * only — the sitemap keeps discovering stations from the collector at request
+ * time). /station/{slug} pages exist for exactly these slugs; mirror of the
+ * collector's MONITORED_STOPS (packages/collector/src/index.ts).
+ */
+const STATIC_STATIONS: readonly ArchiveStation[] = [
+  { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
+  { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
+  { slug: 'malmo-c', stop_id: '740000003', stop_name: 'Malmö C' },
+  { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
+];
+
+/**
+ * Build-time /llms.txt — the LLM-readable site index (llmstxt.org), generated
+ * during `vite build` from the same route data as the sitemap: the site
+ * title, a one-paragraph description and the grouped page list (Live status,
+ * Archives per line/station, History windows, Methodology, Privacy).
+ *
+ * Unlike the sitemap (request-time, collector-discovered) this is a static
+ * snapshot: lines come from CANONICAL_LINES and stations from STATIC_STATIONS,
+ * so the file never depends on the collector being up at build time. Relative
+ * URLs are used per the llmstxt.org spec. Emitted to dist/llms.txt by
+ * scripts/generate-llms.ts.
+ */
+export function buildLlmsTxt(): string {
+  const lines = CANONICAL_LINES.map((l) => `- [Line ${l}](/line/${encodeURIComponent(l)})`).join('\n');
+  const stations = STATIC_STATIONS.map((s) => `- [${s.stop_name}](/station/${encodeURIComponent(s.slug)})`).join('\n');
+  const windows = DAY_RANGES.map((d) => `- [Last ${d} days](/history/${d})`).join('\n');
+
+  return `# Øresund.live
+
+> ${META.dashboard.en.description}
+
+## Live status
+
+- [Live departure board](/): delays, cancellations and alerts for Øresundståg departures across the Sound
+
+## Archives per line/station
+
+- [Line archives](/line): historical disruptions per line
+${lines}
+- [Station archives](/station): historical punctuality per station
+${stations}
+
+## History windows
+
+- [Disruption history](/history): daily disruption totals
+${windows}
+
+## Methodology
+
+- [Methodology](/methodology): how every metric on the dashboard is defined
+
+## Privacy
+
+- [Privacy](/privacy): what the site stores — language choice, cookieless analytics, no personal data
 `;
 }
