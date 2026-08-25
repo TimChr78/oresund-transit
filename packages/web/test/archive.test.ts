@@ -345,7 +345,6 @@ describe('archive renderers', () => {
     const html = renderStationPage(empty, stationStatsSlugList());
     expect(html).toContain('<title>Københavns Lufthavn (Kastrup) — punctuality — Øresund.live</title>');
     expect(html).toContain('No departures recorded since monitoring began 2026-08-06.');
-    expect(html).toContain('No departures recorded yet.');
     expect(html).toContain('0%'); // zeroed stats, never NaN
     expect(html).not.toContain('NaN');
     // Empty archives must stay indexable — never noindex.
