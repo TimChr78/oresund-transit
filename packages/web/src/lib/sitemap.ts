@@ -34,12 +34,28 @@ function hreflangLinks(basePath: string): string {
   return cluster.map(([h, href]) => `    <xhtml:link rel="alternate" hreflang="${h}" href="${href}" />`).join('\n');
 }
 
+/**
+ * The minimal xhtml:link alternate set for an archive URL. Archive routes
+ * exist as one URL per page (no sv/da twins — localized variants only exist
+ * for the static pages, and the board switches language client-side), so each
+ * announces itself via en + a self-referencing x-default, same as the HTML
+ * <head> emission (seo.hreflangSelf).
+ */
+function archiveAlternateLinks(url: string): string {
+  return [
+    `    <xhtml:link rel="alternate" hreflang="en" href="${url}" />`,
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${url}" />`,
+  ].join('\n');
+}
+
 export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): string {
   const locs: string[] = [];
   const allLines = unionCanonicalLines(lines);
 
-  const add = (url: string, changefreq: string): void => {
-    locs.push(`  <url><loc>${url}</loc><changefreq>${changefreq}</changefreq></url>`);
+  const add = (url: string, changefreq: string, alternates?: string): void => {
+    locs.push(
+      `  <url><loc>${url}</loc><changefreq>${changefreq}</changefreq>${alternates ? `\n${alternates}` : ''}</url>`,
+    );
   };
 
   // Static pages: one <url> per language, each carrying the full hreflang
@@ -55,14 +71,23 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): 
   addStatic('/methodology', STATIC_CHANGEFREQ.page);
   addStatic('/privacy', STATIC_CHANGEFREQ.page);
 
-  add(`${SITE_URL}/history`, ARCHIVE_CHANGEFREQ);
-  for (const d of DAY_RANGES) add(`${SITE_URL}/history/${d}`, ARCHIVE_CHANGEFREQ);
+  add(`${SITE_URL}/history`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/history`));
+  for (const d of DAY_RANGES) {
+    const url = `${SITE_URL}/history/${d}`;
+    add(url, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(url));
+  }
 
-  add(`${SITE_URL}/line`, ARCHIVE_CHANGEFREQ);
-  for (const l of allLines) add(`${SITE_URL}/line/${encodeURIComponent(l.line)}`, ARCHIVE_CHANGEFREQ);
+  add(`${SITE_URL}/line`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/line`));
+  for (const l of allLines) {
+    const url = `${SITE_URL}/line/${encodeURIComponent(l.line)}`;
+    add(url, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(url));
+  }
 
-  add(`${SITE_URL}/station`, ARCHIVE_CHANGEFREQ);
-  for (const s of stations) add(`${SITE_URL}/station/${encodeURIComponent(s.slug)}`, ARCHIVE_CHANGEFREQ);
+  add(`${SITE_URL}/station`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/station`));
+  for (const s of stations) {
+    const url = `${SITE_URL}/station/${encodeURIComponent(s.slug)}`;
+    add(url, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(url));
+  }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
