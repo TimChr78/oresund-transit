@@ -173,7 +173,6 @@ function hreflangSelf(url: string): string {
  * attribution.
  */
 function pageShell({ title, description, canonical, jsonLd, body }: ShellOpts): string {
-  const ogImage = `${SITE_URL}/og-card.png`;
   const ogTags = `
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${attr(title)}" />
