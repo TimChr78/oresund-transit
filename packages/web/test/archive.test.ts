@@ -388,7 +388,10 @@ describe('archive renderers', () => {
       ],
       recent: [],
     };
-    const title = translate('station_archive_title', 'en', { name: kastrup.stop_name });
+    // The renderer strips the parenthetical qualifier for <title> (SERP-safe,
+    // audit2 H1), so build the expected title the same way.
+    const titleName = kastrup.stop_name.replace(/\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ').trim();
+    const title = translate('station_archive_title', 'en', { name: titleName });
     expect(title.length).toBeLessThanOrEqual(60);
     // And it renders verbatim into the page <title>.
     const html = renderStationPage(kastrup, stationStatsSlugList());
