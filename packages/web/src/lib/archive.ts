@@ -594,7 +594,7 @@ function disruptionListItem(d: Disruption): string {
  * collector's own stop_name.
  */
 function stationName(station: ArchiveStation, lang: Lang = 'en'): string {
-  const key = `station_${station.slug}` as Key;
+  const key = `station_${station.slug.replaceAll("-", "_")}` as Key;
   return key in getDict(lang) ? translate(key, lang) : station.stop_name;
 }
 

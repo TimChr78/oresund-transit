@@ -77,23 +77,20 @@ export async function onRequest(context) {
 
   let res;
   try {
-    const [linesRes, stationsRes, historyRes] = await Promise.all([
+    // history is isolated in its own settled lane: a rejection there only
+    // costs the archive <lastmod> date, never the line/station URLs.
+    const [linesRes, stationsRes, historySettled] = await Promise.all([
       fetch(`${COLLECTOR_BASE}/lines`, { signal: AbortSignal.timeout(10_000) }),
       fetch(`${COLLECTOR_BASE}/stations`, { signal: AbortSignal.timeout(10_000) }),
-      // Only used for the archive <lastmod> — a failure here must not drop
-      // the archive URLs the way a lines/stations failure does.
-      fetch(`${COLLECTOR_BASE}/history?days=7`, { signal: AbortSignal.timeout(10_000) }),
+      fetch(`${COLLECTOR_BASE}/history?days=7`, { signal: AbortSignal.timeout(10_000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
     ]);
     if (!linesRes.ok || !stationsRes.ok) {
       throw new Error('collector non-2xx');
     }
     const [linesJson, stationsJson] = await Promise.all([linesRes.json(), stationsRes.json()]);
-    let dataDate;
-    try {
-      if (historyRes.ok) dataDate = (await historyRes.json())?.date_to;
-    } catch {
-      // Unusable history payload — the archive URLs fall back to `fallback`.
-    }
+    const dataDate = historySettled?.date_to;
     const lastmod = { deployed: fallback, data: typeof dataDate === 'string' ? dataDate : fallback };
     res = buildSitemap(parseLines(linesJson), parseStations(stationsJson), lastmod);
   } catch {

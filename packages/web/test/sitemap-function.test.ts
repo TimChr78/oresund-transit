@@ -81,4 +81,27 @@ describe('functions/sitemap.xml.js', () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('');
   });
+
+  it('keeps line + station URLs when only the history fetch rejects (network error)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/api/transit/lines')) return jsonResponse({ lines: [{ line: '804', disruptions: 2 }] });
+        if (url.includes('/api/transit/stations')) return jsonResponse({ stations: [{ slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' }] });
+        if (url.includes('/api/transit/history')) throw new TypeError('fetch failed');
+        throw new Error(`no stub for ${url}`);
+      }),
+    );
+    const res = await onRequest({ request: new Request('https://oresund.live/sitemap.xml'), env: {} });
+    expect(res.status).toBe(200);
+    const xml = await res.text();
+    // Lines and stations survive the history rejection...
+    expect(xml).toContain('https://oresund.live/line/804');
+    expect(xml).toContain('https://oresund.live/station/kastrup');
+    // ...with lastmod present (fallback date), and every entry still carries one.
+    expect(xml).toContain('<lastmod>');
+    for (const entry of [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!)) {
+      expect(entry, entry).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
+    }
+  });
 });

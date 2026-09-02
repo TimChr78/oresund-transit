@@ -67,9 +67,12 @@ function render(size: number, rounded: boolean): Uint8Array {
       }
       const n = SAMPLES * SAMPLES;
       const i = (y * size + x) * 4;
-      rgba[i] = Math.round(r / n);
-      rgba[i + 1] = Math.round(g / n);
-      rgba[i + 2] = Math.round(b / n);
+      // Straight-alpha: divide RGB by covered (not total samples) so edge
+      // pixels without double-apply coverage on composite (no dark fringe).
+      const divisor = covered || 1;
+      rgba[i] = Math.round(r / divisor);
+      rgba[i + 1] = Math.round(g / divisor);
+      rgba[i + 2] = Math.round(b / divisor);
       rgba[i + 3] = Math.round((covered / n) * 255);
     }
   }
