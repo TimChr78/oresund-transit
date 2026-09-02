@@ -222,6 +222,13 @@ export interface Dict {
   line_archive_href: string;
   line_no_disruptions_note: string;
   station_no_data_note: string;
+
+  // Station display names (audit3 M4) — keyed by the collector slug. A stop
+  // name is a user-visible string, so it translates like any other.
+  station_hyllie: string;
+  station_kobenhavn_h: string;
+  station_malmo_c: string;
+  station_kastrup: string;
 }
 
 /** Union of every translation key. */

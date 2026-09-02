@@ -229,4 +229,12 @@ export const en: Dict = {
   line_archive_href: 'Line {line} delays & history',
   line_no_disruptions_note: 'No disruptions recorded since monitoring began 2026-08-06.',
   station_no_data_note: 'No departures recorded since monitoring began 2026-08-06.',
+
+  // Station display names (audit3 M4) — keyed by the collector slug. The en
+  // forms mirror the collector's stop_name verbatim (archive.ts falls back to
+  // it for slugs the dictionaries do not know yet).
+  station_hyllie: 'Malmö Hyllie',
+  station_kobenhavn_h: 'København H',
+  station_malmo_c: 'Malmö C',
+  station_kastrup: 'Københavns Lufthavn (Kastrup)',
 };

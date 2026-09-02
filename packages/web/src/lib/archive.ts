@@ -12,7 +12,7 @@
  * /privacy).
  */
 import type { Disruption, Departure } from '@oresund/shared';
-import { translate } from '../i18n';
+import { getDict, translate, type Key, type Lang } from '../i18n';
 import { esc } from './html';
 
 export const SITE_URL = 'https://oresund.live';
@@ -370,12 +370,18 @@ function directionLabel(direction: string | null): string {
   return '';
 }
 
+/** Placeholder for a metric a zero-data day cannot have (audit3 M1). */
+const NO_DATA_MARK = '—';
+
 function dailyTable(rows: ArchiveHistory['daily']): string {
   const head =
     '<thead><tr><th>Date</th><th>Total</th><th>Cancellations</th><th>Delays</th><th>Alerts</th><th>Avg delay</th></tr></thead>';
   const body = rows
     .map((r) => {
-      const cells = [r.date, r.count, r.cancellations, r.delays, r.alerts, fmtDelay(r.avg_delay)]
+      // M1: a day with no recorded disruptions has no average to report —
+      // the collector zero-fills the window, so "0 min" would read as a
+      // measured (perfect) day rather than an unobserved one.
+      const cells = [r.date, r.count, r.cancellations, r.delays, r.alerts, r.count === 0 ? NO_DATA_MARK : fmtDelay(r.avg_delay)]
         .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(typeof v === 'number' ? String(v) : v)}</td>`)
         .join('');
       return `<tr>${cells}</tr>`;
@@ -580,6 +586,18 @@ function disruptionListItem(d: Disruption): string {
   return `      <li>${esc(type)} on line ${esc(d.line ?? 'unknown')}${dir ? ` ${esc(dir)}` : ''}${when}</li>`;
 }
 
+/**
+ * Display name for a monitored stop (audit3 M4). A station name is a
+ * user-visible string, so it lives in the dictionary (keyed by the collector
+ * slug) and translates like any other. Slugs the dictionaries do not know yet
+ * — a newly monitored stop discovered from the collector — fall back to the
+ * collector's own stop_name.
+ */
+function stationName(station: ArchiveStation, lang: Lang = 'en'): string {
+  const key = `station_${station.slug.replaceAll("-", "_")}` as Key;
+  return key in getDict(lang) ? translate(key, lang) : station.stop_name;
+}
+
 /** /station — index of the per-station archives. */
 export function renderStationIndex(stations: ArchiveStation[]): string {
   const description = 'Per-station punctuality archives for the Øresund crossing — on-time performance, cancellations and delays at every monitored stop.';
@@ -589,7 +607,7 @@ export function renderStationIndex(stations: ArchiveStation[]): string {
     <p class="sub">Historical on-time performance for each monitored stop on the Øresund crossing. ${esc(translate('archive_attribution', 'en'))}.</p>
     <p class="intro">${esc(translate('hub_station_intro', 'en'))}</p>
     <div class="cards">
-${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent(s.slug)}"><span class="lbl">Station</span><span class="num">${esc(s.stop_name)}</span></a>`).join('\n')}
+${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent(s.slug)}"><span class="lbl">Station</span><span class="num">${esc(stationName(s))}</span></a>`).join('\n')}
     </div>`;
   return pageShell({
     title: 'Station archives — Øresund.live',
@@ -605,8 +623,8 @@ ${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent
           itemListElement: stations.map((s, i) => ({
             '@type': 'ListItem',
             position: i + 1,
-            name: s.stop_name,
-            url: `${SITE_URL}/station/${s.slug}`,
+            name: stationName(s),
+            url: `${SITE_URL}/station/${encodeURIComponent(s.slug)}`,
           })),
         },
         siteIdentity,
@@ -624,20 +642,29 @@ export function renderStationPage(stats: ArchiveStationStats, allStations: Archi
   // empty-archive pattern: keep it indexable with graceful "no data yet"
   // copy.
   const empty = stats.total_departures === 0;
+  // M4: the display name comes from the dictionary (see stationName), so the
+  // page never renders the collector's untranslated literal by accident.
+  const name = stationName(stats);
   const description = empty
-    ? `Punctuality history for ${stats.stop_name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.`
-    : `Punctuality history for ${stats.stop_name} on the Øresund crossing — ${stats.total_departures} departures, ${stats.on_time_pct}% on time over the last ${stats.days} days.`;
+    ? `Punctuality history for ${name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.`
+    : `Punctuality history for ${name} on the Øresund crossing — ${stats.total_departures} departures, ${stats.on_time_pct}% on time over the last ${stats.days} days.`;
   const dailyRows = stats.daily
     .map((r) => {
-      const cells = [r.date, r.total, r.on_time, r.delayed, r.canceled, `${r.on_time_pct}%`, fmtDelay(r.avg_delay_seconds)]
+      // M1: zero-data days (before monitoring started, or a stop with no
+      // recorded traffic) have no on-time share or average delay — the
+      // collector zero-fills the window, so rendering the raw 0/0% would
+      // read as a catastrophic all-delayed service day.
+      const pct = r.total === 0 ? NO_DATA_MARK : `${r.on_time_pct}%`;
+      const avg = r.total === 0 ? NO_DATA_MARK : fmtDelay(r.avg_delay_seconds);
+      const cells = [r.date, r.total, r.on_time, r.delayed, r.canceled, pct, avg]
         .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(typeof v === 'number' ? String(v) : v)}</td>`)
         .join('');
       return `<tr>${cells}</tr>`;
     })
     .join('');
   const body = `
-    <p class="crumb"><a href="/">Øresund.live</a> › <a href="/station">Stations</a> › ${esc(stats.stop_name)}</p>
-    <h1>${esc(stats.stop_name)} — punctuality archive</h1>
+    <p class="crumb"><a href="/">Øresund.live</a> › <a href="/station">Stations</a> › ${esc(name)}</p>
+    <h1>${esc(name)} — punctuality archive</h1>
     <p class="sub">Observed departures over the last ${stats.days} days (${fmtDate(stats.date_from)}–${fmtDate(stats.date_to)}). ${esc(translate('archive_attribution', 'en'))}.</p>
 ${
     empty
@@ -664,29 +691,33 @@ ${(stats.recent.length ? stats.recent : []).map(departureListItem).join('\n') ||
   }
     <h2>Other stations</h2>
     <ul class="plain">
-${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href="/station/${encodeURIComponent(s.slug)}">${esc(s.stop_name)}</a></li>`).join('\n')}
+${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href="/station/${encodeURIComponent(s.slug)}">${esc(stationName(s))}</a></li>`).join('\n')}
     </ul>`;
   // SERP-safe short name for <title> only: strip parenthetical qualifiers
   // ('Københavns Lufthavn (Kastrup)' -> 'Københavns Lufthavn') so even the
   // longest stop name stays ≤ 60 chars after the i18n template. H1/body keep
   // the official display name.
-  const titleName = stats.stop_name.replace(
-    /\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ').trim() || stats.stop_name;
+  const titleName = name.replace(
+    /\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ').trim() || name;
+  // M6: the slug is URL-encoded everywhere else the station URL is emitted
+  // (index cards, sibling links, /line pages, the sitemap), so the canonical —
+  // and the JSON-LD URLs that mirror it — must be encoded the same way.
+  const stationUrl = `${SITE_URL}/station/${encodeURIComponent(stats.slug)}`;
   return pageShell({
     title: translate('station_archive_title', 'en', { name: titleName }),
     description,
-    canonical: `${SITE_URL}/station/${stats.slug}`,
+    canonical: stationUrl,
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
         breadcrumb([
           { name: 'Stations', url: `${SITE_URL}/station` },
-          { name: stats.stop_name, url: `${SITE_URL}/station/${stats.slug}` },
+          { name, url: stationUrl },
         ]),
         dataset({
-          name: `${stats.stop_name} punctuality archive`,
+          name: `${name} punctuality archive`,
           description,
-          pageUrl: `${SITE_URL}/station/${stats.slug}`,
+          pageUrl: stationUrl,
           dateFrom: stats.date_from,
           dateTo: stats.date_to,
           // Punctuality only ever comes from live Trafiklab departures (no KoDa backfill).

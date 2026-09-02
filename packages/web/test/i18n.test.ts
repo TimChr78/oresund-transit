@@ -158,4 +158,26 @@ describe('i18n dictionaries', () => {
     // The line href interpolation carries route context (M4).
     expect(translate('line_archive_href', 'en', { line: '801' })).toBe('Line 801 delays & history');
   });
+
+  it('names every monitored station in all three languages (audit3 M4)', () => {
+    const stationKeys = [
+      'station_hyllie',
+      'station_kobenhavn_h',
+      'station_malmo_c',
+      'station_kastrup',
+    ] as Key[];
+    for (const lang of ALL_LANGS) {
+      for (const key of stationKeys) {
+        expect(DICTS[lang][key].trim().length, `${lang}.${key} is empty`).toBeGreaterThan(0);
+      }
+    }
+    // en mirrors the collector's stop_name verbatim — the archive renderers
+    // fall back to it only for slugs the dictionaries do not know yet.
+    expect(translate('station_kastrup', 'en')).toBe('Københavns Lufthavn (Kastrup)');
+    // sv/da use the natural local forms, consistent with the existing copy.
+    expect(translate('station_kobenhavn_h', 'sv')).toBe('Köpenhamn H');
+    expect(translate('station_kastrup', 'sv')).toBe('Kastrup flygplats');
+    expect(translate('station_kobenhavn_h', 'da')).toBe('København H');
+    expect(translate('station_kastrup', 'da')).toBe('Kastrup Lufthavn');
+  });
 });
