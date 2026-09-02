@@ -84,13 +84,24 @@ export const META: Record<Route, Record<Lang, PageMeta>> = {
 };
 
 /**
+ * Relative path of a page in a language: en is served without a language
+ * prefix, sv/da live under /sv and /da. `path` is the en canonical path, e.g.
+ * '/station/hyllie'. The relative counterpart of localizedUrl — used by
+ * internal links (the station picker), while canonical/hreflang/og:url use the
+ * absolute form.
+ */
+export function localizedPath(path: string, lang: Lang): string {
+  const prefix = lang === 'en' ? '' : `/${lang}`;
+  return `${prefix}${path}`;
+}
+
+/**
  * Absolute URL of a static page's canonical path in a language. `path` is the
  * en (unprefixed) canonical path, e.g. '/' or '/methodology'; en is served
  * without a language prefix, sv/da live under /sv and /da.
  */
 export function localizedUrl(path: string, lang: Lang): string {
-  const prefix = lang === 'en' ? '' : `/${lang}`;
-  return `${SITE_URL}${prefix}${path}`;
+  return `${SITE_URL}${localizedPath(path, lang)}`;
 }
 
 /**

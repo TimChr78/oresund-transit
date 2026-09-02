@@ -129,6 +129,29 @@ body::after {
   letter-spacing: 0.12em;
   white-space: nowrap;
 }
+/* Station picker (audit3 C1): the four monitored stations as plain links,
+   under the topbar. The same links ship in #static-shell (index.html) so
+   crawlers and no-JS visitors see them too — this is navigation between real
+   pages, not client-side state. */
+.station-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 7px;
+  font-size: 12px;
+  margin: 0 2px 12px;
+}
+.station-nav a {
+  color: var(--dim);
+  text-decoration: none;
+}
+.station-nav a:hover {
+  color: var(--green);
+  text-decoration: underline;
+}
+.station-nav .sep {
+  color: var(--faint);
+}
 .lead {
   font-family: var(--font-display);
   font-size: 14px;
@@ -422,6 +445,18 @@ body::after {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 14px;
+}
+/* The physical train's number (audit3 H2), a muted token after the line so the
+   column count stays phone-sized. Repeats across consecutive slots — that is
+   the point: it is the same train. */
+.train-no {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--faint);
+  letter-spacing: 0.03em;
+  margin-left: 5px;
+  white-space: nowrap;
 }
 .board-table td.reason {
   max-width: 260px;
@@ -1276,6 +1311,14 @@ body::after {
 /* -------------------------------------------------------------- desktop */
 
 @media (max-width: 719px) {
+  /* The scope label names all four monitored stations (audit3 C1), so let the
+     topbar wrap instead of pushing the label off-screen on a narrow phone. */
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .board-label {
+    white-space: normal;
+  }
   /* subtle edge-fade affordance on the horizontally scrolling table */
   .table-wrap {
     position: relative;

@@ -204,3 +204,50 @@ describe('i18n dictionaries', () => {
     expect(translate('station_kastrup', 'da')).toBe('Kastrup Lufthavn');
   });
 });
+
+describe('station-page keys (audit3 C1/M4)', () => {
+  const stationKeys = [
+    'station_h1',
+    'station_sub',
+    'station_desc',
+    'station_desc_empty',
+    'station_daily_heading',
+    'station_other_heading',
+    'station_live_heading',
+    'station_live_intro',
+    'station_departures_heading',
+    'station_observed_note',
+    'station_col_destination',
+    'station_nav_label',
+    'nav_stations',
+    'nav_board',
+    'th_date',
+    'th_status',
+    'th_train',
+    'th_on_time_pct',
+    'th_canceled',
+  ] as Key[];
+
+  it('provides every station-page key in all languages', () => {
+    for (const lang of ALL_LANGS) {
+      for (const key of stationKeys) {
+        expect(DICTS[lang][key].trim().length, `${lang}.${key} is empty`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('translates the monitored stop names per language (M4)', () => {
+    expect(translate('station_hyllie', 'sv')).toBe('Malmö Hyllie');
+    expect(translate('station_kobenhavn_h', 'sv')).toBe('Köpenhamn H');
+    expect(translate('station_kobenhavn_h', 'da')).toBe('København H');
+    expect(translate('station_kastrup', 'sv')).toBe('Kastrup flygplats');
+    expect(translate('station_kastrup', 'da')).toBe('Kastrup Lufthavn');
+  });
+
+  it('interpolates the station meta description', () => {
+    expect(translate('station_desc', 'en', { name: 'Malmö Hyllie', n: 99, pct: 92.9, days: 30 })).toBe(
+      'Punctuality history for Malmö Hyllie on the Øresund crossing — 99 departures, 92.9% on time over the last 30 days.',
+    );
+    expect(translate('station_desc', 'sv', { name: 'Hyllie', n: 10, pct: 90, days: 7 })).toContain('10 avgångar, 90% i tid');
+  });
+});

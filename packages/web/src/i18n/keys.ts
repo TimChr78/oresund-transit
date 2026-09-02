@@ -46,6 +46,13 @@ export interface Dict {
   th_delay: string;
   th_direction: string;
   th_reason: string;
+  // Station-page table headers (audit3 C1/H2) — the archive daily table and
+  // the latest-observed-departures table.
+  th_date: string;
+  th_status: string;
+  th_train: string;
+  th_on_time_pct: string;
+  th_canceled: string;
   // Disruption types
   type_delay: string;
   type_cancellation: string;
@@ -192,6 +199,24 @@ export interface Dict {
   // Archive page titles (station archives — template must keep rendered
   // <title> ≤ 60 chars even for the longest monitored stop name)
   station_archive_title: string;
+  // Station pages (audit3 C1) — the per-station page is localized in all three
+  // languages, so every string it renders lives here: heading, sub-line, meta
+  // description, the daily-archive table and the live section (corridor status
+  // band + latest observed departures).
+  station_h1: string;
+  station_sub: string;
+  station_desc: string;
+  station_desc_empty: string;
+  station_daily_heading: string;
+  station_other_heading: string;
+  station_live_heading: string;
+  station_live_intro: string;
+  station_departures_heading: string;
+  station_observed_note: string;
+  station_col_destination: string;
+  nav_stations: string;
+  nav_board: string;
+  station_nav_label: string;
   // Footer
   footer_attribution: string;
   footer_disclaimer: string;

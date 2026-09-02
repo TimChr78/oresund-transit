@@ -156,3 +156,32 @@ describe('buildSitemap', () => {
     }
   });
 });
+
+describe('localized station URLs (audit3 C1)', () => {
+  it('emits en + sv + da for every station, each carrying the full hreflang cluster', () => {
+    const xml = buildSitemap([], [
+      { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
+    ], LASTMOD);
+    for (const url of [
+      'https://oresund.live/station/hyllie',
+      'https://oresund.live/sv/station/hyllie',
+      'https://oresund.live/da/station/hyllie',
+    ]) {
+      const entry = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!).find((e) => e.includes(`<loc>${url}</loc>`));
+      expect(entry, url).toBeDefined();
+      expect(entry!, url).toContain('<xhtml:link rel="alternate" hreflang="en" href="https://oresund.live/station/hyllie" />');
+      expect(entry!, url).toContain('<xhtml:link rel="alternate" hreflang="sv" href="https://oresund.live/sv/station/hyllie" />');
+      expect(entry!, url).toContain('<xhtml:link rel="alternate" hreflang="da" href="https://oresund.live/da/station/hyllie" />');
+      expect(entry!, url).toContain('<xhtml:link rel="alternate" hreflang="x-default" href="https://oresund.live/station/hyllie" />');
+    }
+  });
+
+  it('leaves the single-URL archives (line, history, station hub) without localized twins', () => {
+    const xml = buildSitemap([{ line: '804', disruptions: 2 }], [
+      { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
+    ], LASTMOD);
+    expect(xml).not.toContain('<loc>https://oresund.live/sv/line/804</loc>');
+    expect(xml).not.toContain('<loc>https://oresund.live/sv/history/7</loc>');
+    expect(xml).not.toContain('<loc>https://oresund.live/sv/station</loc>');
+  });
+});

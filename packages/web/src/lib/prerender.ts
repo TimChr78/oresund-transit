@@ -1,5 +1,6 @@
 import type { Lang } from '../i18n';
 import { translate } from '../i18n';
+import { renderStationPicker, stationScopeLabel } from '../components/StationPicker';
 import type { PageMeta } from './seo';
 import { esc } from './html';
 import type { HomeSummary } from './seo-summary';
@@ -67,6 +68,14 @@ export function renderLocalizedHome(shell: string, lang: Lang, meta: PageMeta, h
   if (lang !== 'en') {
     const lead = translate('lead_tagline', lang);
     html = html.replace(/<h1 class="lead">[\s\S]*?<\/h1>/, () => `<h1 class="lead">${lead}</h1>`);
+    // C1: the station picker and the board scope label are user-visible
+    // strings, so the localized home variants get the localized station names
+    // and the /sv|/da station routes rather than the shell's English markup.
+    html = html.replace(/<nav class="station-nav"[\s\S]*?<\/nav>/, () => renderStationPicker(lang));
+    html = html.replace(
+      /<span class="board-label">[\s\S]*?<\/span>/,
+      () => `<span class="board-label">${esc(stationScopeLabel(lang))}</span>`,
+    );
   }
   return html;
 }

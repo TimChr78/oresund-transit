@@ -8,6 +8,7 @@ import { renderDisruptionsHero } from './DisruptionsHero';
 import { renderDisruptionsTable } from './DisruptionsTable';
 import { renderFooter } from './Footer';
 import { renderHistoryCharts } from './HistoryCharts';
+import { renderStationPicker, stationScopeLabel } from './StationPicker';
 import { renderStatCards } from './StatCards';
 import { renderStatusBanner } from './StatusBanner';
 
@@ -103,8 +104,9 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
   <div class="wrap">
     <header class="topbar">
       <div class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></div>
-      <span class="board-label">Hyllie ↔ København H</span>
+      <span class="board-label">${esc(stationScopeLabel(lang))}</span>
     </header>
+    ${renderStationPicker(lang)}
     <h1 class="lead">${translate('lead_tagline', lang)}</h1>
     ${banner}
     <main class="board">

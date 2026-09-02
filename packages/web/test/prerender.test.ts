@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
+import { renderStationPicker } from '../src/components/StationPicker';
 import { META, hreflangCluster } from '../src/lib/seo';
 import { COLLECTOR_BASE } from '../src/lib/config';
 import { renderPrerenderedPage, renderLocalizedHome, renderHomeWithSummary, type HomeSummary } from '../src/lib/prerender';
@@ -22,6 +23,8 @@ import { renderPrerenderedPage, renderLocalizedHome, renderHomeWithSummary, type
  * could serve a dead /src/main.ts or unstyled page).
  */
 const shell = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+/** The shell document, as the tests above name it (pre-transform). */
+const indexShell = shell;
 const prerenderScript = readFileSync(new URL('../scripts/prerender.ts', import.meta.url), 'utf8');
 
 /** Extract the `content` of a `<meta name|property="…">` tag, multiline-tolerant. */
@@ -507,5 +510,32 @@ describe('home shell build-time corridor status summary', () => {
     expect(configSrc).toContain("process.env.COLLECTOR_BASE");
     // …and the prerender script imports it instead of restating the URL.
     expect(prerenderScript).toMatch(/import\s*\{[^}]*COLLECTOR_BASE[^}]*\}\s*from\s*['"]\.\.\/src\/lib\/config['"]/);
+  });
+});
+
+describe('station picker in the home shells (audit3 C1)', () => {
+  it('ships the station nav in the crawler-visible static shell, matching the component output', () => {
+    expect(indexShell).toContain('<nav class="station-nav" aria-label="Monitored stations">');
+    for (const slug of ['hyllie', 'malmo-c', 'kastrup', 'kobenhavn-h']) {
+      expect(indexShell).toContain(`href="/station/${slug}"`);
+    }
+    // The shell's hand-written markup must equal what the board renders for
+    // en — otherwise boot() swaps one nav for a different-looking one.
+    expect(indexShell).toContain(renderStationPicker('en'));
+  });
+
+  it('names all four monitored stations in the static scope label', () => {
+    expect(indexShell).toContain(
+      '<span class="board-label">Malmö Hyllie · Malmö C · Københavns Lufthavn (Kastrup) · København H</span>',
+    );
+  });
+
+  it('localizes the picker + label (and their routes) on the sv/da home variants', () => {
+    for (const lang of ['sv', 'da'] as Lang[]) {
+      const html = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/'));
+      expect(html, lang).toContain(renderStationPicker(lang));
+      expect(html, lang).toContain(`href="/${lang}/station/hyllie"`);
+      expect(html, lang).not.toContain('<nav class="station-nav" aria-label="Monitored stations">');
+    }
   });
 });

@@ -201,3 +201,36 @@ describe('renderDisruptionsTable — cause gating (audit3 H1)', () => {
     expect(html).toContain('<td class="reason" title="—">—</td>');
   });
 });
+
+describe('train technical_number (audit3 H2)', () => {
+  const base = {
+    id: 1,
+    timestamp: '2026-08-06T21:59:27',
+    line: '804',
+    type: 'delay' as const,
+    cause: 'signal_failure',
+    route_section: null,
+    severity: 'minor',
+    delay_seconds: 300,
+    raw_text: 'Signalfel',
+    dep_key: '804_21:59_Østerport',
+    first_seen: null,
+    last_updated: null,
+    direction: 'to_denmark',
+    technical_number: '1132',
+    sched_time: '2026-08-06T21:59:00',
+  };
+
+  it('renders the train number as a secondary token in the Line cell', () => {
+    const html = renderDisruptionsTable([base], 'en');
+    expect(html).toContain('<td class="line">804<span class="train-no">#1132</span></td>');
+    // No eighth column: the table stays phone-sized.
+    expect(html).toMatch(/<th>Line<\/th><th>Type<\/th>/);
+  });
+
+  it('omits the token when a row has no train number', () => {
+    const html = renderDisruptionsTable([{ ...base, technical_number: null }], 'en');
+    expect(html).toContain('<td class="line">804</td>');
+    expect(html).not.toContain('train-no');
+  });
+});

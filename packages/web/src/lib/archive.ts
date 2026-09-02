@@ -11,9 +11,14 @@
  * (dynamic archives), unlike the prerendered static pages (/methodology,
  * /privacy).
  */
-import type { Disruption, Departure } from '@oresund/shared';
+import type { Disruption, Departure, LiveStatus } from '@oresund/shared';
 import { getDict, translate, type Key, type Lang } from '../i18n';
+import { formatExactDelay, formatTime } from '../i18n/format';
+import { bannerModel } from '../components/StatusBanner';
+import { stationNameKey } from '../components/StationPicker';
+import { BAND_BADGE_CLASS, delayBand, type DelayBand } from './stats';
 import { esc } from './html';
+import { hreflangCluster, localizedPath, localizedUrl } from './seo';
 
 export const SITE_URL = 'https://oresund.live';
 
@@ -141,6 +146,18 @@ interface ShellOpts {
   canonical: string;
   jsonLd?: unknown;
   body: string;
+  /**
+   * Document language. The archive routes render en by default; the station
+   * pages are the one family that localizes (audit3 C1), so they pass the
+   * route's language through and every string in the shell follows it.
+   */
+  lang?: Lang;
+  /**
+   * The en canonical base path of a LOCALIZED page (e.g. '/station/hyllie').
+   * When set, the shell emits the full en/sv/da/x-default hreflang cluster;
+   * when unset the page exists as one URL and self-announces (hreflangSelf).
+   */
+  hreflangPath?: string;
 }
 
 /** Escape a value for an HTML attribute (quotes already escaped by esc). */
@@ -172,7 +189,7 @@ function hreflangSelf(url: string): string {
  * no-JS clients), with the site favicon, SEO tags and the mandatory
  * attribution.
  */
-function pageShell({ title, description, canonical, jsonLd, body }: ShellOpts): string {
+function pageShell({ title, description, canonical, jsonLd, body, lang = 'en', hreflangPath }: ShellOpts): string {
   const ogTags = `
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${attr(title)}" />
@@ -188,13 +205,13 @@ function pageShell({ title, description, canonical, jsonLd, body }: ShellOpts): 
     <meta name="twitter:description" content="${attr(description)}" />
     <meta name="twitter:image" content="https://oresund.live/og-card.png" />`;
   const jsonLdBlock = jsonLd === undefined ? '' : `\n    <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`;
-  // These routes exist as one URL per page — no /sv/ /da/ twins exist for the
-  // archives (language switching on the board is client-side), so each page
-  // self-announces en + x-default in <head>, mirroring the hreflang cluster
-  // the static pages emit. Escaped exactly like the canonical it points at.
-  const hreflang = hreflangSelf(attr(canonical));
+  // Localized pages (the station routes) announce the full en/sv/da/x-default
+  // cluster; every other archive route exists as ONE URL per page — no /sv/
+  // /da/ twins (language switching on the board is client-side) — so those
+  // self-announce en + x-default, mirroring the static pages' cluster.
+  const hreflang = hreflangPath ? hreflangCluster(hreflangPath) : hreflangSelf(attr(canonical));
   return `<!doctype html>
-<html lang="en">
+<html lang="${lang}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -235,6 +252,25 @@ ${hreflang}
       .stat { display: inline-block; background: #12161f; border: 1px solid #1c2330; border-radius: 10px; padding: .5rem .9rem; margin-right: .5rem; margin-bottom: .5rem; }
       .stat b { display: block; font-size: 1.1rem; }
       .stat span { color: #8b93a7; font-size: .75rem; }
+      /* C1: the corridor status band reuses the board's StatusBanner colour
+         semantics (status-green/amber/red/blue — the same hex values as the
+         --green/--amber/--red/--blue tokens in styles.css), as static HTML:
+         the archive shell ships no JS and no SPA stylesheet. */
+      .status-band { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; border-radius: 10px; padding: .65rem .9rem; color: #0a0c10; font-weight: 700; }
+      .status-band.status-green { background: #10b981; }
+      .status-band.status-amber { background: #f59e0b; }
+      .status-band.status-red { background: #ef4444; }
+      .status-band.status-blue { background: #3b82f6; }
+      .status-band .band-count { font-weight: 600; opacity: .85; }
+      /* C1/H2: departure status badges — the same tint-on-dark treatment as
+         the board's delay-band badges, inlined here because the archive shell
+         carries no shared stylesheet. */
+      .badge { display: inline-block; border-radius: 5px; padding: 1px 8px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+      .badge-band-on-time { color: #10b981; background: rgba(16, 185, 129, .12); border: 1px solid rgba(16, 185, 129, .26); }
+      .badge-band-minor { color: #f59e0b; background: rgba(245, 158, 11, .1); border: 1px solid rgba(245, 158, 11, .22); }
+      .badge-band-moderate { color: #ef4444; background: rgba(239, 68, 68, .1); border: 1px solid rgba(239, 68, 68, .26); }
+      .badge-band-major { color: #ffffff; background: #ef4444; border: 1px solid #ef4444; }
+      .badge-cancellation { color: #ef4444; background: rgba(239, 68, 68, .14); border: 1px solid rgba(239, 68, 68, .3); }
       ul.plain { list-style: none; padding: 0; margin: 0; }
       ul.plain li { padding: .4rem 0; border-bottom: 1px solid #171d28; }
       ul.plain a { color: #9fc9ff; text-decoration: none; }
@@ -248,7 +284,7 @@ ${hreflang}
     <header><a class="brand" href="/">Øresund.live</a></header>
     <main>${body}</main>
     <footer>
-      <p>${esc(translate('archive_attribution', 'en'))} · <a href="/">Live board</a> · <a href="/methodology">Methodology</a> · <a href="/privacy">Privacy</a></p>
+      <p>${esc(translate('archive_attribution', lang))} · <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a> · <a href="/methodology">${esc(translate('nav_methodology', lang))}</a> · <a href="/privacy">${esc(translate('nav_privacy', lang))}</a></p>
     </footer>
   </body>
 </html>
@@ -598,8 +634,8 @@ function disruptionListItem(d: Disruption): string {
  * — a newly monitored stop discovered from the collector — fall back to the
  * collector's own stop_name.
  */
-function stationName(station: ArchiveStation, lang: Lang = 'en'): string {
-  const key = `station_${station.slug.replaceAll("-", "_")}` as Key;
+function stationName(station: { slug: string; stop_name: string }, lang: Lang = 'en'): string {
+  const key = stationNameKey(station.slug);
   return key in getDict(lang) ? translate(key, lang) : station.stop_name;
 }
 
@@ -639,8 +675,22 @@ ${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent
   });
 }
 
-/** /station/{slug} — one station's punctuality archive. */
-export function renderStationPage(stats: ArchiveStationStats, allStations: ArchiveStation[]): string {
+/**
+ * /station/{slug} — one station's page: the live corridor status and latest
+ * observed departures (C1) above the punctuality archive it has always served.
+ * This is the canonical per-station URL — live and archive deliberately share
+ * it rather than splitting onto a /live sibling that would cannibalize the
+ * same head term. `live` is the corridor snapshot and may be null (the
+ * collector's /live endpoint is fetched best-effort so a snapshot gap degrades
+ * the status band instead of failing the page); `lang` localizes the whole
+ * document for the /sv/ and /da/ routes.
+ */
+export function renderStationPage(
+  stats: ArchiveStationStats,
+  allStations: ArchiveStation[],
+  live?: LiveStatus | null,
+  lang: Lang = 'en',
+): string {
   // A brand-new monitored stop starts with an empty archive (no departures
   // recorded yet): totals are 0, daily rows are zero-filled, and the page
   // must not divide by zero or imply data exists. Mirror the line-page
@@ -649,10 +699,15 @@ export function renderStationPage(stats: ArchiveStationStats, allStations: Archi
   const empty = stats.total_departures === 0;
   // M4: the display name comes from the dictionary (see stationName), so the
   // page never renders the collector's untranslated literal by accident.
-  const name = stationName(stats);
+  const name = stationName(stats, lang);
   const description = empty
-    ? `Punctuality history for ${name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.`
-    : `Punctuality history for ${name} on the Øresund crossing — ${stats.total_departures} departures, ${stats.on_time_pct}% on time over the last ${stats.days} days.`;
+    ? translate('station_desc_empty', lang, { name })
+    : translate('station_desc', lang, {
+        name,
+        n: stats.total_departures,
+        pct: stats.on_time_pct,
+        days: stats.days,
+      });
   const dailyRows = stats.daily
     .map((r) => {
       // M1: zero-data days (before monitoring started, or a stop with no
@@ -667,38 +722,53 @@ export function renderStationPage(stats: ArchiveStationStats, allStations: Archi
       return `<tr>${cells}</tr>`;
     })
     .join('');
+  // The hub link stays on the unprefixed /station — the hub itself is not
+  // localized, unlike the per-station pages this page links to below.
   const body = `
-    <p class="crumb"><a href="/">Øresund.live</a> › <a href="/station">Stations</a> › ${esc(name)}</p>
-    <h1>${esc(name)} — punctuality archive</h1>
-    <p class="sub">Observed departures over the last ${stats.days} days (${fmtDate(stats.date_from)}–${fmtDate(stats.date_to)}). ${esc(translate('archive_attribution', 'en'))}.</p>
+    <p class="crumb"><a href="/">Øresund.live</a> › <a href="/station">${esc(translate('nav_stations', lang))}</a> › ${esc(name)}</p>
+    <h1>${esc(translate('station_h1', lang, { name }))}</h1>
+    <p class="sub">${esc(translate('station_sub', lang, { days: stats.days, from: fmtDate(stats.date_from), to: fmtDate(stats.date_to) }))} ${esc(translate('archive_attribution', lang))}.</p>
+    ${renderStationLive(stats, live ?? null, lang)}
 ${
     empty
-      ? `    <p class="meta">${esc(translate('station_no_data_note', 'en'))}</p>`
+      ? `    <p class="meta">${esc(translate('station_no_data_note', lang))}</p>`
       : `    <div>
-      <span class="stat"><b>${stats.total_departures}</b><span>Departures</span></span>
-      <span class="stat"><b>${stats.on_time_pct}%</b><span>On time</span></span>
-      <span class="stat"><b>${stats.canceled_count}</b><span>Cancelled</span></span>
-      <span class="stat"><b>${fmtDelay(stats.avg_delay_seconds)}</b><span>Avg delay</span></span>
+      <span class="stat"><b>${stats.total_departures}</b><span>${esc(translate('stat_departures', lang))}</span></span>
+      <span class="stat"><b>${stats.on_time_pct}%</b><span>${esc(translate('stat_on_time', lang))}</span></span>
+      <span class="stat"><b>${stats.canceled_count}</b><span>${esc(translate('th_canceled', lang))}</span></span>
+      <span class="stat"><b>${fmtDelay(stats.avg_delay_seconds)}</b><span>${esc(translate('stat_avg_delay', lang))}</span></span>
     </div>
 ${
         stats.daily.length
-          ? `    <h2>Daily on-time performance</h2>
+          ? `    <h2>${esc(translate('station_daily_heading', lang))}</h2>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Date</th><th>Departures</th><th>On time</th><th>Delayed</th><th>Cancelled</th><th>On time %</th><th>Avg delay</th></tr></thead>
+        <thead><tr>${[
+            'th_date',
+            'stat_departures',
+            'stat_on_time',
+            'stat_delayed',
+            'th_canceled',
+            'th_on_time_pct',
+            'stat_avg_delay',
+          ]
+            .map((k) => `<th>${esc(translate(k as Key, lang))}</th>`)
+            .join('')}</tr></thead>
         <tbody>${dailyRows}</tbody>
       </table>
     </div>`
           : ''
-      }
-    <h2>Recent observations</h2>
-    <ul class="plain">
-${(stats.recent.length ? stats.recent : []).map(departureListItem).join('\n') || '      <li class="meta">No departures recorded yet.</li>'}
-    </ul>`
+      }`
   }
-    <h2>Other stations</h2>
+    <h2>${esc(translate('station_other_heading', lang))}</h2>
     <ul class="plain">
-${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href="/station/${encodeURIComponent(s.slug)}">${esc(stationName(s))}</a></li>`).join('\n')}
+${allStations
+  .filter((s) => s.slug !== stats.slug)
+  .map(
+    (s) =>
+      `      <li><a href="${esc(localizedPath(`/station/${encodeURIComponent(s.slug)}`, lang))}">${esc(stationName(s, lang))}</a></li>`,
+  )
+  .join('\n')}
     </ul>`;
   // SERP-safe short name for <title> only: strip parenthetical qualifiers
   // ('Københavns Lufthavn (Kastrup)' -> 'Københavns Lufthavn') so even the
@@ -709,22 +779,24 @@ ${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href
   // M6: the slug is URL-encoded everywhere else the station URL is emitted
   // (index cards, sibling links, /line pages, the sitemap), so the canonical —
   // and the JSON-LD URLs that mirror it — must be encoded the same way.
-  const stationUrl = `${SITE_URL}/station/${encodeURIComponent(stats.slug)}`;
+  const stationBasePath = `/station/${encodeURIComponent(stats.slug)}`;
   return pageShell({
-    title: translate('station_archive_title', 'en', { name: titleName }),
+    title: translate('station_archive_title', lang, { name: titleName }),
     description,
-    canonical: stationUrl,
+    canonical: localizedUrl(stationBasePath, lang),
+    hreflangPath: stationBasePath,
+    lang,
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
         breadcrumb([
-          { name: 'Stations', url: `${SITE_URL}/station` },
-          { name, url: stationUrl },
+          { name: translate('nav_stations', lang), url: `${SITE_URL}/station` },
+          { name, url: localizedUrl(stationBasePath, lang) },
         ]),
         dataset({
           name: `${name} punctuality archive`,
           description,
-          pageUrl: stationUrl,
+          pageUrl: localizedUrl(stationBasePath, lang),
           dateFrom: stats.date_from,
           dateTo: stats.date_to,
           // Punctuality only ever comes from live Trafiklab departures (no KoDa backfill).
@@ -745,13 +817,75 @@ ${allStations.filter((s) => s.slug !== stats.slug).map((s) => `      <li><a href
   });
 }
 
-function departureListItem(d: Departure): string {
-  const status =
-    d.status === 'on_time' ? 'On time' : d.status === 'delayed' ? `Delayed ${fmtDelay(d.delay_seconds)}` : d.status === 'canceled' ? 'Cancelled' : 'Unknown';
-  const when = d.sched_time ? ` <span class="meta">· ${esc(String(d.sched_time).replace('T', ' '))}</span>` : '';
-  const line = d.line ? ` line ${esc(d.line)}` : '';
-  // M4: route context — the destination is the most descriptive bit of a
-  // departure ("delay on line 804 → Østerport" beats a bare line number).
-  const dest = d.destination ? ` → ${esc(d.destination)}` : '';
-  return `      <li>${esc(status)}${line}${dest}${when}</li>`;
+/**
+ * The live section of a station page (audit3 C1): the corridor status band and
+ * the most recent departures observed at this stop, as static HTML injected
+ * between the H1 and the archive summary row. The band is the whole corridor's
+ * state (one /api/transit/live snapshot serves all four stations) — only the
+ * departure table is per-stop. When no snapshot is available the band is
+ * dropped and the page keeps its archive content.
+ */
+export function renderStationLive(stats: ArchiveStationStats, live: LiveStatus | null, lang: Lang): string {
+  const name = stationName(stats, lang);
+  // Same model as the board's StatusBanner (band colour + translated status +
+  // disruption count), re-emitted as static HTML for the no-JS archive shell.
+  const band = live
+    ? (() => {
+        const m = bannerModel(live, lang);
+        return `<p class="status-band ${m.bandClass}" role="status"><span>${esc(m.text)}</span>${
+          m.count ? `<span class="band-count">${esc(m.count)}</span>` : ''
+        }</p>`;
+      })()
+    : '';
+  const rows = stats.recent.map((d) => departureRow(d, lang)).join('');
+  const body = `<tbody>${rows || `<tr><td colspan="6" class="meta">${esc(translate('station_no_data_note', lang))}</td></tr>`}</tbody>`;
+  const head = [
+    'th_time',
+    'th_line',
+    'th_train',
+    'station_col_destination',
+    'th_status',
+    'th_delay',
+  ]
+    .map((k) => `<th>${esc(translate(k as Key, lang))}</th>`)
+    .join('');
+  return `
+    <section class="station-live">
+      <h2>${esc(translate('station_live_heading', lang))}</h2>
+      ${band}
+      <p class="intro">${esc(translate('station_live_intro', lang, { name }))}</p>
+      <h2>${esc(translate('station_departures_heading', lang))}</h2>
+      <p class="meta">${esc(translate('station_observed_note', lang))}</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>${head}</tr></thead>
+${body}
+        </table>
+      </div>
+    </section>`;
+}
+
+/**
+ * Status badge for one observed departure: the same delay-band badge the board
+ * renders in its DELAY column (colour escalates with the delay, exact value in
+ * the tooltip). Cancellations are checked first — they carry a zero delay, so
+ * banding them would read "on time".
+ */
+function departureStatus(d: Departure, lang: Lang): string {
+  if (d.status === 'canceled' || d.canceled === 1) {
+    return `<span class="badge badge-cancellation">${esc(translate('type_cancellation', lang))}</span>`;
+  }
+  const band: DelayBand | null = delayBand(d.delay_seconds);
+  if (!band) return NO_DATA_MARK;
+  return `<span class="badge ${BAND_BADGE_CLASS[band]}" title="${esc(formatExactDelay(d.delay_seconds, lang))}">${esc(translate(`delay_band_${band}` as Key, lang))}</span>`;
+}
+
+/** One row of the latest-observed-departures table (C1 + the H2 train number). */
+function departureRow(d: Departure, lang: Lang): string {
+  const time = formatTime(d.sched_time ?? '', lang) || NO_DATA_MARK;
+  const train = d.technical_number ? `#${esc(d.technical_number)}` : NO_DATA_MARK;
+  const dest = d.destination ? esc(d.destination) : NO_DATA_MARK;
+  const line = d.line ? esc(d.line) : NO_DATA_MARK;
+  const delay = d.status === 'canceled' ? NO_DATA_MARK : fmtDelay(d.delay_seconds);
+  return `<tr><td class="meta">${esc(time)}</td><td>${line}</td><td class="meta">${train}</td><td>${dest}</td><td>${departureStatus(d, lang)}</td><td>${esc(delay)}</td></tr>`;
 }

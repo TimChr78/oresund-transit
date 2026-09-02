@@ -1,6 +1,6 @@
 import type { Disruption } from '@oresund/shared';
 import { formatDate, formatDelayPlus, formatExactDelay, formatTime } from '../i18n/format';
-import { delayBand, localToday, type DelayBand } from '../lib/stats';
+import { BAND_BADGE_CLASS, delayBand, localToday, type DelayBand } from '../lib/stats';
 import { translate, type Key, type Lang } from '../i18n';
 import { causeLabel, cleanReason } from '../lib/causes';
 import { esc } from '../lib/html';
@@ -21,14 +21,6 @@ function bandKey(band: DelayBand): Key {
   return `delay_band_${band}` as Key;
 }
 
-/** Badge colour per band: green → amber → red → solid red as the delay grows. */
-const BAND_BADGE_CLASS: Record<DelayBand, string> = {
-  on_time: 'badge-band-on-time',
-  minor: 'badge-band-minor',
-  moderate: 'badge-band-moderate',
-  major: 'badge-band-major',
-};
-
 /**
  * A cause worth a badge. 'unknown' (and null) render no chip at all: with no
  * alert text the collector structurally cannot classify a plain late train,
@@ -45,6 +37,19 @@ function directionText(direction: string | null, lang: Lang): string {
   if (direction === 'to_denmark') return translate('tab_to_denmark', lang);
   if (direction === 'to_sweden') return translate('tab_to_sweden', lang);
   return '—';
+}
+
+/**
+ * The physical train's number (audit3 H2) — populated on every row, and the
+ * one field that identifies "is this MY train" across consecutive slots, since
+ * the same technical_number repeats on back-to-back departures. Rendered as a
+ * muted token inside the LINE cell rather than an eighth column: the table is
+ * already at the edge of fitting a phone, and a hidden-by-overflow column
+ * would carry no information at all.
+ */
+function trainNumber(technicalNumber: string | null): string {
+  if (!technicalNumber) return '';
+  return `<span class="train-no">#${esc(technicalNumber)}</span>`;
 }
 
 function row(d: Disruption, lang: Lang): string {
@@ -71,7 +76,7 @@ function row(d: Disruption, lang: Lang): string {
   return `
   <tr>
     <td class="num">${esc(time)}</td>
-    <td class="line">${esc(d.line ?? '—')}</td>
+    <td class="line">${esc(d.line ?? '—')}${trainNumber(d.technical_number)}</td>
     <td>
       <span class="badge ${badgeClass(d.type)}">${translate(typeKey(d.type), lang)}</span>
       ${knownCause ? `<span class="badge badge-cause" title="${esc(d.cause ?? '')}">${esc(cause)}</span>` : ''}

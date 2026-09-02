@@ -43,6 +43,12 @@ export const sv: Dict = {
   th_delay: 'Försening',
   th_direction: 'Riktning',
   th_reason: 'Orsak',
+  // Tabellhuvuden på stationssidorna (audit3 C1/H2)
+  th_date: 'Datum',
+  th_status: 'Status',
+  th_train: 'Tåg',
+  th_on_time_pct: 'I tid %',
+  th_canceled: 'Inställda',
   // Disruption types
   type_delay: 'Försening',
   type_cancellation: 'Inställd',
@@ -196,6 +202,27 @@ export const sv: Dict = {
   meth_def_by_hour: 'Andel av störningarna per timme — senaste 30 dagarna.',
   meth_def_peak: 'Andel av störningarna under rusningstid (07–09 och 16–18) jämfört med övrig tid.',
   station_archive_title: '{name} — punktlighet — Øresund.live',
+  // Stationssidor (audit3 C1) — sidan lokaliserats i alla tre språk.
+  station_h1: '{name} — punktlighetsarkiv',
+  station_sub: 'Observerade avgångar de senaste {days} dagarna ({from}–{to}).',
+  station_desc:
+    'Punktlighetshistorik för {name} över Öresund — {n} avgångar, {pct}% i tid de senaste {days} dagarna.',
+  station_desc_empty:
+    'Punktlighetshistorik för {name} över Öresund — inga avgångar registrerade ännu; data börjar samlas in så snart live-övervakningen startar.',
+  station_daily_heading: 'Punktlighet dag för dag',
+  station_other_heading: 'Övriga stationer',
+  station_live_heading: 'Läge just nu',
+  station_live_intro:
+    'Statusbandet gäller hela Öresundskorridoren; avgångarna nedan är observerade på {name}.',
+  station_departures_heading: 'Senast observerade avgångar',
+  // Samma tonläge som meth_lag_body: deklarera eftersläpningen i stället för
+  // att låtsas vara en prognostiserande avgångstavla.
+  station_observed_note:
+    'Det här är observerade avgångar, inte en prognostiserande avgångstavla — insamlaren hämtar data från Trafiklab var 5:e minut och läser tillbaka de senaste planerade avgångarna, så de nyaste raderna kan ligga upp till 15 minuter efter verkligheten.',
+  station_col_destination: 'Destination',
+  nav_stations: 'Stationer',
+  nav_board: 'Live-tavlan',
+  station_nav_label: 'Övervakade stationer',
   // Footer
   footer_attribution: 'Data från Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligga ~10–15 min efter officiella appar; inställda avgångar kan missas.',

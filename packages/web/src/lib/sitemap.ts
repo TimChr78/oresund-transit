@@ -60,11 +60,11 @@ function hreflangLinks(basePath: string): string {
 }
 
 /**
- * The minimal xhtml:link alternate set for an archive URL. Archive routes
- * exist as one URL per page (no sv/da twins — localized variants only exist
- * for the static pages, and the board switches language client-side), so each
- * announces itself via en + a self-referencing x-default, same as the HTML
- * <head> emission (seo.hreflangSelf).
+ * The minimal xhtml:link alternate set for an archive URL. Most archive routes
+ * exist as one URL per page (no sv/da twins — localized variants exist only
+ * for the static pages and the station pages), so each announces itself via
+ * en + a self-referencing x-default, same as the HTML <head> emission
+ * (archive.pageShell's hreflangSelf).
  */
 function archiveAlternateLinks(url: string): string {
   return [
@@ -113,9 +113,15 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], l
   }
 
   add(`${SITE_URL}/station`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/station`));
+  // The per-station pages are the one archive family with localized twins
+  // (audit3 C1): each slug emits en + sv + da, each URL carrying the full
+  // hreflang cluster so Google maps the three variants to each other.
   for (const s of stations) {
-    const url = `${SITE_URL}/station/${encodeURIComponent(s.slug)}`;
-    add(url, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(url));
+    const base = `/station/${encodeURIComponent(s.slug)}`;
+    for (const lang of LANGS) {
+      const url = lang === 'en' ? `${SITE_URL}${base}` : `${SITE_URL}/${lang}${base}`;
+      add(url, ARCHIVE_CHANGEFREQ, hreflangLinks(base));
+    }
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>

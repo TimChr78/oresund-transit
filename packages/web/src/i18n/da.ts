@@ -44,6 +44,12 @@ export const da: Dict = {
   th_delay: 'Forsinkelse',
   th_direction: 'Retning',
   th_reason: 'Årsag',
+  // Tabelhoveder på stationssiderne (audit3 C1/H2)
+  th_date: 'Dato',
+  th_status: 'Status',
+  th_train: 'Tog',
+  th_on_time_pct: 'Til tiden %',
+  th_canceled: 'Aflyste',
   // Disruption types
   type_delay: 'Forsinkelse',
   type_cancellation: 'Aflyst',
@@ -197,6 +203,27 @@ export const da: Dict = {
   meth_def_by_hour: 'Andel af forstyrrelserne pr. time — sidste 30 dage.',
   meth_def_peak: 'Andel af forstyrrelserne i myldretiden (07–09 og 16–18) sammenlignet med resten af dagen.',
   station_archive_title: '{name} — rettidighed — Øresund.live',
+  // Stationssider (audit3 C1) — siden lokaliseres på alle tre sprog.
+  station_h1: '{name} — rettidighedsarkiv',
+  station_sub: 'Observerede afgange de seneste {days} dage ({from}–{to}).',
+  station_desc:
+    'Rettidighedshistorik for {name} over Øresund — {n} afgange, {pct}% til tiden de seneste {days} dage.',
+  station_desc_empty:
+    'Rettidighedshistorik for {name} over Øresund — ingen afgange registreret endnu; data begynder at samle, så snart den live overvågning starter.',
+  station_daily_heading: 'Rettidighed dag for dag',
+  station_other_heading: 'Andre stationer',
+  station_live_heading: 'Lige nu',
+  station_live_intro:
+    'Statusbåndet gælder hele Øresundskorridoren; afgangene nedenfor er observeret på {name}.',
+  station_departures_heading: 'Senest observerede afgange',
+  // Samme tonefall som meth_lag_body: erklær forsinkelsen i stedet for at lade
+  // som om tabellen var en forudsigende afgangstavle.
+  station_observed_note:
+    'Dette er observerede afgange, ikke en forudsigende afgangstavle — samleren henter data fra Trafiklab hvert 5. minut og læser de seneste planlagte afgange tilbage, så de nyeste rækker kan ligge op til 15 minutter efter virkeligheden.',
+  station_col_destination: 'Destination',
+  nav_stations: 'Stationer',
+  nav_board: 'Live-tavlen',
+  station_nav_label: 'Overvågede stationer',
   // Footer
   footer_attribution: 'Data fra Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligge ~10–15 min. efter officielle apps; aflyste afgange kan blive overset.',

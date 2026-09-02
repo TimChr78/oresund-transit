@@ -43,6 +43,12 @@ export const en: Dict = {
   th_delay: 'Delay',
   th_direction: 'Direction',
   th_reason: 'Reason',
+  // Station-page table headers (audit3 C1/H2)
+  th_date: 'Date',
+  th_status: 'Status',
+  th_train: 'Train',
+  th_on_time_pct: 'On time %',
+  th_canceled: 'Cancelled',
   // Disruption types
   type_delay: 'Delay',
   type_cancellation: 'Cancellation',
@@ -198,6 +204,27 @@ export const en: Dict = {
   // Archive page titles — template must keep the rendered <title> ≤ 60 chars
   // even for the longest monitored stop name ("Københavns Lufthavn (Kastrup)").
   station_archive_title: '{name} — punctuality — Øresund.live',
+  // Station pages (audit3 C1) — the per-station page is fully localized.
+  station_h1: '{name} — punctuality archive',
+  station_sub: 'Observed departures over the last {days} days ({from}–{to}).',
+  station_desc:
+    'Punctuality history for {name} on the Øresund crossing — {n} departures, {pct}% on time over the last {days} days.',
+  station_desc_empty:
+    'Punctuality history for {name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.',
+  station_daily_heading: 'Daily on-time performance',
+  station_other_heading: 'Other stations',
+  station_live_heading: 'Live status right now',
+  station_live_intro:
+    'The status band covers the whole Øresund corridor; the departures below were observed at {name}.',
+  station_departures_heading: 'Latest observed departures',
+  // Tone follows meth_lag_body: declare the lag instead of implying a live
+  // predictive board (the collector polls every 5 min and reads back slots).
+  station_observed_note:
+    'These are observed departures, not a predictive departure board — the collector polls Trafiklab every 5 minutes and reads back the most recent scheduled slots, so the newest rows can lag real time by up to 15 minutes.',
+  station_col_destination: 'Destination',
+  nav_stations: 'Stations',
+  nav_board: 'Live board',
+  station_nav_label: 'Monitored stations',
   // Footer
   footer_attribution: 'Data from Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data can lag official apps by ~10–15 min; cancellations may be missed.',

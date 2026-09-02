@@ -100,8 +100,13 @@
       -->
       <header class="topbar">
         <div class="brand">Øresund <span class="brand-sub">live</span></div>
-        <span class="board-label">Hyllie ↔ København H</span>
+        <span class="board-label">Malmö Hyllie · Malmö C · Københavns Lufthavn (Kastrup) · København H</span>
       </header>
+      <!-- Station picker (audit3 C1): the four monitored stations as real
+           links, shipped in the crawler/no-JS payload. Kept in lockstep with
+           components/StationPicker.ts (test/app.test.ts asserts the en output
+           matches this markup); prerender swaps in the sv/da names + routes. -->
+      <nav class="station-nav" aria-label="Monitored stations"><a href="/station/hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h">København H</a></nav>
       <h1 class="lead">Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).</h1>
     </div>
     <footer class="site-footer">

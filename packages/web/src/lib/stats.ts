@@ -407,6 +407,18 @@ export function delayBand(seconds: number | null | undefined): DelayBand | null 
 }
 
 /**
+ * Badge class per band: green → amber → red → solid red as the delay grows.
+ * Lives with the band definition so every renderer of a band (the disruption
+ * table and the station page's departures table) paints the same scale.
+ */
+export const BAND_BADGE_CLASS: Record<DelayBand, string> = {
+  on_time: 'badge-band-on-time',
+  minor: 'badge-band-minor',
+  moderate: 'badge-band-moderate',
+  major: 'badge-band-major',
+};
+
+/**
  * Delay-stats query window. The API contract is half-open [from, to): a
  * day's departures live in [today, tomorrow). Returning `to` == `from`
  * (as the dashboard did at launch) yields an empty range and zero stats.
