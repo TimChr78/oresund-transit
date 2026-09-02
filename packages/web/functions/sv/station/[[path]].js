@@ -8,7 +8,7 @@
  * in Swedish and points canonical/hreflang/sibling links at the /sv routes.
  * Unknown stations still return a clean 404 (the collector 404s).
  */
-import { handleArchiveRequest } from '../../src/lib/archive-http';
+import { handleArchiveRequest } from '../../../src/lib/archive-http';
 
 export async function onRequest(context) {
   const result = await handleArchiveRequest(new URL(context.request.url).pathname);
