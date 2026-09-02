@@ -43,7 +43,6 @@ export interface Dict {
   th_time: string;
   th_line: string;
   th_type: string;
-  th_severity: string;
   th_delay: string;
   th_direction: string;
   th_reason: string;
@@ -51,10 +50,12 @@ export interface Dict {
   type_delay: string;
   type_cancellation: string;
   type_alert: string;
-  // Severities
-  sev_minor: string;
-  sev_moderate: string;
-  sev_major: string;
+  // Delay bands (audit3 H1) — the DELAY column renders these as color-coded
+  // badges instead of raw seconds; the exact delay lives in the badge tooltip.
+  delay_band_on_time: string;
+  delay_band_minor: string;
+  delay_band_moderate: string;
+  delay_band_major: string;
   // Causes (enum keys stored in D1 — see categorizeCause in the collector)
   cause_staffing: string;
   cause_person_on_tracks: string;

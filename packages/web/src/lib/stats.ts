@@ -375,6 +375,37 @@ export function filterByDirection<T extends { direction: Disruption['direction']
   return list.filter((d) => d.direction === direction);
 }
 
+/** Display band for a disruption's delay (audit3 H1). */
+export type DelayBand = 'on_time' | 'minor' | 'moderate' | 'major';
+
+/**
+ * Upper bound (seconds, exclusive) of each band, ascending: under 5 min reads
+ * as punctual, then 5–15, 15–30 and 30+ min. Round commuter-facing edges —
+ * deliberately coarser than the 240 s RT3 punctuality threshold the KPI uses,
+ * because these label single disruption rows, not the on-time share.
+ */
+const BAND_EDGES: readonly { limit: number; band: DelayBand }[] = [
+  { limit: 5 * 60, band: 'on_time' },
+  { limit: 15 * 60, band: 'minor' },
+  { limit: 30 * 60, band: 'moderate' },
+];
+
+/**
+ * Bucket a delay into the band the disruption table renders as a color-coded
+ * badge (audit3 H1). The collector's severity column is near-constant — it is
+ * derived from the same delay into two buckets, so 93.5% of live rows read
+ * "minor" — while these four bands give the column a real spread. A row with
+ * no measured delay (cancellations, alerts) returns null: there is nothing to
+ * band, and callers render the no-data mark instead.
+ */
+export function delayBand(seconds: number | null | undefined): DelayBand | null {
+  if (seconds === null || seconds === undefined) return null;
+  for (const { limit, band } of BAND_EDGES) {
+    if (seconds < limit) return band;
+  }
+  return 'major';
+}
+
 /**
  * Delay-stats query window. The API contract is half-open [from, to): a
  * day's departures live in [today, tomorrow). Returning `to` == `from`

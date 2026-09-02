@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDelaySeconds, formatPct, formatTime, normalizeTs } from '../src/i18n/format';
+import { formatDate, formatDelaySeconds, formatExactDelay, formatPct, formatTime, normalizeTs } from '../src/i18n/format';
 
 describe('formatDate', () => {
   it('formats SV/EN dates as YYYY-MM-DD', () => {
@@ -98,5 +98,28 @@ describe('formatPct', () => {
 
   it('renders an em dash for non-finite input', () => {
     expect(formatPct(Number.NaN, 'en')).toBe('—');
+  });
+});
+
+describe('formatExactDelay', () => {
+  it('renders minutes plus the leftover seconds — no rounding', () => {
+    expect(formatExactDelay(492, 'en')).toBe('8 min 12 s');
+    expect(formatExactDelay(492, 'sv')).toBe('8 min 12 s');
+    expect(formatExactDelay(492, 'da')).toBe('8 min. 12 sek.');
+  });
+
+  it('renders whole minutes without a seconds tail', () => {
+    expect(formatExactDelay(480, 'en')).toBe('8 min');
+    expect(formatExactDelay(480, 'da')).toBe('8 min.');
+  });
+
+  it('renders sub-minute delays as seconds', () => {
+    expect(formatExactDelay(21, 'en')).toBe('21 s');
+    expect(formatExactDelay(21, 'da')).toBe('21 sek.');
+  });
+
+  it('renders an em dash for a missing delay', () => {
+    expect(formatExactDelay(null, 'en')).toBe('—');
+    expect(formatExactDelay(undefined, 'sv')).toBe('—');
   });
 });

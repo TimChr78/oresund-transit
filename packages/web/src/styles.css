@@ -491,20 +491,28 @@ body::after {
   white-space: nowrap;
   vertical-align: middle;
 }
-.badge-sev-minor {
+/* Delay bands (audit3 H1): the DELAY cell renders one of four bands derived
+   from delay_seconds instead of the near-constant collector severity. Colour
+   escalates green → amber → red → solid red with the delay. */
+.badge-band-on-time {
   color: var(--green);
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.26);
 }
-.badge-sev-moderate {
+.badge-band-minor {
   color: var(--amber);
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.22);
 }
-.badge-sev-major {
+.badge-band-moderate {
   color: var(--red);
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.26);
+}
+.badge-band-major {
+  color: #ffffff;
+  background: var(--red);
+  border: 1px solid var(--red);
 }
 
 /* -------------------------------------------------------------- history */

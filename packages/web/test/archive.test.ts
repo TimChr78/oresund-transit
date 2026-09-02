@@ -669,3 +669,30 @@ describe('handleArchiveRequest dispatch', () => {
     expect(res).toBeNull();
   });
 });
+
+describe('archive table scroll containers (audit3 H5)', () => {
+  it('pageShell ships the overflow-x scroll container and stops page-level sideways scroll', () => {
+    const html = renderHistoryPage(7, history);
+    expect(html).toContain('.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }');
+    expect(html).toContain('main { max-width: 880px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; overflow-x: hidden; }');
+    // the wrapped table keeps a floor width, so the scroll is real on a 375px screen
+    expect(html).toContain('.table-scroll table { min-width: 540px; }');
+  });
+
+  it('wraps the history daily table in the scroll container', () => {
+    const html = renderHistoryPage(7, history);
+    expect(html).toContain('<div class="table-scroll"><table><thead><tr><th>Date</th>');
+    expect(html).toMatch(/<\/table><\/div>/);
+  });
+
+  it('wraps the line daily table in the scroll container', () => {
+    const html = renderLinePage('804', lineStats, [{ line: '803', disruptions: 1 }]);
+    expect(html).toContain('<div class="table-scroll"><table>');
+  });
+
+  it('wraps the 7-column station daily table in the scroll container', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    expect(html).toContain('<div class="table-scroll">');
+    expect(html).toContain('<th>Date</th><th>Departures</th><th>On time</th><th>Delayed</th><th>Cancelled</th><th>On time %</th><th>Avg delay</th>');
+  });
+});

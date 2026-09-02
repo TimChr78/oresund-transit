@@ -40,7 +40,6 @@ export const en: Dict = {
   th_time: 'Time',
   th_line: 'Line',
   th_type: 'Type',
-  th_severity: 'Severity',
   th_delay: 'Delay',
   th_direction: 'Direction',
   th_reason: 'Reason',
@@ -48,10 +47,11 @@ export const en: Dict = {
   type_delay: 'Delay',
   type_cancellation: 'Cancellation',
   type_alert: 'Alert',
-  // Severities
-  sev_minor: 'Minor',
-  sev_moderate: 'Moderate',
-  sev_major: 'Major',
+  // Delay bands (audit3 H1) — badge text in the DELAY column
+  delay_band_on_time: 'On time',
+  delay_band_minor: '5–15 min',
+  delay_band_moderate: '15–30 min',
+  delay_band_major: '30+ min',
   // Causes
   cause_staffing: 'Staffing shortage',
   cause_person_on_tracks: 'Person on tracks',

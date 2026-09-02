@@ -159,6 +159,29 @@ describe('i18n dictionaries', () => {
     expect(translate('line_archive_href', 'en', { line: '801' })).toBe('Line 801 delays & history');
   });
 
+  it('labels every delay band in all three languages (audit3 H1)', () => {
+    const bandKeys = [
+      'delay_band_on_time',
+      'delay_band_minor',
+      'delay_band_moderate',
+      'delay_band_major',
+    ] as Key[];
+    for (const lang of ALL_LANGS) {
+      for (const key of bandKeys) {
+        expect(DICTS[lang][key].trim().length, `${lang}.${key} is empty`).toBeGreaterThan(0);
+      }
+    }
+    // The punctual band reuses each language's on-time wording (stat_on_time).
+    expect(translate('delay_band_on_time', 'en')).toBe('On time');
+    expect(translate('delay_band_on_time', 'sv')).toBe('I tid');
+    expect(translate('delay_band_on_time', 'da')).toBe('Til tiden');
+    // The delayed bands carry the minute range itself, so the badge needs no
+    // legend — identical across languages by design.
+    expect(translate('delay_band_minor', 'sv')).toBe('5–15 min');
+    expect(translate('delay_band_moderate', 'da')).toBe('15–30 min');
+    expect(translate('delay_band_major', 'en')).toBe('30+ min');
+  });
+
   it('names every monitored station in all three languages (audit3 M4)', () => {
     const stationKeys = [
       'station_hyllie',

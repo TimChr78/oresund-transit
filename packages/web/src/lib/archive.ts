@@ -210,7 +210,7 @@ ${hreflang}
       body { margin: 0; background: #0a0c10; color: #e7eaf0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.55; }
       header { border-bottom: 1px solid #1c2330; padding: 1rem 1.25rem; background: #0d1016; }
       header .brand { color: #10b981; font-weight: 700; text-decoration: none; font-size: 1.05rem; }
-      main { max-width: 880px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+      main { max-width: 880px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; overflow-x: hidden; }
       h1 { font-size: 1.6rem; margin: 0 0 .4rem; }
       h2 { font-size: 1.15rem; margin: 2rem 0 .6rem; color: #c7d0e0; }
       .sub { color: #8b93a7; margin: 0 0 1.2rem; font-size: .95rem; }
@@ -224,6 +224,11 @@ ${hreflang}
       .card .num { font-size: 1.3rem; font-weight: 700; }
       .card .lbl { color: #8b93a7; font-size: .8rem; }
       table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+      /* H5: the 6-7 column daily tables cannot fit a 375px viewport — they
+         scroll inside their own container instead of stretching <main> and
+         forcing a page-level horizontal scroll (mirrors .table-wrap). */
+      .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .table-scroll table { min-width: 540px; }
       th, td { text-align: right; padding: .45rem .5rem; border-bottom: 1px solid #171d28; }
       th:first-child, td:first-child { text-align: left; }
       th { color: #8b93a7; font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
@@ -387,7 +392,7 @@ function dailyTable(rows: ArchiveHistory['daily']): string {
       return `<tr>${cells}</tr>`;
     })
     .join('');
-  return `<table>${head}<tbody>${body}</tbody></table>`;
+  return `<div class="table-scroll"><table>${head}<tbody>${body}</tbody></table></div>`;
 }
 
 /** /history — index of the day-range archives. */
@@ -678,10 +683,12 @@ ${
 ${
         stats.daily.length
           ? `    <h2>Daily on-time performance</h2>
-    <table>
-      <thead><tr><th>Date</th><th>Departures</th><th>On time</th><th>Delayed</th><th>Cancelled</th><th>On time %</th><th>Avg delay</th></tr></thead>
-      <tbody>${dailyRows}</tbody>
-    </table>`
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Date</th><th>Departures</th><th>On time</th><th>Delayed</th><th>Cancelled</th><th>On time %</th><th>Avg delay</th></tr></thead>
+        <tbody>${dailyRows}</tbody>
+      </table>
+    </div>`
           : ''
       }
     <h2>Recent observations</h2>

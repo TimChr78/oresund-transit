@@ -41,7 +41,6 @@ export const da: Dict = {
   th_time: 'Tid',
   th_line: 'Linje',
   th_type: 'Type',
-  th_severity: 'Alvorlighed',
   th_delay: 'Forsinkelse',
   th_direction: 'Retning',
   th_reason: 'Årsag',
@@ -49,10 +48,11 @@ export const da: Dict = {
   type_delay: 'Forsinkelse',
   type_cancellation: 'Aflyst',
   type_alert: 'Advarsel',
-  // Severities
-  sev_minor: 'Mindre',
-  sev_moderate: 'Moderat',
-  sev_major: 'Alvorlig',
+  // Delay bands (audit3 H1) — badge text in the DELAY column
+  delay_band_on_time: 'Til tiden',
+  delay_band_minor: '5–15 min',
+  delay_band_moderate: '15–30 min',
+  delay_band_major: '30+ min',
   // Causes
   cause_staffing: 'Mangel på personale',
   cause_person_on_tracks: 'Person på sporet',

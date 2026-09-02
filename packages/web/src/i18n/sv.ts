@@ -40,7 +40,6 @@ export const sv: Dict = {
   th_time: 'Tid',
   th_line: 'Linje',
   th_type: 'Typ',
-  th_severity: 'Allvarlighet',
   th_delay: 'Försening',
   th_direction: 'Riktning',
   th_reason: 'Orsak',
@@ -48,10 +47,11 @@ export const sv: Dict = {
   type_delay: 'Försening',
   type_cancellation: 'Inställd',
   type_alert: 'Varning',
-  // Severities
-  sev_minor: 'Mindre',
-  sev_moderate: 'Måttlig',
-  sev_major: 'Allvarlig',
+  // Delay bands (audit3 H1) — badge text in the DELAY column
+  delay_band_on_time: 'I tid',
+  delay_band_minor: '5–15 min',
+  delay_band_moderate: '15–30 min',
+  delay_band_major: '30+ min',
   // Causes (Swedish reference — matches the private board)
   cause_staffing: 'Personalbrist',
   cause_person_on_tracks: 'Person på spår',
