@@ -100,6 +100,18 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+/** A corridor snapshot, the same shape /api/transit/live returns. */
+const liveSnapshot = {
+  status: 'amber' as const,
+  status_text: 'Delays',
+  timestamp: '2026-08-06T21:59:27',
+  time_short: '21:59',
+  disruption_count: 2,
+  departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
+  service_shutdown: false,
+  directions: { to_denmark: [], to_sweden: [], bus: [] },
+};
+
 function parseJsonLd(html: string): unknown[] {
   const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) =>
     JSON.parse(m[1]!),
@@ -886,5 +898,79 @@ describe('station live section + localized routes (audit3 C1/H2)', () => {
     expect(await handleArchiveRequest('/da/line/804')).toBeNull();
     // The English routes are untouched.
     expect((await handleArchiveRequest('/history/30'))?.status).toBe(200);
+  });
+});
+
+describe('station page TrainStation entity (audit3 M12)', () => {
+  it('describes the page as a place: TrainStation with the stop id, place and verified geo', () => {
+    const station = findNode(renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en'), 'TrainStation');
+    expect(station).toBeDefined();
+    // Anchored on the page URL so the Dataset node can reference it.
+    expect(station!['@id']).toBe('https://oresund.live/station/hyllie#station');
+    expect(station!['url']).toBe('https://oresund.live/station/hyllie');
+    expect(station!['name']).toBe('Malmö Hyllie');
+    // The Trafiklab/GTFS stop id — the identifier the collector stores, and
+    // the same value llms.txt publishes for this station.
+    expect(station!['identifier']).toBe('740001586');
+    expect(station!['containedInPlace']).toEqual({ '@type': 'Place', name: 'Malmö, Sweden' });
+    expect(station!['geo']).toEqual({ '@type': 'GeoCoordinates', latitude: 55.5627, longitude: 12.9758 });
+  });
+
+  it('cross-references the entity from the Dataset node via about', () => {
+    const ds = findNode(renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en'), 'Dataset');
+    expect(ds!['about']).toEqual({ '@id': 'https://oresund.live/station/hyllie#station' });
+  });
+
+  it('keeps the entity on the localized variants (place facts stay stable, URL follows the lang)', () => {
+    for (const lang of ['sv', 'da'] as const) {
+      const station = findNode(renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, lang), 'TrainStation');
+      expect(station!['@id']).toBe(`https://oresund.live/${lang}/station/hyllie#station`);
+      // Coordinates are a fact about the station, not of the translation.
+      expect(station!['geo']).toEqual({ '@type': 'GeoCoordinates', latitude: 55.5627, longitude: 12.9758 });
+    }
+  });
+
+  it('never renders coordinates for a slug the static table does not know', () => {
+    const unknown: ArchiveStationStats = { ...stationStats, slug: 'new-stop', stop_id: '999' };
+    const station = findNode(renderStationPage(unknown, stationStatsSlugList(), liveSnapshot, 'en'), 'TrainStation');
+    expect(station!['geo']).toBeUndefined();
+    expect(station!['containedInPlace']).toBeUndefined();
+    // The stop id still comes from the collector payload — the page still
+    // identifies the place it measures.
+    expect(station!['identifier']).toBe('999');
+  });
+});
+
+describe('archive page head: RSS autodiscovery + og:locale (audit3 M7/M10)', () => {
+  it('links the feed via rel=alternate on every archive page family', () => {
+    for (const html of [
+      renderHistoryIndex(),
+      renderStationIndex(stationStatsSlugList()),
+      renderLinePage('804', lineStats, []),
+      renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en'),
+    ]) {
+      expect(
+        html,
+        html.slice(0, 80),
+      ).toContain('<link rel="alternate" type="application/rss+xml" title="Øresund.live disruptions" href="/feed.xml" />');
+    }
+  });
+
+  it('announces og:locale on every page, with alternates only where localized twins exist', () => {
+    const station = renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en');
+    expect(station).toContain('<meta property="og:locale" content="en_GB" />');
+    // The station routes have sv/da twins, so they advertise them.
+    expect(station).toContain('<meta property="og:locale:alternate" content="sv_SE" />');
+    expect(station).toContain('<meta property="og:locale:alternate" content="da_DK" />');
+
+    const sv = renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'sv');
+    expect(sv).toContain('<meta property="og:locale" content="sv_SE" />');
+    expect(sv).toContain('<meta property="og:locale:alternate" content="en_GB" />');
+
+    // Single-URL archive pages announce their language but no twins — there
+    // is no /sv/line/804 for an alternate to point at.
+    const line = renderLinePage('804', lineStats, []);
+    expect(line).toContain('<meta property="og:locale" content="en_GB" />');
+    expect(line).not.toContain('og:locale:alternate');
   });
 });

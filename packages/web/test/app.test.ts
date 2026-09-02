@@ -24,6 +24,24 @@ describe('renderApp — disruptions mode toggle', () => {
   });
 });
 
+describe('renderApp — archive hub links (audit3 C3)', () => {
+  it('links the archive hubs from the board body, not only the footer', () => {
+    const html = renderApp(createInitialState(), 'en', 'declined');
+    expect(html).toContain('History &amp; archives');
+    expect(html).toContain('href="/station"');
+    expect(html).toContain('href="/line"');
+    expect(html).toContain('href="/history/30"');
+    // Each hub carries a one-line description, so the anchor is contextual.
+    expect(html).toContain('Station archives</a> <span class="why">');
+  });
+
+  it('localizes the section with the rest of the board', () => {
+    expect(renderApp(createInitialState(), 'sv', 'declined')).toContain('Historik &amp; arkiv');
+    expect(renderApp(createInitialState(), 'da', 'declined')).toContain('Historik &amp; arkiver');
+    expect(renderApp(createInitialState(), 'sv', 'declined')).toContain('Stationsarkiv');
+  });
+});
+
 describe('renderApp — disruption hero strip', () => {
   const live: LiveStatus = {
     status: 'amber',

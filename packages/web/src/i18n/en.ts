@@ -264,4 +264,31 @@ export const en: Dict = {
   station_kobenhavn_h: 'København H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Københavns Lufthavn (Kastrup)',
+
+  // Homepage about block (audit3 C2) — evergreen, crawlable copy in the
+  // no-JS/crawler shell. Descriptive only: what is tracked, how a number is
+  // defined, where the data comes from. {link} in about_method is replaced
+  // with the /methodology anchor after escaping (see HomeAbout.ts).
+  about_title: 'Train punctuality across the Øresund, station by station',
+  about_corridor:
+    'Øresund.live follows cross-border Øresundståg services on the corridor between Malmö and Copenhagen. Every scheduled departure passing one of the four monitored stations — Malmö Hyllie, Malmö C, Kastrup and København H — is compared with the timetable and stored, so each station page can show how that stop actually performed.',
+  about_method:
+    'A departure counts as on time when it leaves less than four minutes late — the RT3 punctuality threshold Skånetrafiken uses. Larger deviations are recorded as delays or cancellations, and operator alerts are grouped into cause categories such as signal failure, vehicle fault or staffing. The {link} page defines every number on the board.',
+  about_source:
+    'Data comes from Trafiklab (Skånetrafiken) realtime departures, polled every five minutes and published under a CC-BY 4.0 license. Live monitoring began in August 2026, so the archives are still short — and the board shows observed departures, not a prediction of the next train.',
+
+  // Archive hub links (audit3 C3) — one set of labels + one-line descriptions
+  // shared by the board body (App.ts), the homepage about block
+  // (HomeAbout.ts) and the methodology page's related-pages list.
+  arch_link_station: 'Station archives',
+  arch_link_line: 'Line archives',
+  arch_link_history: 'Disruption history, last 30 days',
+  arch_link_station_desc: 'On-time share, cancellations and average delay at each monitored stop.',
+  arch_link_line_desc: 'Disruptions recorded per train line over the last 30 days.',
+  arch_link_history_desc: 'Day-by-day cancellations, delays and alerts across the crossing.',
+  board_archives_heading: 'History & archives',
+  board_archives_intro: 'The board shows today. The archives keep the longer record — per station, per line and day by day.',
+  meth_related_title: 'Related pages',
+  meth_related_intro:
+    'The same definitions applied: the punctuality record of each monitored station, and the disruption history behind the charts.',
 };

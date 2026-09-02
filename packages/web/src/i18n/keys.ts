@@ -255,6 +255,28 @@ export interface Dict {
   station_kobenhavn_h: string;
   station_malmo_c: string;
   station_kastrup: string;
+
+  // Homepage about block (audit3 C2) — the evergreen crawlable copy in the
+  // no-JS/crawler home shell. about_corridor takes a {stations} placeholder
+  // (the localized names, corridor order) and about_method a {link}
+  // placeholder replaced with the /methodology anchor.
+  about_title: string;
+  about_corridor: string;
+  about_method: string;
+  about_source: string;
+
+  // Archive hub links (audit3 C3) — shared by the board body, the homepage
+  // about block and the methodology related-pages list.
+  arch_link_station: string;
+  arch_link_line: string;
+  arch_link_history: string;
+  arch_link_station_desc: string;
+  arch_link_line_desc: string;
+  arch_link_history_desc: string;
+  board_archives_heading: string;
+  board_archives_intro: string;
+  meth_related_title: string;
+  meth_related_intro: string;
 }
 
 /** Union of every translation key. */

@@ -2,6 +2,7 @@ import type { AppState } from '../state';
 import { translate, type Lang } from '../i18n';
 import { esc } from '../lib/html';
 import { filterByDirection, sortNewestFirst } from '../lib/stats';
+import { renderArchiveHubLinks } from './ArchiveLinks';
 import { renderConsentBanner } from './ConsentBanner';
 import { renderDirectionTabs } from './DirectionTabs';
 import { renderDisruptionsHero } from './DisruptionsHero';
@@ -123,6 +124,11 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
         ${modeToggle}
       </section>
       ${history}
+      <section class="archives">
+        <h2 class="section-title">${esc(translate('board_archives_heading', lang))}</h2>
+        <p class="section-intro">${esc(translate('board_archives_intro', lang))}</p>
+        ${renderArchiveHubLinks(lang, 'archive-links')}
+      </section>
     </main>
     ${consent === null ? renderConsentBanner(lang) : ''}
     ${renderFooter(lang)}

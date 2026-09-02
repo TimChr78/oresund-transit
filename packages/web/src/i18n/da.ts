@@ -264,4 +264,32 @@ export const da: Dict = {
   station_kobenhavn_h: 'København H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup Lufthavn',
+
+  // Forside-tekstblok (audit3 C2) — permanent, crawlbar tekst i skallet uden
+  // JS. Kun beskrivende: hvad der måles, hvordan et tal defineres og hvor
+  // data kommer fra. {link} i about_method udskiftes med /methodology-ankret
+  // efter escaping (se HomeAbout.ts); {stations} er de oversatte
+  // stationsnavne i korridorens rækkefølge.
+  about_title: 'Togpunktualitet over Øresund, station for station',
+  about_corridor:
+    'Øresund.live følger grænseoverskridende Øresundståg på korridoren mellem Malmø og København. Hver planlagt afgang, der passerer en af de fire overvågede stationer — {stations} — sammenholdes med køreplanen og gemmes, så hver stationsside kan vise, hvordan stoppestedet faktisk klarede sig.',
+  about_method:
+    'En afgang tæller som til tiden, når den kører ud mindre end fire minutter forsinket — den RT3-grænse for punktualitet, som Skånetrafiken bruger. Større afvigelser registreres som forsinkelser eller aflysninger, og operatørens beskeder grupperes i årsager som signalfejl, køretøjsfejl eller mangel på personale. Siden {link} definerer hvert tal på tavlen.',
+  about_source:
+    'Data kommer fra Trafiklab (Skånetrafiken) realtidsafgange, hentes hvert femte minut og publiceres under en CC-BY 4.0-licens. Liveovervågningen begyndte i august 2026, så arkiverne er stadig korte — og tavlen viser observerede afgange, ikke en forudsigelse af det næste tog.',
+
+  // Arkivlinks (audit3 C3) — ét sæt labels + beskrivelser, delt af tavlen
+  // (App.ts), forside-tekstblokken (HomeAbout.ts) og metodiksidens liste over
+  // relaterede sider.
+  arch_link_station: 'Stationsarkiver',
+  arch_link_line: 'Linjearkiver',
+  arch_link_history: 'Forstyrrelleshistorik, seneste 30 dage',
+  arch_link_station_desc: 'Andel til tiden, aflysninger og gennemsnitlig forsinkelse ved hvert overvåget stoppested.',
+  arch_link_line_desc: 'Forstyrrelser pr. toglinje over de seneste 30 dage.',
+  arch_link_history_desc: 'Aflysninger, forsinkelser og forstyrrelser dag for dag over Øresund.',
+  board_archives_heading: 'Historik & arkiver',
+  board_archives_intro: 'Tavlen viser i dag. Arkiverne gemmer den lange historik — pr. station, pr. linje og dag for dag.',
+  meth_related_title: 'Relaterede sider',
+  meth_related_intro:
+    'De samme definitioner i praksis: punktualitetsarkivet for hvert overvåget stoppested og forstyrrelleshistorikken bag graferne.',
 };

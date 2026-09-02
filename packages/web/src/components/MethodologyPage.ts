@@ -1,6 +1,7 @@
 import type { Dict, Key, Lang } from '../i18n';
 import { esc } from '../lib/html';
 import { renderFooter } from './Footer';
+import { renderRelatedPages } from './ArchiveLinks';
 
 /**
  * The 12 KPIs on the board, in display order. Each row reuses the existing
@@ -67,6 +68,9 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
       <p>${esc(dict.meth_source_body)}</p>
       <h3 class="meth-h">${esc(dict.meth_lag_title)}</h3>
       <p>${esc(dict.meth_lag_body)}</p>
+      <h3 class="meth-h">${esc(dict.meth_related_title)}</h3>
+      <p>${esc(dict.meth_related_intro)}</p>
+      ${renderRelatedPages(lang, 'archive-links')}
     </main>
     ${renderFooter(lang)}
   </div>`;

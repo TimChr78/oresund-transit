@@ -263,4 +263,32 @@ export const sv: Dict = {
   station_kobenhavn_h: 'Köpenhamn H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup flygplats',
+
+  // Informationstext på startsidan (audit3 C2) — permanent, crawlbar text i
+  // skal utan JS. Beskrivande only: vad som mäts, hur ett tal definieras och
+  // var datan kommer ifrån. {link} i about_method byts mot
+  // /methodology-ankaret efter escapning (se HomeAbout.ts); {stations} är de
+  // översatta stationsnamnen i korridorens ordning.
+  about_title: 'Tågpunktlighet över Öresund, station för station',
+  about_corridor:
+    'Öresund.live följer gränsöverskridande Øresundståg på korridoren mellan Malmö och Köpenhamn. Varje planerad avgång som passerar en av de fyra övervakade stationerna — {stations} — jämförs med tidtabellen och sparas, så att varje stationssida kan visa hur hållplatsen faktiskt presterade.',
+  about_method:
+    'En avgång räknas som punktlig när den lämnar mindre än fyra minuter försenad — den RT3-tröskel för punktlighet som Skånetrafiken använder. Större avvikelser registreras som förseningar eller inställda tåg, och operatörens meddelanden grupperas i orsaker som signalstörning, fordonsfel eller personalbrist. Sidan {link} definierar varje tal på tavlan.',
+  about_source:
+    'Data kommer från Trafiklab (Skånetrafiken) realtidsavgångar, hämtas var femte minut och publiceras under en CC-BY 4.0-licens. Liveövervakningen började i augusti 2026, så arkiven är fortfarande korta — och tavlan visar observerade avgångar, inte en prognos för nästa tåg.',
+
+  // Arkivlänkar (audit3 C3) — en uppsättning etiketter + beskrivningar som
+  // delas av tavlan (App.ts), informationstexten på startsidan (HomeAbout.ts)
+  // och metodsidans lista med relaterade sidor.
+  arch_link_station: 'Stationsarkiv',
+  arch_link_line: 'Linjearkiv',
+  arch_link_history: 'Störningshistorik, senaste 30 dagarna',
+  arch_link_station_desc: 'Andel avgångar i tid, inställda avgångar och snittförsening vid varje övervakad hållplats.',
+  arch_link_line_desc: 'Störningar per tåglinje under de senaste 30 dagarna.',
+  arch_link_history_desc: 'Inställda tåg, förseningar och störningar dag för dag över Öresund.',
+  board_archives_heading: 'Historik & arkiv',
+  board_archives_intro: 'Tavlan visar idag. Arkiven bevarar den långa historiken — per station, per linje och dag för dag.',
+  meth_related_title: 'Relaterade sidor',
+  meth_related_intro:
+    'Samma definitioner i praktiken: punktlighetsarkivet för varje övervakad station och störningshistoriken bakom diagrammen.',
 };

@@ -169,6 +169,58 @@ body::after {
   max-width: 48em;
   margin: 0 2px 14px;
 }
+/* Homepage about block (audit3 C2) — evergreen crawlable copy inside
+   #static-shell. JS visitors never see it (boot() removes the whole block);
+   it stays styled for no-JS visitors and for the pre-boot flash. */
+.home-about {
+  max-width: 64em;
+  margin: 8px 2px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.home-about h2 {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin: 0 0 10px;
+}
+.home-about p {
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.6;
+  margin: 0 0 10px;
+  max-width: 64em;
+}
+.home-about a {
+  color: var(--indigo);
+  text-decoration: none;
+}
+.home-about a:hover {
+  text-decoration: underline;
+}
+.home-about .about-more {
+  color: var(--dim);
+}
+/* Archive hub link lists (audit3 C3) — the board body, the homepage about
+   block and the methodology page all link the same three hubs. */
+.about-links,
+.archive-links {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  font-size: 13px;
+}
+.about-links li,
+.archive-links li {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.archive-links .why {
+  color: var(--faint);
+}
 
 /* ------------------------------------------------------- status banner
    The signature element: a departure-board strip. Colored band, dark ink,
@@ -309,6 +361,14 @@ body::after {
 }
 .disruptions .section-title {
   margin-top: 4px;
+}
+/* One-line lead-in for a section that links onward (audit3 C3 archives). */
+.section-intro {
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.55;
+  max-width: 64em;
+  margin: 0 0 8px;
 }
 
 /* ------------------------------------------------------------ stat cards */

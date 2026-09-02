@@ -4,6 +4,14 @@ import { renderApp } from '../src/components/App';
 import { renderFooter } from '../src/components/Footer';
 import { translate } from '../src/i18n';
 import { createInitialState } from '../src/state';
+import { renderHistoryIndex, renderLineIndex, renderStationIndex, type ArchiveStation } from '../src/lib/archive';
+
+const stations: ArchiveStation[] = [
+  { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
+  { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
+  { slug: 'malmo-c', stop_id: '740000003', stop_name: 'Malmö C' },
+  { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
+];
 
 /**
  * How /feed.xml is discovered: a <link rel="alternate"> in the page <head>
@@ -38,6 +46,16 @@ describe('RSS feed discoverability', () => {
   it('the full app shell includes the footer RSS link', () => {
     const html = renderApp(createInitialState(), 'en', 'declined');
     expect(html).toContain('href="/feed.xml"');
+  });
+
+  it('every archive page family autodiscovers the feed too (audit3 M7)', () => {
+    // M2/M7: the home shell always linked the feed; the 27 archive URLs built
+    // by pageShell did not, so the feed was undiscoverable there.
+    const feedLink =
+      '<link rel="alternate" type="application/rss+xml" title="Øresund.live disruptions" href="/feed.xml" />';
+    for (const html of [renderHistoryIndex(), renderStationIndex(stations), renderLineIndex([])]) {
+      expect(html).toContain(feedLink);
+    }
   });
 
   it('footer_rss has a non-empty translation in all three dictionaries', () => {

@@ -18,7 +18,8 @@ import { bannerModel } from '../components/StatusBanner';
 import { stationNameKey } from '../components/StationPicker';
 import { BAND_BADGE_CLASS, delayBand, type DelayBand } from './stats';
 import { esc } from './html';
-import { hreflangCluster, localizedPath, localizedUrl } from './seo';
+import { hreflangCluster, localizedPath, localizedUrl, ogLocaleTags, OG_LOCALE, trainStationJsonLd } from './seo';
+import { STATIC_STATIONS } from './sitemap';
 
 export const SITE_URL = 'https://oresund.live';
 
@@ -190,7 +191,11 @@ function hreflangSelf(url: string): string {
  * attribution.
  */
 function pageShell({ title, description, canonical, jsonLd, body, lang = 'en', hreflangPath }: ShellOpts): string {
+  // M10: og:locale (+ alternates where localized twins exist) — the og block
+  // below never announced the page's language, only its title and URL.
+  const localeTags = hreflangPath ? ogLocaleTags(lang) : `    <meta property="og:locale" content="${OG_LOCALE[lang]}" />`;
   const ogTags = `
+${localeTags}
     <meta property="og:type" content="website" />
     <meta property="og:title" content="${attr(title)}" />
     <meta property="og:description" content="${attr(description)}" />
@@ -219,6 +224,10 @@ function pageShell({ title, description, canonical, jsonLd, body, lang = 'en', h
     <meta name="description" content="${attr(description)}" />
     <link rel="canonical" href="${attr(canonical)}" />
 ${hreflang}
+    <!-- M7: RSS autodiscovery — the home shell has always linked /feed.xml
+         this way; the archive pages were 27 of 31 URLs where the feed was
+         undiscoverable to a reader or crawler. -->
+    <link rel="alternate" type="application/rss+xml" title="Øresund.live disruptions" href="/feed.xml" />
     <meta name="robots" content="index,follow" />${ogTags}${jsonLdBlock}
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='32' cy='18' r='7' fill='%2310b981'/><circle cx='32' cy='32' r='7' fill='%23f59e0b'/><circle cx='32' cy='46' r='7' fill='%23ef4444'/></svg>" />
     <style>
@@ -347,7 +356,7 @@ function dataset(opts: {
   dateTo: string;
   creators: unknown[];
   variables: string[];
-}): unknown {
+}): Record<string, unknown> {
   return {
     '@type': 'Dataset',
     name: opts.name,
@@ -780,10 +789,24 @@ ${allStations
   // (index cards, sibling links, /line pages, the sitemap), so the canonical —
   // and the JSON-LD URLs that mirror it — must be encoded the same way.
   const stationBasePath = `/station/${encodeURIComponent(stats.slug)}`;
+  // M12: the place entity this page is about. Facts come from the static
+  // station table (name/stop id/place/verified coordinates) — never from the
+  // collector payload, so a collector-side name change cannot silently
+  // rewrite a structured-data claim. A slug missing from the table still
+  // renders a TrainStation node, just without place/geo.
+  const staticStation = STATIC_STATIONS.find((s) => s.slug === stats.slug);
+  const stationPageUrl = localizedUrl(stationBasePath, lang);
+  const trainStation = trainStationJsonLd({
+    stopId: stats.stop_id,
+    name,
+    url: stationPageUrl,
+    place: staticStation?.place,
+    geo: staticStation?.geo,
+  });
   return pageShell({
     title: translate('station_archive_title', lang, { name: titleName }),
     description,
-    canonical: localizedUrl(stationBasePath, lang),
+    canonical: stationPageUrl,
     hreflangPath: stationBasePath,
     lang,
     jsonLd: {
@@ -791,25 +814,30 @@ ${allStations
       '@graph': [
         breadcrumb([
           { name: translate('nav_stations', lang), url: `${SITE_URL}/station` },
-          { name, url: localizedUrl(stationBasePath, lang) },
+          { name, url: stationPageUrl },
         ]),
-        dataset({
-          name: `${name} punctuality archive`,
-          description,
-          pageUrl: localizedUrl(stationBasePath, lang),
-          dateFrom: stats.date_from,
-          dateTo: stats.date_to,
-          // Punctuality only ever comes from live Trafiklab departures (no KoDa backfill).
-          creators: [TRAFIKLAB_CREATOR],
-          variables: [
-            'Departures per day',
-            'On-time departures per day',
-            'Delayed departures per day',
-            'Cancelled departures per day',
-            'On-time percentage per day',
-            'Average delay per day',
-          ],
-        }),
+        {
+          ...dataset({
+            name: `${name} punctuality archive`,
+            description,
+            pageUrl: stationPageUrl,
+            dateFrom: stats.date_from,
+            dateTo: stats.date_to,
+            // Punctuality only ever comes from live Trafiklab departures (no KoDa backfill).
+            creators: [TRAFIKLAB_CREATOR],
+            variables: [
+              'Departures per day',
+              'On-time departures per day',
+              'Delayed departures per day',
+              'Cancelled departures per day',
+              'On-time percentage per day',
+              'Average delay per day',
+            ],
+          }),
+          // M12: tie the measurements to the place they were measured at.
+          about: { '@id': `${stationPageUrl}#station` },
+        },
+        trainStation,
         siteIdentity,
       ],
     },

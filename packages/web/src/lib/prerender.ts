@@ -1,7 +1,9 @@
 import type { Lang } from '../i18n';
 import { translate } from '../i18n';
+import { renderHomeAbout } from '../components/HomeAbout';
 import { renderStationPicker, stationScopeLabel } from '../components/StationPicker';
 import type { PageMeta } from './seo';
+import { ogLocaleTags } from './seo';
 import { esc } from './html';
 import type { HomeSummary } from './seo-summary';
 
@@ -76,6 +78,10 @@ export function renderLocalizedHome(shell: string, lang: Lang, meta: PageMeta, h
       /<span class="board-label">[\s\S]*?<\/span>/,
       () => `<span class="board-label">${esc(stationScopeLabel(lang))}</span>`,
     );
+    // C2: the evergreen about block is user-visible prose, so the /sv/ and
+    // /da/ home variants get their own wording and their own station routes
+    // instead of the shell's English paragraph block.
+    html = html.replace(/<section class="home-about">[\s\S]*?<\/section>/, () => renderHomeAbout(lang));
   }
   return html;
 }
@@ -143,6 +149,9 @@ function applySeo(html: string, lang: Lang, meta: PageMeta, hreflang?: string): 
   html = setMetaContent(html, 'property', 'og:url', meta.canonical);
   html = setMetaContent(html, 'name', 'twitter:title', meta.title);
   html = setMetaContent(html, 'name', 'twitter:description', meta.description);
+  // M10: og:locale + og:locale:alternate — every page family is served in
+  // three languages, so Facebook/LinkedIn can tell /sv/ from / (audit3 M2).
+  html = html.replace('</head>', `${ogLocaleTags(lang)}\n  </head>`);
   if (hreflang) {
     html = html.replace('</head>', `${hreflang}\n  </head>`);
   }
