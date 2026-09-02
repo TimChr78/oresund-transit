@@ -21,6 +21,30 @@ const STATIC_CHANGEFREQ = {
 const LANGS = ['en', 'sv', 'da'] as const;
 
 /**
+ * Last-modified dates for the sitemap's two page families (audit3 H4).
+ * `<lastmod>` is the one sitemap signal Google acts on — provided it is
+ * accurate — so each family gets the timestamp that actually moves it:
+ *
+ * - `deployed` — the build/deploy date. The static pages change only when the
+ *   site ships.
+ * - `data` — the collector data-window end. The archive pages change when the
+ *   data does (every /line, /station and /history window is anchored on the
+ *   same date_to).
+ *
+ * Day precision (`YYYY-MM-DD`): the data model has no finer resolution, and
+ * fabricating minute-level timestamps would make the attribute unverifiable.
+ */
+export interface SitemapLastmod {
+  deployed: string;
+  data: string;
+}
+
+/** Clamp a timestamp to the W3C date form the sitemap protocol expects. */
+function w3cDate(value: string): string {
+  return value.slice(0, 10);
+}
+
+/**
  * The hreflang xhtml:link cluster for a static page (its en canonical base
  * path, e.g. '/' or '/methodology'), pointing at every variant + x-default.
  * Required on each URL of a localized page so Google maps the variants.
@@ -49,13 +73,16 @@ function archiveAlternateLinks(url: string): string {
   ].join('\n');
 }
 
-export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): string {
+export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], lastmod: SitemapLastmod): string {
   const locs: string[] = [];
   const allLines = unionCanonicalLines(lines);
+  const deployed = w3cDate(lastmod.deployed);
+  const data = w3cDate(lastmod.data);
 
+  // <lastmod> precedes <changefreq> — the order the sitemap XSD defines.
   const add = (url: string, changefreq: string, alternates?: string): void => {
     locs.push(
-      `  <url><loc>${url}</loc><changefreq>${changefreq}</changefreq>${alternates ? `\n${alternates}` : ''}</url>`,
+      `  <url><loc>${url}</loc><lastmod>${data}</lastmod><changefreq>${changefreq}</changefreq>${alternates ? `\n${alternates}` : ''}</url>`,
     );
   };
 
@@ -64,7 +91,7 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[]): 
   const addStatic = (basePath: string, changefreq: string): void => {
     for (const lang of LANGS) {
       const url = lang === 'en' ? `${SITE_URL}${basePath}` : `${SITE_URL}/${lang}${basePath}`;
-      locs.push(`  <url><loc>${url}</loc><changefreq>${changefreq}</changefreq>\n${hreflangLinks(basePath)}</url>`);
+      locs.push(`  <url><loc>${url}</loc><lastmod>${deployed}</lastmod><changefreq>${changefreq}</changefreq>\n${hreflangLinks(basePath)}</url>`);
     }
   };
 

@@ -231,4 +231,10 @@ export const da: Dict = {
   line_archive_href: 'Linje {line} — forsinkelser & historik',
   line_no_disruptions_note: 'Ingen forstyrrelser registreret, siden overvågningen startede 2026-08-06.',
   station_no_data_note: 'Ingen afgange registreret, siden overvågningen startede 2026-08-06.',
+
+  // Stationsnavne (audit3 M4) — nøgles efter collector-slugen.
+  station_hyllie: 'Malmö Hyllie',
+  station_kobenhavn_h: 'København H',
+  station_malmo_c: 'Malmö C',
+  station_kastrup: 'Kastrup Lufthavn',
 };

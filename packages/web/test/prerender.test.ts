@@ -137,8 +137,33 @@ describe('per-route canonical', () => {
     expect(shell).not.toContain('href="https://oresund.live/index.html"');
   });
 
-  it('ships the summary_large_image twitter card and og:image:alt on every og-tagged page (L4/L5)', () => {
-    // The dashboard shell sets the card type + image (with alt)…
+  it('ships the home-screen icon, the install manifest and a dark theme colour (audit3 L1/L2)', () => {
+    // iOS ignores SVG favicons entirely — a transit board is the canonical
+    // add-to-home-screen case, so it needs a PNG touch icon it can find.
+    expect(shell).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />');
+    expect(shell).toContain('<link rel="manifest" href="/manifest.webmanifest" />');
+    for (const icon of ['apple-touch-icon.png', 'icon-192.png', 'icon-512.png']) {
+      expect(existsSync(new URL(`../public/${icon}`, import.meta.url)), icon).toBe(true);
+    }
+    // The manifest is parseable JSON and points at icons that exist.
+    const manifest = JSON.parse(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8')) as {
+      name: string;
+      icons: { src: string; sizes: string; type: string }[];
+    };
+    expect(manifest.name).toContain('Øresund.live');
+    expect(manifest.icons.length).toBeGreaterThan(1);
+    for (const icon of manifest.icons) {
+      expect(existsSync(new URL(`../public${icon.src}`, import.meta.url)), icon.src).toBe(true);
+      expect(icon.type).toBe('image/png');
+    }
+    // The board is dark-only — one dark theme colour, declared as such. No
+    // light variant: styles.css has no light palette to sample a value from.
+    expect(shell).toContain('<meta name="theme-color" content="#0a0c10" />');
+    expect(shell).toContain('<meta name="color-scheme" content="dark" />');
+    expect(shell).not.toMatch(/theme-color[^>]*media=/);
+  });
+
+  it('ships the summary_large_image twitter card and og:image:alt on every og-tagged page (L4/L5)', () => {    // The dashboard shell sets the card type + image (with alt)…
     expect(shell).toContain('name="twitter:card" content="summary_large_image"');
     expect(shell).not.toContain('name="twitter:card" content="summary"');
     expect(shell).toContain('name="twitter:image" content="https://oresund.live/og-card.png"');

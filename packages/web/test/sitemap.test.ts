@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildSitemap } from '../src/lib/sitemap';
+import { buildSitemap, type SitemapLastmod } from '../src/lib/sitemap';
 import { CANONICAL_LINES } from '../src/lib/archive';
+
+/** Fixed dates so the lastmod assertions stay deterministic. */
+const LASTMOD: SitemapLastmod = { deployed: '2026-09-01T08:00:00Z', data: '2026-09-02' };
 
 /**
  * The sitemap lists every indexable route so Google Search Console can
@@ -14,7 +17,7 @@ import { CANONICAL_LINES } from '../src/lib/archive';
  */
 describe('buildSitemap', () => {
   it('lists the three static pages, the fixed history archive, and every canonical line even when no data resolves', () => {
-    const locs = [...buildSitemap([], []).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    const locs = [...buildSitemap([], [], LASTMOD).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
     // The static pages plus the fixed archive indexes/ranges are always listed.
     expect(locs).toContain('https://oresund.live/');
     expect(locs).toContain('https://oresund.live/methodology');
@@ -38,7 +41,7 @@ describe('buildSitemap', () => {
       { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
       { slug: 'malmo-c', stop_id: '740000001', stop_name: 'Malmö C' },
       { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
-    ]).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    ], LASTMOD).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 
     expect(locs).toContain('https://oresund.live/line');
     // The dynamic, non-canonical line is still appended.
@@ -54,17 +57,17 @@ describe('buildSitemap', () => {
   });
 
   it('URL-encodes line identifiers in the sitemap', () => {
-    const xml = buildSitemap([{ line: '800 M/Ø', disruptions: 1 }], []);
+    const xml = buildSitemap([{ line: '800 M/Ø', disruptions: 1 }], [], LASTMOD);
     expect(xml).toContain('https://oresund.live/line/800%20M%2F%C3%98');
   });
 
   it('is a valid urlset with the sitemaps.org namespace', () => {
-    expect(buildSitemap([], [])).toContain('<?xml version="1.0" encoding="UTF-8"?>');
-    expect(buildSitemap([], [])).toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
+    expect(buildSitemap([], [], LASTMOD)).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(buildSitemap([], [], LASTMOD)).toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
   });
 
   it('adds the 6 localized sv/da static URLs (home, methodology, privacy)', () => {
-    const locs = [...buildSitemap([], []).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    const locs = [...buildSitemap([], [], LASTMOD).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
     expect(locs).toContain('https://oresund.live/sv/');
     expect(locs).toContain('https://oresund.live/da/');
     expect(locs).toContain('https://oresund.live/sv/methodology');
@@ -74,7 +77,7 @@ describe('buildSitemap', () => {
   });
 
   it('annotates each static URL with the full hreflang cluster (en/sv/da/x-default)', () => {
-    const xml = buildSitemap([], []);
+    const xml = buildSitemap([], [], LASTMOD);
     expect(xml).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"');
     // Every non-archive static URL must carry the x:html link set. Sample the
     // methodology cluster (all four variants present, on each of its 3 URLs).
@@ -97,7 +100,7 @@ describe('buildSitemap', () => {
     const xml = buildSitemap([{ line: '7085', disruptions: 3 }], [
       { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
       { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
-    ]);
+    ], LASTMOD);
     // Strict: EVERY <url> block (static or archive) must carry at least one
     // xhtml:link alternate — archives have no sv/da twins, so their minimum
     // is the self-referencing en + x-default pair.
@@ -127,6 +130,29 @@ describe('buildSitemap', () => {
       const block = entry!;
       expect(block, url).toContain(`<xhtml:link rel="alternate" hreflang="en" href="${url}" />`);
       expect(block, url).toContain(`<xhtml:link rel="alternate" hreflang="x-default" href="${url}" />`);
+    }
+  });
+
+  it('every URL carries a W3C <lastmod>, dated by the family that actually moves it (audit3 H4)', () => {
+    const xml = buildSitemap([{ line: '7085', disruptions: 3 }], [
+      { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
+    ], LASTMOD);
+    const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
+    expect(entries.length).toBeGreaterThan(0);
+    // <lastmod> precedes <changefreq> — the order the sitemap XSD defines.
+    for (const entry of entries) {
+      expect(entry, entry).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod><changefreq>/);
+      expect(entry, entry).not.toMatch(/<lastmod>[^<]*T[^<]*<\/lastmod>/);
+    }
+    // Static pages change only on deploy.
+    for (const url of ['https://oresund.live/', 'https://oresund.live/sv/', 'https://oresund.live/da/privacy']) {
+      const block = entries.find((e) => e.includes(`<loc>${url}</loc>`));
+      expect(block, url).toContain('<lastmod>2026-09-01</lastmod>');
+    }
+    // The archive set changes with the data.
+    for (const url of ['https://oresund.live/history/7', 'https://oresund.live/line/7085', 'https://oresund.live/station/hyllie']) {
+      const block = entries.find((e) => e.includes(`<loc>${url}</loc>`));
+      expect(block, url).toContain('<lastmod>2026-09-02</lastmod>');
     }
   });
 });

@@ -410,6 +410,68 @@ describe('archive renderers', () => {
   });
 });
 
+describe('station URL encoding (audit3 M6)', () => {
+  it('canonical, breadcrumb and Dataset URLs agree with the encoded hrefs of the index cards', () => {
+    for (const station of stationStatsSlugList()) {
+      const stats: ArchiveStationStats = { ...stationStats, slug: station.slug, stop_id: station.stop_id, stop_name: station.stop_name };
+      const html = renderStationPage(stats, stationStatsSlugList());
+      const encoded = encodeURIComponent(station.slug);
+      const expected = `https://oresund.live/station/${encoded}`;
+      // The index card links to the same URL the page claims as canonical.
+      const index = renderStationIndex(stationStatsSlugList());
+      expect(index).toContain(`href="/station/${encoded}"`);
+      expect(html).toContain(`<link rel="canonical" href="${expected}" />`);
+      expect(html).toContain(`<link rel="alternate" hreflang="en" href="${expected}" />`);
+      const breadcrumb = findNode(html, 'BreadcrumbList') as { itemListElement: { item: string }[] } | undefined;
+      expect(breadcrumb?.itemListElement.at(-1)?.item).toBe(expected);
+      const dataset = findNode(html, 'Dataset') as { distribution: { contentUrl: string } } | undefined;
+      expect(dataset?.distribution.contentUrl).toBe(expected);
+    }
+  });
+
+  it('encodes the station slug in the station index ItemList too', () => {
+    // A slug the dictionaries do not know yet (collector discovery of a new
+    // stop) still renders — from the collector's own stop_name.
+    const stations = [{ slug: 'malmö c', stop_id: '740000001', stop_name: 'Malmö C' }];
+    const html = renderStationIndex(stations);
+    const list = findNode(html, 'ItemList') as { itemListElement: { url: string; name: string }[] } | undefined;
+    expect(list?.itemListElement[0]?.url).toBe('https://oresund.live/station/malm%C3%B6%20c');
+    expect(list?.itemListElement[0]?.name).toBe('Malmö C');
+    expect(html).toContain('>Malmö C</span>');
+  });
+});
+
+describe('zero-data days (audit3 M1)', () => {
+  it('station daily rows show an em-dash instead of 0% / 0 min when no departures were observed', () => {
+    const withGap: ArchiveStationStats = {
+      ...stationStats,
+      daily: [
+        // Pre-era day: the collector zero-fills the window, so nothing was observed.
+        { date: '2026-08-04', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null },
+        { date: '2026-08-05', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: 0 },
+        { date: '2026-08-06', total: 15, on_time: 14, delayed: 1, canceled: 0, on_time_pct: 93.3, avg_delay_seconds: 180 },
+      ],
+    };
+    const html = renderStationPage(withGap, stationStatsSlugList());
+    expect(html).toContain('<td class="meta">2026-08-04</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td>');
+    expect(html).toContain('<td class="meta">2026-08-05</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td>');
+    // An observed day keeps its numbers.
+    expect(html).toContain('<td class="meta">2026-08-06</td><td>15</td><td>14</td><td>1</td><td>0</td><td>93.3%</td><td>3 min</td>');
+  });
+
+  it('history/line daily rows show an em-dash for the average when a day records no disruptions', () => {
+    const html = renderHistoryPage(7, {
+      ...history,
+      daily: [
+        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+        { date: '2026-08-05', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+      ],
+    });
+    expect(html).toContain('<td class="meta">2026-08-05</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td>');
+    expect(html).toContain('<td class="meta">2026-08-06</td><td>3</td><td>0</td><td>3</td><td>0</td><td>11 min</td>');
+  });
+});
+
 describe('Dataset JSON-LD on archive pages (SEO audit H4)', () => {
   it('line pages carry a Dataset node with temporal coverage, CC-BY license, distribution and variableMeasured', () => {
     const html = renderLinePage('804', lineStats, [{ line: '803', disruptions: 1 }]);
