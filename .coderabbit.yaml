@@ -69,14 +69,6 @@ reviews:
           eslint --max-warnings 0 (root tsconfig excludes packages/web, so web
           needs its own steps). Flag missing checks.
 
-tools:
-  ast-grep:
-    enabled: true
-  eslint:
-    enabled: true
-  markdownlint:
-    enabled: true
-  shellcheck:
-    enabled: true
-  ruff:
-    enabled: false          # no Python in this repo
+# NOTE: a "tools:" block (ast-grep/eslint/markdownlint/shellcheck enabled, ruff disabled)
+# was removed 2026-09-02: CodeRabbit flags "tools" as an unrecognized key. Tool
+# integrations are configured in the CodeRabbit UI instead.
