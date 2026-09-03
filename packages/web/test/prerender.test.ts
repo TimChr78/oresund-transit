@@ -264,13 +264,19 @@ describe('prerender build pipeline', () => {
 describe('SEO — train + Øresundståg in the served HTML', () => {
   it('the dashboard shell keeps the live-train <title> and ships the lead paragraph without JS', () => {
     // 3x train was the SEO gap; the title stays, and the no-JS/crawler
-    // fallback block now carries the H1 lead with train + Øresundståg wording
-    // in the INITIAL HTML (visible without JavaScript).
+    // fallback block carries the H1 lead with train wording in the INITIAL
+    // HTML (visible without JavaScript).
     expect(shell).toContain('<title>Øresund.live — live train status across the Sound</title>');
     expect(shell).toContain('id="static-shell"');
     const leadNode = /<h1 class="lead">([\s\S]*?)<\/h1>/.exec(shell)?.[1] ?? '';
     expect(leadNode).toMatch(/train/i);
-    expect(leadNode).toMatch(/Øresundståg/);
+    // The tightened H1 names all four monitored stops instead of the old
+    // two-station "Hyllie ↔ København H" corridor claim. Øresundståg itself is
+    // still in the served shell via the meta description + about copy below.
+    expect(leadNode).toContain('Hyllie');
+    expect(leadNode).toContain('Malmö C');
+    expect(leadNode).toContain('Kastrup');
+    expect(leadNode).toContain('København H');
     // descriptive-H1 pass: the keyword-bearing lead sentence is the page's H1;
     // the brand wordmark is an un-semantic (non-heading) element.
     expect(shell).not.toContain('<h1 class="brand">');
@@ -430,14 +436,16 @@ describe('localized home shells (sv/, da/)', () => {
   });
 
   it('sv/da home variants localize the static-shell lead (M2 — no verbatim English lead)', () => {
+    const enLead = `<h1 class="lead">${getDict('en').lead_tagline}</h1>`;
     for (const lang of LANGS) {
       const html = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/'));
       expect(html, lang).toContain(`<h1 class="lead">${getDict(lang).lead_tagline}</h1>`);
-      expect(html, lang).not.toContain('Live Øresundståg / train departures');
+      expect(html, lang).not.toContain(enLead);
     }
-    // The en home keeps the shell lead verbatim.
+    // The en home keeps the shell lead verbatim — which also pins the shell's
+    // literal H1 to the en dictionary string, so the two cannot drift apart.
     const en = renderLocalizedHome(shell, 'en', META.dashboard.en, hreflangCluster('/'));
-    expect(en).toContain('Live Øresundståg / train departures');
+    expect(en).toContain(enLead);
   });
 });
 

@@ -94,7 +94,7 @@
     <div id="static-shell" class="wrap">
       <!--
         No-JS / crawler fallback: the dashboard itself is client-rendered, so
-        the SEO-critical lead (H1 with Øresundståg + train wording) is shipped
+        the SEO-critical lead (H1 naming the four monitored stops) is shipped
         in the initial HTML. boot() removes this element on startup and renders
         the live board into #app; the static routes remove it via prerender.
       -->
@@ -110,7 +110,7 @@
            (test/prerender.test.ts asserts the shell matches the en output);
            prerender swaps in the sv/da names + routes. -->
       <nav class="station-nav" aria-label="Monitored stations"><a href="/" aria-current="true" data-action="set-station" data-value="all">All</a><span class="sep" aria-hidden="true">·</span><a href="/station/hyllie" data-action="set-station" data-value="hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c" data-action="set-station" data-value="malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup" data-action="set-station" data-value="kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h" data-action="set-station" data-value="kobenhavn-h">København H</a></nav>
-      <h1 class="lead">Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).</h1>
+      <h1 class="lead">Live train departures: Hyllie, Malmö C, Kastrup, København H</h1>
       <section class="home-about">
       <h2>Train punctuality across the Øresund, station by station</h2>
       <p>Øresund.live follows cross-border Øresundståg services on the corridor between Malmö and Copenhagen. Every scheduled departure passing one of the four monitored stations — Malmö Hyllie, Malmö C, Kastrup and København H — is compared with the timetable and stored, so each station page can show how that stop actually performed.</p>

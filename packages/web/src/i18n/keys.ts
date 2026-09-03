@@ -20,7 +20,9 @@ export interface Dict {
   banner_disruptions_many: string;
   // Disruption hero strip (newest active disruptions surfaced above the table)
   hero_disruptions: string;
-  // SEO lead (H1 under the brand wordmark) — one sentence, natural train wording
+  // SEO lead (H1 under the brand wordmark) — tight, names the four monitored
+  // stops. Kept verbatim in index.html for en (the served shell), swapped in
+  // by the prerenderer for sv/da.
   lead_tagline: string;
   // Build-time corridor status summary (no-JS/crawler home shell) — the
   // three-sentence snapshot injected at build time from collector data

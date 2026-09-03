@@ -18,7 +18,7 @@ export const en: Dict = {
   hero_disruptions: 'Active now',
   // SEO lead (H1 under the brand wordmark)
   lead_tagline:
-    'Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts, updated every 5 min (Trafiklab).',
+    'Live train departures: Hyllie, Malmö C, Kastrup, København H',
   // Build-time corridor status summary (no-JS/crawler home shell) — written
   // as plain sentences so crawlers and JS-disabled visitors get the snapshot.
   seo_status_normal: 'Trains are running normally across the Øresund crossing.',
