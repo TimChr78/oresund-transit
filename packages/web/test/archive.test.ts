@@ -621,7 +621,7 @@ describe('the /history hub — aggregate archive page', () => {
 
     const da = renderHistoryHub(punctuality, history30, 'da');
     expect(da).toContain('<html lang="da">');
-    expect(da).toContain('<h1>Forstyrrelleshistorik</h1>');
+    expect(da).toContain('<h1>Forstyrrelseshistorik</h1>');
     expect(da).toContain('<link rel="canonical" href="https://oresund.live/da/history" />');
     expect(da).toContain('<a href="/da/station/malmo-c">Malmö C</a>');
   });
@@ -651,11 +651,14 @@ describe('the /history hub — aggregate archive page', () => {
 
   it('links every window, every monitored station and every canonical line', () => {
     const html = renderHistoryHub(punctuality, history30);
-    for (const d of [7, 14, 30, 90]) expect(html).toContain(`<a href="/history/${d}">`);
+    for (const d of [7, 14, 30, 90]) expect(html).toContain(`href="/history/${d}"`);
     for (const s of STATIC_STATIONS) expect(html).toContain(`href="/station/${s.slug}"`);
     for (const l of CANONICAL_LINES) expect(html).toContain(`href="/line/${encodeURIComponent(l)}"`);
-    // The hub is the English page, so its own links carry no language annotation.
-    expect(html.match(/<a [^>]*hreflang=/g) ?? []).toEqual([]);
+    // The window pages are English-only, so the hub annotates them (CodeRabbit
+    // PR53): hreflang="en" lang="en" on each window anchor.
+    for (const d of [7, 14, 30, 90]) {
+      expect(html).toContain(`<a href="/history/${d}" hreflang="en" lang="en">`);
+    }
   });
 
   it('annotates the English-only line archives on the localized variants, station links in its own language', () => {

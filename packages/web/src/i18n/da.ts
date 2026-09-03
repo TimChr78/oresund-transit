@@ -285,10 +285,10 @@ export const da: Dict = {
   station_no_data_note: 'Ingen afgange registreret, siden overvågningen startede 2026-08-06.',
 
   // The /history hub — the aggregate archive page, served in en + sv + da.
-  hub_history_title: 'Forstyrrelleshistorik — Øresund.live',
-  hub_history_h1: 'Forstyrrelleshistorik',
+  hub_history_title: 'Forstyrrelseshistorik — Øresund.live',
+  hub_history_h1: 'Forstyrrelseshistorik',
   hub_history_desc:
-    'Forstyrrelleshistorik for hele Øresundskorridoren — afgange, andel til tiden og registrerede forstyrrelser ved de fire overvågede stationer.',
+    'Forstyrrelseshistorik for hele Øresundskorridoren — afgange, andel til tiden og registrerede forstyrrelser ved de fire overvågede stationer.',
   hub_history_sub: 'Hvad de fire overvågede stationer registrerede samlet set i de seneste {days} dage, {from} til {to}.',
   hub_history_intro:
     'Én side for hele Øresund: hvor mange afgange der kørte, hvor mange der kørte til tiden, og hvor mange forstyrrelser der blev registreret — med links til alle stations-, linje- og periodearkiver.',
@@ -319,7 +319,7 @@ export const da: Dict = {
   // relaterede sider.
   arch_link_station: 'Stationsarkiver',
   arch_link_line: 'Linjearkiver',
-  arch_link_history: 'Forstyrrelleshistorik, seneste 30 dage',
+  arch_link_history: 'Forstyrrelseshistorik, seneste 30 dage',
   arch_link_station_desc: 'Andel til tiden, aflysninger og gennemsnitlig forsinkelse ved hvert overvåget stoppested.',
   arch_link_line_desc: 'Forstyrrelser pr. toglinje over de seneste 30 dage.',
   arch_link_history_desc: 'Aflysninger, forsinkelser og forstyrrelser dag for dag over Øresund.',

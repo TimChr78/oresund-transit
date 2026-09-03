@@ -549,7 +549,10 @@ function dailyTable(rows: ArchiveHistory['daily']): string {
  * 30-day window; the four range pages carry the day-by-day tables.
  */
 function windowLinks(lang: Lang): string {
-  return DAY_RANGES.map((d) => `      <li><a href="/history/${d}">${esc(translate(`days_${d}` as Key, lang))}</a></li>`).join(
+  // The window pages (/history/{d}) are English-only — no localized twins —
+  // so on the sv/da hubs these anchors are annotated as English (CodeRabbit
+  // PR53) while keeping the localized days_* labels.
+  return DAY_RANGES.map((d) => `      <li><a href="/history/${d}" hreflang="en" lang="en">${esc(translate(`days_${d}` as Key, lang))}</a></li>`).join(
     '\n',
   );
 }

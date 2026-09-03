@@ -143,7 +143,15 @@ function parsePunctuality(json: unknown): ArchivePunctuality {
       Number.isFinite(r.total) &&
       Number.isFinite(r.on_time) &&
       Number.isFinite(r.delayed) &&
-      Number.isFinite(r.canceled),
+      Number.isFinite(r.canceled) &&
+      // CodeRabbit PR53: counts are non-negative and on_time cannot exceed
+      // total — a row like total=10/on_time=11 would render an impossible
+      // 110.0% against the declared 0-100 contract.
+      r.total >= 0 &&
+      r.on_time >= 0 &&
+      r.delayed >= 0 &&
+      r.canceled >= 0 &&
+      r.on_time <= r.total,
   );
   return b as ArchivePunctuality;
 }
