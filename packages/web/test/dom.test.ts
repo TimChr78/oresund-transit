@@ -153,7 +153,7 @@ function parse(html: string): FakeElement[] {
 
 function attrsOf(raw: string): Record<string, string> {
   const attrs: Record<string, string> = {};
-  for (const m of raw.matchAll(/([a-zA-Z-]+)="([^"]*)"/g)) attrs[m[1]] = m[2];
+  for (const m of raw.matchAll(/([a-zA-Z-]+)="([^"]*)"/g)) attrs[m[1]!] = m[2]!;
   return attrs;
 }
 
