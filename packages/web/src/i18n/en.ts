@@ -319,6 +319,7 @@ export const en: Dict = {
 
   // Collector-outage fallback (audit4 N-H4)
   err502_title: 'Temporarily unavailable',
+  nav_site_sections: 'Site sections',
   err502_body:
     'The data source did not answer, so this page could not be assembled. It is usually back within a few minutes — please try again shortly.',
   err502_retry: 'Reload the page',

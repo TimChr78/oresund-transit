@@ -320,6 +320,7 @@ export const sv: Dict = {
 
   // Collector-outage fallback (audit4 N-H4)
   err502_title: 'Tillfälligt otillgänglig',
+  nav_site_sections: 'Webbplatsavdelningar',
   err502_body:
     'Datakällan svarade inte, så sidan kunde inte byggas. Den brukar vara tillbaka inom några minuter — försök igen om en stund.',
   err502_retry: 'Ladda om sidan',

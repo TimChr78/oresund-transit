@@ -320,6 +320,7 @@ export interface Dict {
   // unreachable. Server-rendered, so it cannot reuse the SPA dictionaries at
   // runtime; the language is picked from the URL prefix, then Accept-Language.
   err502_title: string;
+  nav_site_sections: string;
   err502_body: string;
   err502_retry: string;
   err502_home: string;

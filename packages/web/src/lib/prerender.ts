@@ -168,7 +168,12 @@ function applySeo(html: string, lang: Lang, meta: PageMeta, hreflang?: string): 
   // facts the graph exists for, and the archive family's siteIdentity already
   // ships without a description (audit4 LOW).
   if (lang !== 'en') {
+    // Two shapes exist: a description member followed by more members
+    // (`...,` — drop the member cleanly) and a description as the LAST
+    // member of its node (`...}` — drop it plus the preceding comma so the
+    // remaining JSON still parses).
     html = html.replace(/\s*"description": "[^"]*",/g, '');
+    html = html.replace(/,\s*"description": "[^"]*"(\s*\})/g, '$1');
   }
   if (hreflang) {
     html = html.replace('</head>', `${hreflang}\n  </head>`);

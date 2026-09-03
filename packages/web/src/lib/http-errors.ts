@@ -107,7 +107,7 @@ export function renderUnavailablePage(lang: Lang, route: string): string {
       <span class="code">502 · ${esc(route)}</span>
       <h1>${esc(translate('err502_title', lang))}</h1>
       <p>${esc(translate('err502_body', lang))}</p>
-      <nav aria-label="Site sections">
+      <nav aria-label="${esc(translate('nav_site_sections', lang))}">
         <a href="${esc(route)}" rel="nofollow">${esc(translate('err502_retry', lang))}</a>
         <a href="/" rel="nofollow">${esc(translate('err502_home', lang))}</a>
       </nav>

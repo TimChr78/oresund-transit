@@ -321,6 +321,7 @@ export const da: Dict = {
 
   // Collector-outage fallback (audit4 N-H4)
   err502_title: 'Midlertidigt utilgængelig',
+  nav_site_sections: 'Sektioner på webstedet',
   err502_body:
     'Datakilden svarede ikke, så siden kunne ikke bygges. Den er normalt tilbage inden for et par minutter — prøv igen om lidt.',
   err502_retry: 'Indlæs siden igen',
