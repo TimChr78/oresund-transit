@@ -165,13 +165,21 @@ export function fetchStation(slug: string, days: HistoryDays = 30): Promise<Stat
 /** Guarded parse of the /api/transit/station/{slug} JSON shape. */
 export function parseStationResponse(json: unknown): StationResponse {
   const body = json as Partial<StationResponse> | null;
+  const avgDelay = body?.avg_delay_seconds;
   if (
     !body ||
     typeof body.slug !== 'string' ||
     typeof body.stop_id !== 'string' ||
+    typeof body.stop_name !== 'string' ||
     typeof body.days !== 'number' ||
+    typeof body.date_from !== 'string' ||
+    typeof body.date_to !== 'string' ||
     typeof body.total_departures !== 'number' ||
+    typeof body.on_time_count !== 'number' ||
+    typeof body.delayed_count !== 'number' ||
+    typeof body.canceled_count !== 'number' ||
     typeof body.on_time_pct !== 'number' ||
+    (avgDelay !== null && typeof avgDelay !== 'number') ||
     !Array.isArray(body.recent)
   ) {
     throw new TypeError('invalid /api/transit/station response shape');

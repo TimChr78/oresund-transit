@@ -158,6 +158,13 @@ body::after {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* Same specificity as the plain hover rule above, which it therefore beats on
+   source order — restate the hover green explicitly so the active link keeps
+   the colour the comment above promises. */
+.station-nav a[aria-current]:hover {
+  color: var(--green);
+  text-decoration: underline;
+}
 .station-nav .sep {
   color: var(--faint);
 }

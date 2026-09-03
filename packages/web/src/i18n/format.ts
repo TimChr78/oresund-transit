@@ -95,7 +95,14 @@ export function actualTime(
   if (!sched || delaySeconds === null || delaySeconds === undefined) return '';
   const m = /T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(normalizeTs(sched)) ?? /(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(sched);
   if (!m) return '';
-  const base = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] ?? '0');
+  const hour = Number(m[1]);
+  const minute = Number(m[2]);
+  const second = Number(m[3] ?? '0');
+  // The digit-only match lets an impossible "99:99:00" through, and the wrap
+  // below would fold it into a plausible-looking wall clock ("— → 04:44").
+  // Reject the components instead; the cell falls back to the em dash.
+  if (hour > 23 || minute > 59 || second > 59) return '';
+  const base = hour * 3600 + minute * 60 + second;
   const total = Math.max(0, base + Math.round(delaySeconds / 60) * 60);
   const day = ((total % 86400) + 86400) % 86400;
   const h = String(Math.floor(day / 3600)).padStart(2, '0');
