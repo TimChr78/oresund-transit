@@ -1,4 +1,5 @@
 import type { DelayStats, Departure, Disruption, LiveStatus } from '@oresund/shared';
+import { isValidLocalTimestamp } from './i18n/format';
 
 /**
  * API client for the collector Worker (Phase 3a). All paths are RELATIVE
@@ -161,6 +162,12 @@ export interface StationResponse {
    * a sched_time <= it. Optional — an older collector payload carries no stamp.
    */
   as_of?: string;
+  /**
+   * The lines observed at this stop inside the window (audit4 N-M1) — what the
+   * board can cross-link to the per-line archives. Optional — the collector
+   * deploys independently of the site.
+   */
+  lines?: string[];
 }
 
 export function fetchStation(slug: string, days: HistoryDays = 30): Promise<StationResponse> {
@@ -190,7 +197,20 @@ export function parseStationResponse(json: unknown): StationResponse {
   ) {
     throw new TypeError('invalid /api/transit/station response shape');
   }
+  // An as_of that is not a complete local stamp is dropped, not passed on: the
+  // board renders it verbatim under the departures heading, and the field
+  // shapes are wrong often enough (a truncated or out-of-range stamp) that a
+  // "2026-99-99T12:00:00" would read as an observed time. Absent is honest.
+  if (body.as_of !== undefined && !isValidLocalTimestamp(body.as_of)) delete body.as_of;
+  // Same tolerance for the cross-link list: a payload that is not a string
+  // array would reach the board's link renderer as a non-string line number.
+  if (body.lines !== undefined && !isStringArray(body.lines)) delete body.lines;
   return body as StationResponse;
+}
+
+/** True for a list whose every entry is a string (the optional N-M1 link list). */
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
 /** Guarded parse of the Phase 3a /api/transit/history JSON shape. */

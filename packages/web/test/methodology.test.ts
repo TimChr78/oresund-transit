@@ -91,3 +91,29 @@ describe('renderMethodologyPage', () => {
     }
   });
 });
+
+describe('methodology heading order (audit4 N-M12)', () => {
+  const sections = (lang: Lang): string[] => {
+    const html = renderMethodologyPage(lang, getDict(lang));
+    return [...html.matchAll(/<h([1-6])[^>]*>/g)].map((m) => m[1]!);
+  };
+
+  it('starts at h1 and never skips a level, in all three languages', () => {
+    for (const lang of ['en', 'sv', 'da'] as const) {
+      const levels = sections(lang);
+      expect(levels[0]).toBe('1');
+      let previous = 1;
+      for (const level of levels) {
+        const n = Number(level);
+        expect(n, `${lang}: ${levels.join(',')}`).toBeLessThanOrEqual(previous + 1);
+        previous = n;
+      }
+    }
+  });
+
+  it('renders the section headings as h2 (the styles come from .meth-h, not the tag)', () => {
+    const html = renderMethodologyPage('en', getDict('en'));
+    expect(html).toContain('<h2 class="meth-h">KPI definitions</h2>');
+    expect(html).not.toContain('<h3');
+  });
+});

@@ -218,6 +218,14 @@ export interface Dict {
   station_desc_empty: string;
   station_daily_heading: string;
   station_other_heading: string;
+  /**
+   * Document title of the board while one station is picked (audit4 N-M5).
+   * Takes {name}.
+   */
+  station_board_title: string;
+  /** Station ↔ line cross-links (audit4 N-M1). */
+  station_lines_heading: string;
+  line_stations_heading: string;
   // Station scope on the live board (backlog A1) — the departures table shown
   // while a single station is picked in the picker.
   station_scope_heading: string;

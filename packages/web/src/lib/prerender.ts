@@ -49,7 +49,14 @@ export function renderPrerenderedPage(
   // must not leak into /methodology or /privacy. The block may contain nested
   // <div> elements (the brand wordmark), so consume up to the closing </div>
   // that sits immediately before the site footer, not the first </div> found.
-  html = html.replace(/<div id="static-shell"[^>]*>[\s\S]*?<\/div>\s*(?=<footer)/, '');
+  // The shell footer goes with it (audit4 N-M2): the injected page already ends
+  // in its own footer, and HTML allows exactly one <footer> landmark per
+  // document — no-JS visitors keep one either way, because this only runs on
+  // the prerendered pages, where the page's own footer is static HTML.
+  html = html.replace(
+    /<div id="static-shell"[^>]*>[\s\S]*?<\/div>\s*<footer class="site-footer">[\s\S]*?<\/footer>/,
+    '',
+  );
   return html;
 }
 

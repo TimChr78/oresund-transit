@@ -599,13 +599,30 @@ export async function queryLineHistory(
   };
 }
 
-/** Distinct lines with disruption counts — discovery for /api/transit/lines. */
-export function queryDistinctLines(db: D1Like, limit = 50): Promise<{ line: string; disruptions: number }[]> {
+/**
+ * Distinct lines with disruption counts — discovery for /api/transit/lines.
+ * `last_seen` is the last calendar day the line actually recorded a
+ * disruption, which is the honest <lastmod> for its archive page (audit4
+ * N-M3): a canonical line that never appears in the data has none, so the
+ * sitemap can stop claiming it is freshly updated every day.
+ */
+export interface LineSummary {
+  line: string;
+  disruptions: number;
+  /** "YYYY-MM-DD" of the newest disruption on the line, or null when it has none. */
+  last_seen: string | null;
+}
+
+export function queryDistinctLines(db: D1Like, limit = 50): Promise<LineSummary[]> {
   return db
-    .prepare('SELECT line, COUNT(*) AS count FROM disruptions WHERE line IS NOT NULL GROUP BY line ORDER BY count DESC LIMIT ?')
+    .prepare(
+      'SELECT line, COUNT(*) AS count, MAX(date(timestamp)) AS last_seen FROM disruptions WHERE line IS NOT NULL GROUP BY line ORDER BY count DESC LIMIT ?',
+    )
     .bind(limit)
-    .all<{ line: string; count: number }>()
-    .then(({ results }) => results.map((r) => ({ line: r.line, disruptions: r.count })));
+    .all<{ line: string; count: number; last_seen: string | null }>()
+    .then(({ results }) =>
+      results.map((r) => ({ line: r.line, disruptions: r.count, last_seen: r.last_seen ?? null })),
+    );
 }
 
 /**
@@ -715,6 +732,55 @@ export async function queryStationPunctuality(
     avg_delay_seconds,
     daily,
   };
+}
+
+/**
+ * The lines observed at one stop inside the window — the station page's
+ * "lines serving this stop" cross-links. Derived from the departures table
+ * (the only per-stop data the collector keeps), bounded like every other
+ * window query so a line that stopped serving the stop ages out of the list.
+ */
+const STATION_LINES_SQL =
+  'SELECT DISTINCT line FROM departures WHERE stop_id = ? AND line IS NOT NULL AND sched_time >= ? AND sched_time < ? ORDER BY line';
+
+export async function queryStationLines(
+  db: D1Like,
+  stopId: string,
+  days: number,
+  now: Date = new Date(),
+): Promise<string[]> {
+  const to = localDateOnly(now);
+  const from = addDaysStr(to, -(days - 1));
+  const toExclusive = addDaysStr(to, 1);
+  const { results } = await db
+    .prepare(STATION_LINES_SQL)
+    .bind(stopId, from, toExclusive)
+    .all<{ line: string }>();
+  return results.map((r) => r.line);
+}
+
+/**
+ * The stops one line was observed at inside the window — the line page's
+ * "stations on this line" cross-links. Returns raw stop ids; the caller maps
+ * them onto the monitored stops it can build a page URL for.
+ */
+const LINE_STOPS_SQL =
+  'SELECT DISTINCT stop_id FROM departures WHERE line = ? AND sched_time >= ? AND sched_time < ? ORDER BY stop_id';
+
+export async function queryLineStops(
+  db: D1Like,
+  line: string,
+  days: number,
+  now: Date = new Date(),
+): Promise<string[]> {
+  const to = localDateOnly(now);
+  const from = addDaysStr(to, -(days - 1));
+  const toExclusive = addDaysStr(to, 1);
+  const { results } = await db
+    .prepare(LINE_STOPS_SQL)
+    .bind(line, from, toExclusive)
+    .all<{ stop_id: string }>();
+  return results.map((r) => r.stop_id);
 }
 
 /** The recent-rows list on a station page, plus the clock it was read at. */

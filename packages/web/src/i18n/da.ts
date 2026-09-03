@@ -207,6 +207,7 @@ export const da: Dict = {
   meth_def_by_hour: 'Andel af forstyrrelserne pr. time — sidste 30 dage.',
   meth_def_peak: 'Andel af forstyrrelserne i myldretiden (07–09 og 16–18) sammenlignet med resten af dagen.',
   station_archive_title: '{name} — rettidighed — Øresund.live',
+  station_board_title: '{name} — live togstatus — Øresund.live',
   // Stationssider (audit3 C1) — siden lokaliseres på alle tre sprog.
   station_h1: '{name} — rettidighedsarkiv',
   station_sub: 'Observerede afgange de seneste {days} dage ({from}–{to}).',
@@ -216,6 +217,9 @@ export const da: Dict = {
     'Rettidighedshistorik for {name} over Øresund — ingen afgange registreret endnu; data begynder at samle, så snart den live overvågning starter.',
   station_daily_heading: 'Rettidighed dag for dag',
   station_other_heading: 'Andre stationer',
+  // Krydslinks station ↔ linje (audit4 N-M1)
+  station_lines_heading: 'Linjer, der betjener stationen',
+  line_stations_heading: 'Stationer på linjen',
   // Stationsval på tavlen (A1)
   station_scope_heading: 'Seneste afgange på {name}',
   station_scope_intro:

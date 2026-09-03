@@ -6,9 +6,11 @@ import {
   parseStationScope,
   renderStationPicker,
   stationNames,
+  stationScopeFromSearch,
   stationScopeLabel,
   type StationScope,
 } from '../src/components/StationPicker';
+import { createInitialState, reducer } from '../src/state';
 import { renderStationDepartures } from '../src/components/StationDepartures';
 
 const DEPARTURE: Departure = {
@@ -160,5 +162,38 @@ describe('station scope coverage (backlog A1)', () => {
         expect(stationScopeLabel(lang, slug).trim().length).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe('stationScopeFromSearch (audit4 N-M10)', () => {
+  it('resolves the four monitored slugs out of a query string', () => {
+    expect(stationScopeFromSearch('?station=hyllie')).toBe('hyllie');
+    expect(stationScopeFromSearch('?station=malmo-c&days=7')).toBe('malmo-c');
+    expect(stationScopeFromSearch('?x=1&station=kastrup')).toBe('kastrup');
+    expect(stationScopeFromSearch('station=kobenhavn-h')).toBe('kobenhavn-h');
+  });
+
+  it.each([
+    ['a slug that is not monitored', '?station=not-a-station'],
+    ['a differently-cased slug', '?station=Hyllie'],
+    ['a URL-encoded unknown', '?station=malmo%20central'],
+    ['an empty value', '?station='],
+    ['a bare parameter', '?station'],
+    ['no station parameter at all', '?days=7'],
+    ['an empty query string', ''],
+  ])('falls back to All for %s, so the board cannot wedge in its loading state', (_label, search) => {
+    expect(stationScopeFromSearch(search)).toBe('all');
+    expect(stationScopeFromSearch(undefined)).toBe('all');
+    expect(stationScopeFromSearch(null)).toBe('all');
+  });
+
+  it('an All fallback never puts the station section into the loading state it could not leave', () => {
+    // The wedge: SET_STATION to a stop no endpoint serves leaves the section
+    // 'loading' forever. 'all' is idle by construction.
+    const scope = stationScopeFromSearch('?station=not-a-station');
+    const state = reducer(createInitialState(), { type: 'SET_STATION', station: scope });
+    expect(state.station).toBe('all');
+    expect(state.stationState).toBe('idle');
+    expect(state.stationData).toBeNull();
   });
 });

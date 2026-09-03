@@ -206,6 +206,7 @@ export const sv: Dict = {
   meth_def_by_hour: 'Andel av störningarna per timme — senaste 30 dagarna.',
   meth_def_peak: 'Andel av störningarna under rusningstid (07–09 och 16–18) jämfört med övrig tid.',
   station_archive_title: '{name} — punktlighet — Øresund.live',
+  station_board_title: '{name} — live tågstatus — Øresund.live',
   // Stationssidor (audit3 C1) — sidan lokaliserats i alla tre språk.
   station_h1: '{name} — punktlighetsarkiv',
   station_sub: 'Observerade avgångar de senaste {days} dagarna ({from}–{to}).',
@@ -215,6 +216,9 @@ export const sv: Dict = {
     'Punktlighetshistorik för {name} över Öresund — inga avgångar registrerade ännu; data börjar samlas in så snart live-övervakningen startar.',
   station_daily_heading: 'Punktlighet dag för dag',
   station_other_heading: 'Övriga stationer',
+  // Korslänkar station ↔ linje (audit4 N-M1)
+  station_lines_heading: 'Linjer som trafikerar stationen',
+  line_stations_heading: 'Stationer på linjen',
   // Stationsval på tavlan (A1)
   station_scope_heading: 'Senaste avgångarna på {name}',
   station_scope_intro:

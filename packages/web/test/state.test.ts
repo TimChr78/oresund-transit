@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DelayStats, Disruption, LiveStatus } from '@oresund/shared';
-import { createInitialState, reducer, type AppState } from '../src/state';
+import { createInitialState, reducer, type Action, type AppState } from '../src/state';
 import type { HistoryResponse, PunctualityResponse, StationResponse } from '../src/api';
 import type { StationScope } from '../src/components/StationPicker';
 
@@ -67,6 +67,9 @@ const PUNCTUALITY: PunctualityResponse = {
   ],
 };
 
+/** Run actions in order, the way boot()'s dispatch does. */
+const run = (state: AppState, ...actions: Action[]): AppState => actions.reduce(reducer, state);
+
 describe('app state reducer', () => {
   it('starts with direction all, dayRange 7, no data, liveState loading', () => {
     const s = createInitialState();
@@ -81,19 +84,36 @@ describe('app state reducer', () => {
     expect(s.punctualityError).toBeNull();
     expect(s.disruptions).toEqual([]);
     expect(s.lastRefresh).toBe(0);
+    // audit4 N-M11: no section has a request in flight until one starts.
+    for (const key of [
+      'liveRequestId',
+      'statsRequestId',
+      'disruptionsRequestId',
+      'historyRequestId',
+      'heatmapHistoryRequestId',
+      'punctualityRequestId',
+    ] as const) {
+      expect(s[key], key).toBeNull();
+    }
   });
 
   it('SET_DIRECTION changes the filter and leaves data intact', () => {
-    const s = reducer(createInitialState(), { type: 'LIVE_OK', live: LIVE, at: 1000 });
+    const s = run(createInitialState(), { type: 'LIVE_START', id: 1 }, { type: 'LIVE_OK', id: 1, live: LIVE, at: 1000 });
     const next = reducer(s, { type: 'SET_DIRECTION', direction: 'to_denmark' });
     expect(next.direction).toBe('to_denmark');
     expect(next.live).toBe(LIVE);
   });
 
   it('SET_DAY_RANGE sets the range and clears history + stats + punctuality for refetch', () => {
-    let s = reducer(createInitialState(), { type: 'HISTORY_OK', history: HISTORY });
-    s = reducer(s, { type: 'STATS_OK', stats: STATS });
-    s = reducer(s, { type: 'PUNCTUALITY_OK', punctuality: PUNCTUALITY });
+    const s = run(
+      createInitialState(),
+      { type: 'HISTORY_START', id: 1 },
+      { type: 'HISTORY_OK', id: 1, history: HISTORY },
+      { type: 'STATS_START', id: 2 },
+      { type: 'STATS_OK', id: 2, stats: STATS },
+      { type: 'PUNCTUALITY_START', id: 3 },
+      { type: 'PUNCTUALITY_OK', id: 3, punctuality: PUNCTUALITY },
+    );
     const next = reducer(s, { type: 'SET_DAY_RANGE', dayRange: 14 });
     expect(next.dayRange).toBe(14);
     expect(next.history).toBeNull();
@@ -103,7 +123,7 @@ describe('app state reducer', () => {
   });
 
   it('LIVE_OK stores the snapshot and records the refresh time', () => {
-    const s = reducer(createInitialState(), { type: 'LIVE_OK', live: LIVE, at: 12345 });
+    const s = run(createInitialState(), { type: 'LIVE_START', id: 7 }, { type: 'LIVE_OK', id: 7, live: LIVE, at: 12345 });
     expect(s.live).toBe(LIVE);
     expect(s.liveState).toBe('ok');
     expect(s.liveError).toBeNull();
@@ -111,64 +131,98 @@ describe('app state reducer', () => {
   });
 
   it('LIVE_NO_DATA marks the empty state instead of an error', () => {
-    const s = reducer(createInitialState(), { type: 'LIVE_NO_DATA', at: 10 });
+    const s = run(createInitialState(), { type: 'LIVE_START', id: 1 }, { type: 'LIVE_NO_DATA', id: 1, at: 10 });
     expect(s.liveState).toBe('no_data');
     expect(s.live).toBeNull();
     expect(s.liveError).toBeNull();
   });
 
   it('LIVE_ERROR keeps existing live data (per-section errors do not blank the page)', () => {
-    let s = reducer(createInitialState(), { type: 'LIVE_OK', live: LIVE, at: 1 });
-    s = reducer(s, { type: 'LIVE_ERROR', message: 'boom' });
+    const s = run(
+      createInitialState(),
+      { type: 'LIVE_START', id: 1 },
+      { type: 'LIVE_OK', id: 1, live: LIVE, at: 1 },
+      { type: 'LIVE_START', id: 2 },
+      { type: 'LIVE_ERROR', id: 2, message: 'boom' },
+    );
     expect(s.live).toBe(LIVE);
     expect(s.liveState).toBe('error');
     expect(s.liveError).toBe('boom');
   });
 
   it('LIVE_ERROR without data marks the section errored', () => {
-    const s = reducer(createInitialState(), { type: 'LIVE_ERROR', message: 'boom' });
+    const s = run(createInitialState(), { type: 'LIVE_START', id: 1 }, { type: 'LIVE_ERROR', id: 1, message: 'boom' });
     expect(s.liveState).toBe('error');
     expect(s.live).toBeNull();
   });
 
   it('HISTORY_OK populates history and clears the error', () => {
-    let s = reducer(createInitialState(), { type: 'HISTORY_ERROR', message: 'boom' });
-    s = reducer(s, { type: 'HISTORY_OK', history: HISTORY });
+    const s = run(
+      createInitialState(),
+      { type: 'HISTORY_START', id: 1 },
+      { type: 'HISTORY_ERROR', id: 1, message: 'boom' },
+      { type: 'HISTORY_START', id: 2 },
+      { type: 'HISTORY_OK', id: 2, history: HISTORY },
+    );
     expect(s.history).toBe(HISTORY);
     expect(s.historyError).toBeNull();
   });
 
   it('DISRUPTIONS_OK replaces the disruption list and marks the section ok', () => {
-    const s = reducer(createInitialState(), { type: 'DISRUPTIONS_OK', disruptions: [DISRUPTION] });
+    const s = run(
+      createInitialState(),
+      { type: 'DISRUPTIONS_START', id: 1 },
+      { type: 'DISRUPTIONS_OK', id: 1, disruptions: [DISRUPTION] },
+    );
     expect(s.disruptions).toEqual([DISRUPTION]);
     expect(s.disruptionsState).toBe('ok');
     expect(s.disruptionsError).toBeNull();
   });
 
   it('DISRUPTIONS_ERROR marks the section errored and keeps prior data', () => {
-    let s = reducer(createInitialState(), { type: 'DISRUPTIONS_OK', disruptions: [DISRUPTION] });
-    s = reducer(s, { type: 'DISRUPTIONS_ERROR', message: 'boom' });
+    const s = run(
+      createInitialState(),
+      { type: 'DISRUPTIONS_START', id: 1 },
+      { type: 'DISRUPTIONS_OK', id: 1, disruptions: [DISRUPTION] },
+      { type: 'DISRUPTIONS_START', id: 2 },
+      { type: 'DISRUPTIONS_ERROR', id: 2, message: 'boom' },
+    );
     expect(s.disruptionsState).toBe('error');
     expect(s.disruptions).toEqual([DISRUPTION]);
   });
 
   it('STATS_OK populates stats and clears the error', () => {
-    let s = reducer(createInitialState(), { type: 'STATS_ERROR', message: 'boom' });
-    s = reducer(s, { type: 'STATS_OK', stats: STATS });
+    const s = run(
+      createInitialState(),
+      { type: 'STATS_START', id: 1 },
+      { type: 'STATS_ERROR', id: 1, message: 'boom' },
+      { type: 'STATS_START', id: 2 },
+      { type: 'STATS_OK', id: 2, stats: STATS },
+    );
     expect(s.stats).toBe(STATS);
     expect(s.statsError).toBeNull();
   });
 
   it('PUNCTUALITY_OK populates punctuality and clears the error', () => {
-    let s = reducer(createInitialState(), { type: 'PUNCTUALITY_ERROR', message: 'boom' });
-    s = reducer(s, { type: 'PUNCTUALITY_OK', punctuality: PUNCTUALITY });
+    const s = run(
+      createInitialState(),
+      { type: 'PUNCTUALITY_START', id: 1 },
+      { type: 'PUNCTUALITY_ERROR', id: 1, message: 'boom' },
+      { type: 'PUNCTUALITY_START', id: 2 },
+      { type: 'PUNCTUALITY_OK', id: 2, punctuality: PUNCTUALITY },
+    );
     expect(s.punctuality).toBe(PUNCTUALITY);
     expect(s.punctualityError).toBeNull();
   });
 
   it('PUNCTUALITY_ERROR marks the error and keeps prior data', () => {
-    let s = reducer(createInitialState(), { type: 'PUNCTUALITY_OK', punctuality: PUNCTUALITY });
-    s = reducer(s, { type: 'PUNCTUALITY_ERROR', message: 'boom' });
+    const s = run(
+      createInitialState(),
+      { type: 'PUNCTUALITY_START', id: 1 },
+      { type: 'PUNCTUALITY_OK', id: 1, punctuality: PUNCTUALITY },
+      { type: 'PUNCTUALITY_START', id: 2 },
+      { type: 'PUNCTUALITY_ERROR', id: 2, message: 'boom' },
+    );
     expect(s.punctuality).toBe(PUNCTUALITY);
     expect(s.punctualityError).toBe('boom');
   });
@@ -180,17 +234,26 @@ describe('app state reducer', () => {
   });
 
   it('HEATMAP_HISTORY_OK stores the 30-day baseline and clears its error', () => {
-    let s = reducer(createInitialState(), { type: 'HEATMAP_HISTORY_ERROR', message: 'boom' });
-    s = reducer(s, { type: 'HEATMAP_HISTORY_OK', history: HISTORY });
+    const s = run(
+      createInitialState(),
+      { type: 'HEATMAP_HISTORY_START', id: 1 },
+      { type: 'HEATMAP_HISTORY_ERROR', id: 1, message: 'boom' },
+      { type: 'HEATMAP_HISTORY_START', id: 2 },
+      { type: 'HEATMAP_HISTORY_OK', id: 2, history: HISTORY },
+    );
     expect(s.heatmapHistory).toBe(HISTORY);
     expect(s.heatmapError).toBeNull();
   });
 
   it('SET_DAY_RANGE does NOT clear the heatmap baseline (stable 30-day window)', () => {
-    let s = reducer(createInitialState(), { type: 'HEATMAP_HISTORY_OK', history: HISTORY });
-    s = reducer(s, { type: 'SET_DAY_RANGE', dayRange: 90 });
-    expect(s.heatmapHistory).toBe(HISTORY);
-    expect(s.history).toBeNull();
+    const s = run(
+      createInitialState(),
+      { type: 'HEATMAP_HISTORY_START', id: 1 },
+      { type: 'HEATMAP_HISTORY_OK', id: 1, history: HISTORY },
+    );
+    const next = reducer(s, { type: 'SET_DAY_RANGE', dayRange: 90 });
+    expect(next.heatmapHistory).toBe(HISTORY);
+    expect(next.history).toBeNull();
   });
 });
 
@@ -210,9 +273,101 @@ describe('disruptionsMode', () => {
 
   it('DISRUPTIONS_OK preserves the current mode', () => {
     const s1 = reducer(createInitialState(), { type: 'SET_DISRUPTIONS_MODE', mode: 'archive' });
-    const s2 = reducer(s1, { type: 'DISRUPTIONS_OK', disruptions: [] });
-    expect(s2.disruptionsMode).toBe('archive');
-    expect(s2.disruptionsState).toBe('ok');
+    const s2 = reducer(s1, { type: 'DISRUPTIONS_START', id: 1 });
+    const s3 = reducer(s2, { type: 'DISRUPTIONS_OK', id: 1, disruptions: [] });
+    expect(s3.disruptionsMode).toBe('archive');
+    expect(s3.disruptionsState).toBe('ok');
+  });
+});
+
+describe('request identity on every board fetch (audit4 N-M11)', () => {
+  /** A section's fetch as main.ts runs it: START, then the reply. */
+  const load = (id: number): Action[] => [
+    { type: 'HISTORY_START', id },
+    { type: 'HISTORY_OK', id, history: HISTORY },
+  ];
+
+  it('applies a reply while its request is the current one', () => {
+    const s = run(createInitialState(), ...load(1));
+    expect(s.history).toBe(HISTORY);
+    expect(s.historyRequestId).toBe(1);
+  });
+
+  it('drops a reply for a day range the visitor has already left', () => {
+    // 7-day request in flight, the visitor switches to 30, then the 7-day
+    // reply lands: neither the data nor the failure may show.
+    let s = run(createInitialState(), { type: 'HISTORY_START', id: 1 });
+    s = reducer(s, { type: 'SET_DAY_RANGE', dayRange: 30 });
+    s = reducer(s, { type: 'HISTORY_OK', id: 1, history: HISTORY });
+    expect(s.history).toBeNull();
+    expect(s.dayRange).toBe(30);
+    s = reducer(s, { type: 'HISTORY_ERROR', id: 1, message: 'boom' });
+    expect(s.historyError).toBeNull();
+    // The range's own reply still lands.
+    s = run(s, { type: 'HISTORY_START', id: 2 }, { type: 'HISTORY_OK', id: 2, history: HISTORY });
+    expect(s.history).toBe(HISTORY);
+  });
+
+  it('keeps a slow stats reply from overwriting a newer one of the same section', () => {
+    const newer = { ...STATS, total_departures: 99 };
+    let s = run(
+      createInitialState(),
+      { type: 'STATS_START', id: 1 },
+      { type: 'STATS_START', id: 2 },
+      { type: 'STATS_OK', id: 2, stats: newer },
+    );
+    expect(s.stats).toBe(newer);
+    s = reducer(s, { type: 'STATS_OK', id: 1, stats: STATS });
+    expect(s.stats).toBe(newer);
+    // …and a stale failure cannot mark a healthy section errored either.
+    s = reducer(s, { type: 'STATS_ERROR', id: 1, message: 'boom' });
+    expect(s.statsError).toBeNull();
+    expect(s.stats).toBe(newer);
+  });
+
+  it('drops a punctuality reply that belongs to the previous range', () => {
+    let s = run(createInitialState(), { type: 'PUNCTUALITY_START', id: 1 });
+    s = reducer(s, { type: 'SET_DAY_RANGE', dayRange: 90 });
+    s = reducer(s, { type: 'PUNCTUALITY_OK', id: 1, punctuality: PUNCTUALITY });
+    expect(s.punctuality).toBeNull();
+    expect(s.punctualityRequestId).toBeNull();
+  });
+
+  it('drops a disruption list fetched for the other mode', () => {
+    let s = run(createInitialState(), { type: 'DISRUPTIONS_START', id: 1 });
+    s = reducer(s, { type: 'SET_DISRUPTIONS_MODE', mode: 'archive' });
+    s = reducer(s, { type: 'DISRUPTIONS_OK', id: 1, disruptions: [DISRUPTION] });
+    expect(s.disruptions).toEqual([]);
+    expect(s.disruptionsState).toBe('loading');
+    expect(s.disruptionsRequestId).toBeNull();
+    // The archive list itself still lands.
+    s = run(s, { type: 'DISRUPTIONS_START', id: 2 }, { type: 'DISRUPTIONS_OK', id: 2, disruptions: [DISRUPTION] });
+    expect(s.disruptions).toEqual([DISRUPTION]);
+    expect(s.disruptionsState).toBe('ok');
+  });
+
+  it('a second LIVE_START supersedes the first, whose reply is then stale', () => {
+    let s = run(createInitialState(), { type: 'LIVE_START', id: 1 }, { type: 'LIVE_START', id: 2 });
+    s = reducer(s, { type: 'LIVE_OK', id: 2, live: LIVE, at: 50 });
+    expect(s.live).toBe(LIVE);
+    expect(s.lastRefresh).toBe(50);
+    const stale = reducer(s, { type: 'LIVE_OK', id: 1, live: LIVE, at: 10 });
+    expect(stale.lastRefresh).toBe(50);
+    const staleFailure = reducer(s, { type: 'LIVE_ERROR', id: 1, message: 'boom' });
+    expect(staleFailure.liveState).toBe('ok');
+  });
+
+  it('the heatmap baseline is identity-guarded too, though its window never changes', () => {
+    const baseline = { ...HISTORY, days: 30 as const };
+    let s = run(
+      createInitialState(),
+      { type: 'HEATMAP_HISTORY_START', id: 1 },
+      { type: 'HEATMAP_HISTORY_START', id: 2 },
+      { type: 'HEATMAP_HISTORY_OK', id: 2, history: baseline },
+    );
+    s = reducer(s, { type: 'HEATMAP_HISTORY_ERROR', id: 1, message: 'boom' });
+    expect(s.heatmapHistory).toBe(baseline);
+    expect(s.heatmapError).toBeNull();
   });
 });
 

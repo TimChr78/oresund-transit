@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reconcile, type ParseHtml } from '../src/lib/dom';
+import { isPlainPrimaryClick, reconcile, type ParseHtml } from '../src/lib/dom';
 
 /**
  * The suite runs in plain node (vite.config.ts: "Pure-logic tests only — no
@@ -281,3 +281,24 @@ describe('reconcile (audit4 N-H7) — keyed DOM reconciliation', () => {
   });
 });
 
+
+describe('isPlainPrimaryClick (audit4 N-M8)', () => {
+  const click = (overrides: Partial<Parameters<typeof isPlainPrimaryClick>[0]> = {}): boolean =>
+    isPlainPrimaryClick({ button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...overrides });
+
+  it('claims a plain primary click', () => {
+    expect(click()).toBe(true);
+  });
+
+  it('leaves the browser its own meaning for a modified or non-primary click', () => {
+    // cmd-click (macOS) / ctrl-click (Windows, Linux) = open in a new tab.
+    expect(click({ metaKey: true })).toBe(false);
+    expect(click({ ctrlKey: true })).toBe(false);
+    // shift-click = new window; alt-click = download.
+    expect(click({ shiftKey: true })).toBe(false);
+    expect(click({ altKey: true })).toBe(false);
+    // Middle-click — the classic open-in-background-tab.
+    expect(click({ button: 1 })).toBe(false);
+    expect(click({ button: 2 })).toBe(false);
+  });
+});
