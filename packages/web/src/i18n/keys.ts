@@ -8,7 +8,6 @@ export type Lang = 'sv' | 'da' | 'en';
 export interface Dict {
   // Brand
   brand_name: string;
-  brand_sub: string;
   // Status banner
   status_normal: string;
   status_delayed: string;

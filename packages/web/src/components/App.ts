@@ -134,7 +134,7 @@ export function renderApp(state: AppState, lang: Lang): string {
   return `
   <div class="wrap">
     <header class="topbar">
-      <div class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></div>
+      <div class="brand">${translate('brand_name', lang)}</div>
       <span class="board-label">${esc(stationScopeLabel(lang, state.station))}</span>
     </header>
     ${renderStationPicker(lang, state.station)}

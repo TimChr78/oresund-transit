@@ -3,8 +3,7 @@ import type { Dict } from './keys';
 /** English dictionary — plain commuter voice, no marketing. */
 export const en: Dict = {
   // Brand (identical across languages)
-  brand_name: 'Øresund',
-  brand_sub: 'live',
+  brand_name: 'Øresund.live',
   // Status banner
   status_normal: 'Normal service',
   status_delayed: 'Delays',

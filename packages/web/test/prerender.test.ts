@@ -294,7 +294,7 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
     // descriptive-H1 pass: the keyword-bearing lead sentence is the page's H1;
     // the brand wordmark is an un-semantic (non-heading) element.
     expect(shell).not.toContain('<h1 class="brand">');
-    expect(shell).toContain('<div class="brand">Øresund <span class="brand-sub">live</span></div>');
+    expect(shell).toContain('<div class="brand">Øresund.live</div>');
   });
 
   it('the home shell has exactly one H1 — the descriptive lead, never the bare brand', () => {
