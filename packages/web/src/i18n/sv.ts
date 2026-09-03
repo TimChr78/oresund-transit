@@ -58,9 +58,9 @@ export const sv: Dict = {
   route_section_hint: 'Berörd sträcka',
   // Delay bands (audit3 H1) — badge text in the DELAY column
   delay_band_on_time: 'I tid',
-  delay_band_minor: '5–15 min',
-  delay_band_moderate: '15–30 min',
-  delay_band_major: '30+ min',
+  delay_band_minor: '4–10 min',
+  delay_band_moderate: '10–15 min',
+  delay_band_major: '15+ min',
   // Causes (Swedish reference — matches the private board)
   cause_staffing: 'Personalbrist',
   cause_person_on_tracks: 'Person på spår',
@@ -225,6 +225,8 @@ export const sv: Dict = {
   station_live_intro:
     'Statusbandet gäller hela Öresundskorridoren; avgångarna nedan är observerade på {name}.',
   station_departures_heading: 'Senast observerade avgångar',
+  // audit4 N-C1 — tidsstämpeln som de senaste raderna begränsats till.
+  station_as_of: 'Observerat till och med {time} den {date}',
   // Samma tonläge som meth_lag_body: deklarera eftersläpningen i stället för
   // att låtsas vara en prognostiserande avgångstavla.
   station_observed_note:

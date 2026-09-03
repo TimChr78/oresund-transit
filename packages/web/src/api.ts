@@ -156,6 +156,11 @@ export interface StationResponse {
   on_time_pct: number;
   avg_delay_seconds: number | null;
   recent: Departure[];
+  /**
+   * Naive local ISO stamp of the read (audit4 N-C1): every row in `recent` has
+   * a sched_time <= it. Optional — an older collector payload carries no stamp.
+   */
+  as_of?: string;
 }
 
 export function fetchStation(slug: string, days: HistoryDays = 30): Promise<StationResponse> {
@@ -180,7 +185,8 @@ export function parseStationResponse(json: unknown): StationResponse {
     typeof body.canceled_count !== 'number' ||
     typeof body.on_time_pct !== 'number' ||
     (avgDelay !== null && typeof avgDelay !== 'number') ||
-    !Array.isArray(body.recent)
+    !Array.isArray(body.recent) ||
+    (body.as_of !== undefined && typeof body.as_of !== 'string')
   ) {
     throw new TypeError('invalid /api/transit/station response shape');
   }

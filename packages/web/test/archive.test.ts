@@ -660,14 +660,17 @@ describe('handleArchiveRequest dispatch', () => {
   it('renders /station and /station/{slug}', async () => {
     stubFetch({
       '/api/transit/stations': { stations: stationStatsSlugList() },
-      '/api/transit/station/hyllie': stationStats,
+      '/api/transit/station/hyllie': { ...stationStats, as_of: '2026-08-06T21:59:27' },
     });
     const index = await handleArchiveRequest('/station');
     expect(await index?.text()).toContain('København H');
 
     const page = await handleArchiveRequest('/station/hyllie');
     expect(page?.status).toBe(200);
-    expect(await page?.text()).toContain('Malmö Hyllie — punctuality archive');
+    const html = await page?.text();
+    expect(html).toContain('Malmö Hyllie — punctuality archive');
+    // The collector's as-of read survives the guarded parser (audit4 N-C1).
+    expect(html).toContain('Observed up to 21:59 on 2026-08-06');
   });
 
   it('returns 502 on collector failure', async () => {
@@ -777,6 +780,26 @@ describe('station live section + localized routes (audit3 C1/H2)', () => {
     expect(html).toContain('These are observed departures, not a predictive departure board');
     // The heading is what a crawler reads — "next departures" must not appear.
     expect(html).not.toMatch(/next departures/i);
+  });
+
+  it('stamps the departures table with the as-of read it was bounded to (audit4 N-C1)', () => {
+    const html = renderStationPage(
+      { ...stationStats, as_of: '2026-08-06T21:59:27' },
+      stationStatsSlugList(),
+      live,
+    );
+    expect(html).toContain('<h2>Latest observed departures</h2>');
+    expect(html).toContain('Observed up to 21:59 on 2026-08-06');
+    // The stamp sits under the heading, before the table it qualifies.
+    expect(html.indexOf('Observed up to 21:59')).toBeGreaterThan(html.indexOf('Latest observed departures'));
+    expect(html.indexOf('Observed up to 21:59')).toBeLessThan(html.indexOf('#1143'));
+  });
+
+  it('localizes the as-of stamp and drops it when the payload has none', () => {
+    const sv = renderStationPage({ ...stationStats, as_of: '2026-08-06T21:59:27' }, stationStatsSlugList(), live, 'sv');
+    expect(sv).toContain('Observerat till och med 21:59 den 2026-08-06');
+    // Optional: a collector older than the site ships no as_of at all.
+    expect(renderStationPage(stationStats, stationStatsSlugList(), live)).not.toContain('Observed up to');
   });
 
   it('shows the train technical_number (H2) and bands the delay like the board does', () => {

@@ -320,6 +320,27 @@ function localDateOnly(date: Date): string {
   }).format(date);
 }
 
+/**
+ * Naive local ISO timestamp ("2026-08-06T21:59:27") — the exact format
+ * sched_time is stored in, so it compares lexicographically against the
+ * column. Mirrors formatLocalIso in index.ts (kept here to avoid the import
+ * cycle: index.ts already imports this module).
+ */
+function localIsoStamp(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: LOCAL_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes): string => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+}
+
 /** Add N calendar days to an ISO date string (DST-safe via UTC date math). */
 function addDaysStr(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -696,15 +717,41 @@ export async function queryStationPunctuality(
   };
 }
 
-/** Recent departures observed at a stop — the recent-rows list on a station page. */
-export function queryRecentDepartures(
+/** The recent-rows list on a station page, plus the clock it was read at. */
+export interface RecentDepartures {
+  rows: Departure[];
+  /**
+   * Naive local ISO stamp of the read (audit4 N-C1). Every returned row's
+   * sched_time is <= this, and the stamp is what the page shows under the
+   * "Latest observed departures" heading so a reader can tell how stale the
+   * board is.
+   */
+  as_of: string;
+}
+
+const RECENT_DEPARTURES_SQL =
+  'SELECT * FROM departures WHERE stop_id = ? AND sched_time <= ? ORDER BY sched_time DESC LIMIT ?';
+
+/**
+ * Recent departures observed at a stop — the recent-rows list on a station page.
+ *
+ * Bounded to sched_time <= now (audit4 N-C1): the collector ingests Trafiklab's
+ * lookahead window, so the departures table holds rows for slots up to ~50 min
+ * in the future and an unbounded `ORDER BY sched_time DESC` served them under an
+ * "observed" heading. `<= now` is the tightest correct bound, and — unlike a
+ * fixed now-3h..now window — it can never empty the table, because the LIMIT
+ * walks back through the off-peak gap to the last slots that did run.
+ */
+export async function queryRecentDepartures(
   db: D1Like,
   stopId: string,
   limit: number,
-): Promise<Departure[]> {
-  return db
-    .prepare('SELECT * FROM departures WHERE stop_id = ? ORDER BY sched_time DESC LIMIT ?')
-    .bind(stopId, limit)
-    .all<Departure>()
-    .then(({ results }) => results);
+  now: Date = new Date(),
+): Promise<RecentDepartures> {
+  const asOf = localIsoStamp(now);
+  const { results } = await db
+    .prepare(RECENT_DEPARTURES_SQL)
+    .bind(stopId, asOf, limit)
+    .all<Departure>();
+  return { rows: results, as_of: asOf };
 }

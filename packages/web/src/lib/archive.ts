@@ -13,7 +13,7 @@
  */
 import type { Disruption, Departure, LiveStatus } from '@oresund/shared';
 import { getDict, translate, type Key, type Lang } from '../i18n';
-import { formatExactDelay, formatTime } from '../i18n/format';
+import { formatExactDelay, formatDate, formatTime } from '../i18n/format';
 import { bannerModel } from '../components/StatusBanner';
 import { stationNameKey } from '../components/StationPicker';
 import { BAND_BADGE_CLASS, delayBand, type DelayBand } from './stats';
@@ -139,6 +139,13 @@ export interface ArchiveStationStats {
     avg_delay_seconds: number | null;
   }[];
   recent: Departure[];
+  /**
+   * Naive local ISO stamp of the read (audit4 N-C1): every row in `recent` has
+   * a sched_time <= it, and it renders under the departures heading. Optional —
+   * the collector deploys independently of the site, so a payload from an
+   * older worker carries no stamp and the line is simply dropped.
+   */
+  as_of?: string;
 }
 
 interface ShellOpts {
@@ -883,6 +890,16 @@ export function renderStationLive(stats: ArchiveStationStats, live: LiveStatus |
       ${band}
       <p class="intro">${esc(translate('station_live_intro', lang, { name }))}</p>
       <h2>${esc(translate('station_departures_heading', lang))}</h2>
+      ${
+        stats.as_of
+          ? `<p class="meta">${esc(
+              translate('station_as_of', lang, {
+                time: formatTime(stats.as_of, lang) || NO_DATA_MARK,
+                date: formatDate(stats.as_of, lang) || NO_DATA_MARK,
+              }),
+            )}</p>`
+          : ''
+      }
       <p class="meta">${esc(translate('station_observed_note', lang))}</p>
       <div class="table-scroll">
         <table>

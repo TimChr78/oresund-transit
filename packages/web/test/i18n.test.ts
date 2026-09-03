@@ -177,9 +177,9 @@ describe('i18n dictionaries', () => {
     expect(translate('delay_band_on_time', 'da')).toBe('Til tiden');
     // The delayed bands carry the minute range itself, so the badge needs no
     // legend — identical across languages by design.
-    expect(translate('delay_band_minor', 'sv')).toBe('5–15 min');
-    expect(translate('delay_band_moderate', 'da')).toBe('15–30 min');
-    expect(translate('delay_band_major', 'en')).toBe('30+ min');
+    expect(translate('delay_band_minor', 'sv')).toBe('4–10 min');
+    expect(translate('delay_band_moderate', 'da')).toBe('10–15 min');
+    expect(translate('delay_band_major', 'en')).toBe('15+ min');
   });
 
   it('names every monitored station in all three languages (audit3 M4)', () => {
