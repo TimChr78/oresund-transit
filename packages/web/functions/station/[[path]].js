@@ -12,7 +12,13 @@
 import { handleArchiveRequest } from '../../src/lib/archive-http';
 
 export async function onRequest(context) {
-  const result = await handleArchiveRequest(new URL(context.request.url).pathname);
+  const result = await handleArchiveRequest(
+    new URL(context.request.url).pathname,
+    undefined,
+    // Passed through for the branded 502 page (audit4 N-H4): an unprefixed
+    // route negotiates its error-page language, a /sv or /da route keeps its own.
+    context.request.headers.get('accept-language'),
+  );
   if (result) {
     return result;
   }

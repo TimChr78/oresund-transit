@@ -95,8 +95,14 @@
       <!--
         No-JS / crawler fallback: the dashboard itself is client-rendered, so
         the SEO-critical lead (H1 naming the four monitored stops) is shipped
-        in the initial HTML. boot() removes this element on startup and renders
-        the live board into #app; the static routes remove it via prerender.
+        in the initial HTML. The static routes drop this element at build time
+        (their content is injected into #app by the prerenderer).
+
+        On the dashboard boot() keeps the .home-about section below — it is the
+        page's evergreen copy and used to be wiped the moment the board mounted
+        (audit4 N-H5) — and removes only the chrome the board re-renders for
+        itself: this topbar, the station nav, the lead H1 and any build-time
+        status sentence. Without JS all of it stays and reads as a static page.
       -->
       <header class="topbar">
         <div class="brand">Øresund <span class="brand-sub">live</span></div>

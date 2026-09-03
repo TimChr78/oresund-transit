@@ -77,25 +77,31 @@ describe('functions/feed.xml.js', () => {
     expect(xml).toContain('<guid isPermaLink="false">https://oresund.live/disruption/1</guid>');
   });
 
-  it('returns 502 plain text when the collector fetch throws', async () => {
+  it('returns a branded HTML 502 page when the collector fetch throws', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network down'); }));
 
     const mod = await loadFunction();
     const res = await mod.onRequest({ request: new Request('https://oresund.live/feed.xml'), env: {} });
 
     expect(res.status).toBe(502);
-    expect(res.headers.get('content-type')).toContain('text/plain');
-    expect(await res.text()).not.toContain('<rss');
+    expect(res.headers.get('content-type')).toContain('text/html');
+    const body = await res.text();
+    expect(body).not.toContain('<rss');
+    expect(body).toContain('<!doctype html>');
+    expect(body).toContain('Temporarily unavailable');
+    expect(body).toContain('href="/feed.xml"'); // the retry hint re-requests the feed
+    expect(body).toContain('href="/"'); // and the way back to the board
   });
 
-  it('returns 502 plain text on a non-2xx collector response', async () => {
+  it('returns a branded HTML 502 on a non-2xx collector response', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'boom' }, 500)));
 
     const mod = await loadFunction();
     const res = await mod.onRequest({ request: new Request('https://oresund.live/feed.xml'), env: {} });
 
     expect(res.status).toBe(502);
-    expect(res.headers.get('content-type')).toContain('text/plain');
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(res.headers.get('cache-control')).toBe('no-store');
   });
 
   it('returns 502 when the collector answers 200 with a non-JSON body', async () => {
@@ -108,8 +114,22 @@ describe('functions/feed.xml.js', () => {
     const res = await mod.onRequest({ request: new Request('https://oresund.live/feed.xml'), env: {} });
 
     expect(res.status).toBe(502);
-    expect(res.headers.get('content-type')).toContain('text/plain');
+    expect(res.headers.get('content-type')).toContain('text/html');
     expect(await res.text()).not.toContain('<rss');
+  });
+
+  it('localizes the 502 page from Accept-Language (audit4 N-H4)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
+
+    const mod = await loadFunction();
+    const res = await mod.onRequest({
+      request: new Request('https://oresund.live/feed.xml', {
+        headers: { 'accept-language': 'sv-SE,sv;q=0.9,en;q=0.8' },
+      }),
+      env: {},
+    });
+
+    expect(await res.text()).toContain('Tillfälligt otillgänglig');
   });
 
   it('answers HEAD with headers only (empty body)', async () => {

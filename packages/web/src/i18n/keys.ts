@@ -292,6 +292,15 @@ export interface Dict {
   board_archives_intro: string;
   meth_related_title: string;
   meth_related_intro: string;
+
+  // Collector-outage fallback page (audit4 N-H4) — the 502 the archive
+  // Functions and /feed.xml answer with when the collector Worker is
+  // unreachable. Server-rendered, so it cannot reuse the SPA dictionaries at
+  // runtime; the language is picked from the URL prefix, then Accept-Language.
+  err502_title: string;
+  err502_body: string;
+  err502_retry: string;
+  err502_home: string;
 }
 
 /** Union of every translation key. */

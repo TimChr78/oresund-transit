@@ -4,17 +4,17 @@
  *
  * It parses the request path, fetches the matching collector endpoint, and
  * returns a fully-rendered HTML Response (200). Data problems (collector
- * unreachable / non-2xx / unparseable) answer 502 plain text rather than a
- * broken page; paths outside the archive namespace return null so the caller
- * can reply 404.
+ * unreachable / non-2xx / unparseable) answer a branded localized 502 page
+ * rather than a broken or blank page (audit4 N-H4); paths outside the archive
+ * namespace return null so the caller can reply 404.
  *
  * This is the only module that touches fetch + Response; every renderer lives
  * in the pure ./archive module, so the whole surface is testable against a
  * stubbed global fetch.
  */
-import { esc } from './html';
-import type { Lang } from '../i18n';
+import { type Lang } from '../i18n';
 import type { LiveStatus } from '@oresund/shared';
+import { acceptLang, serviceUnavailableResponse, SECURITY_HEADERS, withSecurityHeaders } from './http-errors';
 import {
   DAY_RANGES,
   renderHistoryPage,
@@ -39,15 +39,27 @@ const HTML_HEADERS: Record<string, string> = {
   'Cache-Control': 'public, max-age=300',
 };
 
+/**
+ * The security header set public/_headers applies to static assets (audit4
+ * N-C2). Cloudflare only reads `_headers` for files it serves from dist/ — a
+ * Pages Function's Response is NOT covered by it. Defined once in
+ * ./http-errors and re-exported here so the archive routes' 200/301/502 all
+ * carry it; test/security-headers.test.ts asserts it matches the file.
+ */
+export { SECURITY_HEADERS };
+
 function html(body: string): Response {
-  return new Response(body, { status: 200, headers: HTML_HEADERS });
+  return new Response(body, { status: 200, headers: withSecurityHeaders(HTML_HEADERS) });
 }
 
-function unavailable(route: string): Response {
-  return new Response(`Archive temporarily unavailable (${esc(route)})`, {
-    status: 502,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-  });
+/**
+ * The collector is down. The 502 status is unchanged (crawlers and monitors
+ * still see a real error); only the body became a page a reader can act on
+ * (audit4 N-H4). `pathLang` is the URL's own language prefix, or null for the
+ * unprefixed routes so Accept-Language gets to answer instead.
+ */
+function unavailable(route: string, pathLang: Lang | null, acceptLanguage?: string | null): Response {
+  return serviceUnavailableResponse(acceptLang(acceptLanguage, pathLang), route);
 }
 
 /** Fetch a URL and parse the JSON body; throws on any failure. */
@@ -173,8 +185,16 @@ function normalizePath(pathname: string): string {
  * the localized station routes `/sv/station/*` and `/da/station/*`. Returns a
  * Response for every matched path (data errors → 502), or null when the path
  * is not an archive route.
+ *
+ * `acceptLanguage` is the request's Accept-Language header, used only when the
+ * collector fails on an UNPREFIXED route (a prefixed route is already in the
+ * language its URL names).
  */
-export async function handleArchiveRequest(pathname: string, fetchImpl: FetchLike = fetch): Promise<Response | null> {
+export async function handleArchiveRequest(
+  pathname: string,
+  fetchImpl: FetchLike = fetch,
+  acceptLanguage?: string | null,
+): Promise<Response | null> {
   let p = normalizePath(pathname);
   const enc = encodeURIComponent;
 
@@ -183,9 +203,11 @@ export async function handleArchiveRequest(pathname: string, fetchImpl: FetchLik
   // /sv/station/hyllie is a real Swedish page and not a translated clone of
   // the English one.
   let lang: Lang = 'en';
+  let pathLang: Lang | null = null;
   const prefixed = LANG_PREFIX.exec(p);
   if (prefixed) {
-    lang = prefixed[1] as Lang;
+    pathLang = prefixed[1] as Lang;
+    lang = pathLang;
     p = normalizePath(prefixed[2]!);
     // Only the station family localizes (audit3 C1) — /line, /history and the
     // hubs ship no localized twins, so a prefixed path to them is not a page.
@@ -200,10 +222,10 @@ export async function handleArchiveRequest(pathname: string, fetchImpl: FetchLik
     if (p === '/history') {
       return new Response(null, {
         status: 301,
-        headers: {
+        headers: withSecurityHeaders({
           Location: '/history/30',
           'Cache-Control': 'public, max-age=3600',
-        },
+        }),
       });
     }
     const hist = /^\/history\/(7|14|30|90)$/.exec(p);
@@ -251,7 +273,7 @@ export async function handleArchiveRequest(pathname: string, fetchImpl: FetchLik
   } catch (err) {
     // Prefer not to leak internal error text to the page; log is provider-side.
     void err;
-    return unavailable(p);
+    return unavailable(p, pathLang, acceptLanguage);
   }
 }
 

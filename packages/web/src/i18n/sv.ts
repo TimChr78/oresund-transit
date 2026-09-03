@@ -301,4 +301,11 @@ export const sv: Dict = {
   meth_related_title: 'Relaterade sidor',
   meth_related_intro:
     'Samma definitioner i praktiken: punktlighetsarkivet för varje övervakad station och störningshistoriken bakom diagrammen.',
+
+  // Collector-outage fallback (audit4 N-H4)
+  err502_title: 'Tillfälligt otillgänglig',
+  err502_body:
+    'Datakällan svarade inte, så sidan kunde inte byggas. Den brukar vara tillbaka inom några minuter — försök igen om en stund.',
+  err502_retry: 'Ladda om sidan',
+  err502_home: 'Till avgångstavlan',
 };

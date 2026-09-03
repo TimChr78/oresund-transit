@@ -87,6 +87,17 @@ function trainNumber(technicalNumber: string | null): string {
   return `<span class="train-no">#${esc(technicalNumber)}</span>`;
 }
 
+/**
+ * A row's stable identity (audit4 N-H7): the board is re-rendered on every
+ * 120-second refresh, and `dep_key` (date, line, time, destination) names the
+ * same departure from one snapshot to the next. The reconciler matches on it,
+ * so a row that merely moved is relocated rather than deleted and rebuilt.
+ * `dep_key` is nullable on legacy rows — the database id stands in.
+ */
+function rowKey(d: Disruption): string {
+  return d.dep_key ?? `id-${d.id}`;
+}
+
 function row(d: Disruption, lang: Lang): string {
   // TIME: the scheduled slot paired with the delay-implied expectation (B1).
   const time = timeCell(d, lang);
@@ -114,7 +125,7 @@ function row(d: Disruption, lang: Lang): string {
       .filter(Boolean)
       .join(' · ') || '—';
   return `
-  <tr>
+  <tr data-key="${esc(rowKey(d))}">
     <td class="num">${time}</td>
     <td class="line">${line}</td>
     <td>
@@ -178,7 +189,7 @@ export function renderDisruptionsTable(
     const date = rowDate(d);
     if (mode === 'archive' && date && date !== prevDate) {
       bodyRows.push(
-        `<tr class="date-sep"><td colspan="6">${esc(dateSepLabel(date, lang))}</td></tr>`,
+        `<tr class="date-sep" data-key="sep:${esc(date)}"><td colspan="6">${esc(dateSepLabel(date, lang))}</td></tr>`,
       );
     }
     prevDate = date;

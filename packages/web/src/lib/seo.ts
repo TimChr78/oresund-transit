@@ -116,6 +116,25 @@ export function hreflangCluster(path: string): string {
 }
 
 /**
+ * A <head> href rewritten for a station-scoped board (audit4 N-H6).
+ *
+ * `?station=` is a client-side view of the homepage — the server has no such
+ * URL — so the shell's canonical and hreflang cluster describe the corridor
+ * whatever the query says. When a station is scoped, every href in the cluster
+ * takes the `?station=<slug>` form so the set stays self-consistent; `'all'`
+ * strips the query and returns the shell's own URL.
+ *
+ * The canonical is deliberately NOT pointed at `/station/<slug>`: that page is
+ * a different document (a 30-day punctuality archive with its own canonical),
+ * and folding the live board onto it would merge two distinct pages into one
+ * URL.
+ */
+export function scopedHeadUrl(url: string, station: string): string {
+  const base = url.split('?')[0] ?? url;
+  return station === 'all' ? base : `${base}?station=${station}`;
+}
+
+/**
  * Open Graph locale for a page language (audit3 M10). `en` maps to `en_GB` —
  * the archive pages already render dates in en-GB form, so the locale follows
  * the content rather than defaulting to en_US.
