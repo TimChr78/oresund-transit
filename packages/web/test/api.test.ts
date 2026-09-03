@@ -253,4 +253,33 @@ describe('fetchStation (backlog A1)', () => {
     configureFetch(fetchMock);
     await expect(fetchStation('hyllie')).rejects.toThrow(TypeError);
   });
+
+  it('rejects a payload that omits canceled_count (rendered straight into the KPI row)', async () => {
+    // An omitted-but-consumed field would reach the board as "undefined".
+    const withoutCanceled: Record<string, unknown> = { ...PAYLOAD };
+    delete withoutCanceled.canceled_count;
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse(withoutCanceled));
+    configureFetch(fetchMock);
+    await expect(fetchStation('hyllie')).rejects.toThrow(TypeError);
+  });
+
+  it('rejects a payload whose window bounds are not the declared strings', async () => {
+    const badDates: Record<string, unknown> = { ...PAYLOAD, date_from: 20260828, date_to: null };
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse(badDates));
+    configureFetch(fetchMock);
+    await expect(fetchStation('hyllie')).rejects.toThrow(TypeError);
+  });
+
+  it('accepts a null avg_delay_seconds (the declared no-measurement value)', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ ...PAYLOAD, avg_delay_seconds: null }));
+    configureFetch(fetchMock);
+    const result = await fetchStation('hyllie');
+    expect(result.avg_delay_seconds).toBeNull();
+  });
+
+  it('rejects a non-numeric avg_delay_seconds', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ ...PAYLOAD, avg_delay_seconds: '158' }));
+    configureFetch(fetchMock);
+    await expect(fetchStation('hyllie')).rejects.toThrow(TypeError);
+  });
 });

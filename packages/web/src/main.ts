@@ -237,15 +237,23 @@ export function boot(): void {
    * feed cannot be filtered by station — `Disruption` carries no `stop_id` —
    * so a scope pulls the one per-stop feed the collector exposes instead.
    * Slugs are read from state at dispatch time, so a reply for a stop the
-   * visitor already left lands in a reducer that drops it.
+   * visitor already left lands in a reducer that drops it. Every fetch also
+   * carries an id: the refresh interval, the picker and the retry action can
+   * all start a second request while the first is still pending, and only the
+   * one the board is still waiting for may land.
    */
+  let stationRequestSeq = 0;
+
   const refreshStation = async (): Promise<void> => {
     if (state.station === 'all') return;
+    const id = ++stationRequestSeq;
+    const scope = state.station;
+    dispatch({ type: 'STATION_START', id, scope });
     try {
-      const station = await fetchStation(state.station);
-      dispatch({ type: 'STATION_OK', station });
+      const station = await fetchStation(scope);
+      dispatch({ type: 'STATION_OK', id, scope, station });
     } catch (err) {
-      dispatch({ type: 'STATION_ERROR', message: messageOf(err) });
+      dispatch({ type: 'STATION_ERROR', id, scope, message: messageOf(err) });
     }
   };
 

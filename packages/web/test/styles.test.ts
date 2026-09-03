@@ -77,6 +77,9 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.station-nav a\[aria-current\] \{[^}]*text-decoration:\s*underline/);
     // Hover keeps its own colour, so current and pointed-at never look alike.
     expect(css).toMatch(/\.station-nav a:hover \{[^}]*color:\s*var\(--green\)/);
+    // The current rule ties the plain hover rule on specificity and sits after
+    // it, so var(--text) would otherwise swallow the green on hover — restate it.
+    expect(css).toMatch(/\.station-nav a\[aria-current\]:hover \{[^}]*color:\s*var\(--green\)/);
   });
 
   it('styles the scheduled-vs-expected time pair (backlog B1)', () => {

@@ -157,4 +157,20 @@ describe('actualTime (backlog B1 — the expected departure)', () => {
     expect(actualTime('2026-08-06', 300, 'en')).toBe('');
     expect(actualTime('not-a-time', 300, 'en')).toBe('');
   });
+
+  it('rejects out-of-range clock components instead of folding them into a wall clock', () => {
+    // "99:99:00" used to pass the digit-only match and wrap through the
+    // modulo into a plausible "— → 04:44".
+    expect(actualTime('2026-08-06T99:99:00', 60, 'en')).toBe('');
+    expect(actualTime('2026-08-06 99:99:00', 60, 'sv')).toBe('');
+    expect(actualTime('2026-08-06T25:00:00', 60, 'sv')).toBe('');
+    expect(actualTime('2026-08-06T21:99:00', 60, 'sv')).toBe('');
+    expect(actualTime('2026-08-06T21:59:60', 60, 'sv')).toBe('');
+    expect(actualTime('99:99', 60, 'sv')).toBe('');
+  });
+
+  it('still accepts the boundary values a timetable can legitimately carry', () => {
+    expect(actualTime('2026-08-06T23:59:59', 0, 'en')).toBe('23:59');
+    expect(actualTime('2026-08-06T00:00:00', 60, 'en')).toBe('00:01');
+  });
 });

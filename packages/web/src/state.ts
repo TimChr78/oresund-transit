@@ -30,6 +30,13 @@ export interface AppState {
   stationData: StationResponse | null;
   stationState: StationSectionState;
   stationError: string | null;
+  /**
+   * Identity of the station fetch currently in flight, together with the
+   * `station` scope it was issued for. Refreshes overlap (the interval timer,
+   * the picker, retry), so a reply is only applied when it carries the id and
+   * scope of the request the board is still waiting for; null when none is.
+   */
+  stationRequestId: number | null;
   live: LiveStatus | null;
   liveState: LiveSectionState;
   liveError: string | null;
@@ -52,8 +59,10 @@ export type Action =
   | { type: 'SET_DIRECTION'; direction: Direction }
   | { type: 'SET_DAY_RANGE'; dayRange: DayRange }
   | { type: 'SET_STATION'; station: StationScope }
-  | { type: 'STATION_OK'; station: StationResponse }
-  | { type: 'STATION_ERROR'; message: string }
+  /** Registers a fetch about to run: `id` must be unique per call, `scope` the station read at dispatch time. */
+  | { type: 'STATION_START'; id: number; scope: StationScope }
+  | { type: 'STATION_OK'; id: number; scope: StationScope; station: StationResponse }
+  | { type: 'STATION_ERROR'; id: number; scope: StationScope; message: string }
   | { type: 'LIVE_OK'; live: LiveStatus; at: number }
   | { type: 'LIVE_NO_DATA'; at: number }
   | { type: 'LIVE_ERROR'; message: string }
@@ -78,6 +87,7 @@ export function createInitialState(): AppState {
     stationData: null,
     stationState: 'idle',
     stationError: null,
+    stationRequestId: null,
     live: null,
     liveState: 'loading',
     liveError: null,
@@ -118,22 +128,44 @@ export function reducer(state: AppState, action: Action): AppState {
       // Station scope: drop the previous stop's rows (never show station A's
       // departures under station B's name while the new fetch is in flight)
       // and keep the corridor sections untouched — they are scope-independent.
+      // The scope change also invalidates the fetch in flight: its reply now
+      // belongs to a stop the visitor has left.
       if (state.station === action.station) return state;
       return {
         ...state,
         station: action.station,
+        stationRequestId: null,
         stationData: null,
         stationState: action.station === 'all' ? 'idle' : 'loading',
         stationError: null,
       };
 
+    case 'STATION_START':
+      // Remember which request is the live one. The section keeps whatever it
+      // is already showing — a background refresh must not flash a loading
+      // state over data that is still current.
+      if (state.station !== action.scope) return state;
+      return { ...state, stationRequestId: action.id };
+
     case 'STATION_OK':
-      // A slow reply for a station the visitor has already left is discarded.
-      if (state.station === 'all' || state.station !== action.station.slug) return state;
+      // Both results are gated on the request the board is still waiting for:
+      // a slow reply for a station the visitor has already left is discarded,
+      // and so is the older of two overlapping fetches for the same stop.
+      if (
+        state.stationRequestId !== action.id ||
+        state.station !== action.scope ||
+        state.station === 'all' ||
+        state.station !== action.station.slug
+      ) {
+        return state;
+      }
       return { ...state, stationData: action.station, stationState: 'ok', stationError: null };
 
     case 'STATION_ERROR':
+      // Scoped like STATION_OK — an unscoped failure here used to mark station
+      // B failed because a request for the abandoned station A came back late.
       // Keep the last good station on screen; the section shows its own retry.
+      if (state.stationRequestId !== action.id || state.station !== action.scope) return state;
       return { ...state, stationState: 'error', stationError: action.message };
 
     case 'LIVE_OK':
