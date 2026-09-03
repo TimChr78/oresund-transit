@@ -61,6 +61,87 @@ describe('renderDisruptionsTable — empty state (today only)', () => {
     expect(renderDisruptionsTable([], 'sv')).toContain('störningar idag');
     expect(renderDisruptionsTable([], 'da')).toContain('forstyrrelse i dag');
   });
+
+  it('names the direction when a narrowed board has zero rows (backlog B4)', () => {
+    const html = renderDisruptionsTable([], 'en', 'today', 'to_sweden');
+    expect(html).not.toContain('<table');
+    expect(html).toContain('No disruptions in this direction today.');
+    // The corridor-wide all-clear would over-claim under a filter.
+    expect(html).not.toContain('All clear');
+  });
+
+  it('gives the direction empty state its own SV/DA copy', () => {
+    expect(renderDisruptionsTable([], 'sv', 'today', 'to_denmark')).toContain('Inga störningar i den här riktningen idag.');
+    expect(renderDisruptionsTable([], 'da', 'today', 'to_sweden')).toContain('Ingen forstyrrelser i denne retning i dag.');
+  });
+
+  it('keeps the corridor all-clear for the unfiltered board (backlog B4)', () => {
+    expect(renderDisruptionsTable([], 'en', 'today', 'all')).toContain('All clear');
+  });
+});
+
+describe('renderDisruptionsTable — scheduled vs expected time pair (backlog B1)', () => {
+  it('pairs the scheduled slot with the delay-implied expectation', () => {
+    const html = renderDisruptionsTable([disruption({ delay_seconds: 650 })], 'en');
+    expect(html).toContain('<span class="time-sched">21:59</span>');
+    expect(html).toContain('→ 22:10</span>');
+  });
+
+  it('explains the pair in the tooltip, with the exact delay', () => {
+    const html = renderDisruptionsTable([disruption({ delay_seconds: 650 })], 'en');
+    expect(html).toContain('title="Scheduled 21:59 · expected 22:10 (+11 min)"');
+  });
+
+  it('localizes the expectation separator and the tooltip', () => {
+    const html = renderDisruptionsTable([disruption({ delay_seconds: 650 })], 'da');
+    expect(html).toContain('<span class="time-sched">21.59</span>');
+    expect(html).toContain('→ 22.10</span>');
+    expect(html).toContain('Planlagt 21.59 · forventet 22.10');
+  });
+
+  it('wraps past midnight without going negative', () => {
+    const html = renderDisruptionsTable(
+      [disruption({ sched_time: '2026-08-06T23:55:00', delay_seconds: 900 })],
+      'en',
+    );
+    expect(html).toContain('→ 00:10</span>');
+  });
+
+  it('keeps a single time when there is no measured delay', () => {
+    const html = renderDisruptionsTable([disruption({ delay_seconds: 0 })], 'en');
+    expect(html).toContain('<span class="time-sched">21:59</span>');
+    expect(html).not.toContain('time-actual');
+  });
+
+  it('keeps a single time when the delay is unknown (cancellations, alerts)', () => {
+    const html = renderDisruptionsTable([disruption({ delay_seconds: null, type: 'cancellation' })], 'en');
+    expect(html).toContain('<span class="time-sched">21:59</span>');
+    expect(html).not.toContain('time-actual');
+  });
+});
+
+describe('renderDisruptionsTable — route_section (backlog B1)', () => {
+  it('renders the affected stretch as a second line in the Line cell', () => {
+    const html = renderDisruptionsTable([disruption({ route_section: 'Hyllie->Østerport' })], 'en');
+    expect(html).toContain('<td class="line">804<span class="train-no">#1143</span><span class="route-section" title="Affected section">Hyllie-&gt;Østerport</span></td>');
+  });
+
+  it('escapes the section text', () => {
+    const html = renderDisruptionsTable([disruption({ route_section: '<Hyllie & CPH>' })], 'en');
+    expect(html).toContain('&lt;Hyllie &amp; CPH&gt;');
+    expect(html).not.toContain('<Hyllie');
+  });
+
+  it('omits the line entirely when the feed populated no section', () => {
+    const html = renderDisruptionsTable([disruption({ route_section: null })], 'en');
+    expect(html).not.toContain('route-section');
+  });
+
+  it('localizes the section hint across SV/DA/EN', () => {
+    expect(renderDisruptionsTable([disruption({ route_section: 'Hyllie->Østerport' })], 'sv')).toContain('title="Berörd sträcka"');
+    expect(renderDisruptionsTable([disruption({ route_section: 'Hyllie->Østerport' })], 'da')).toContain('title="Berørt strækning"');
+    expect(renderDisruptionsTable([disruption({ route_section: 'Hyllie->Østerport' })], 'en')).toContain('title="Affected section"');
+  });
 });
 
 describe('renderDisruptionsTable — archive mode (date separators)', () => {

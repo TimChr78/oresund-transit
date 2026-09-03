@@ -20,7 +20,9 @@ export interface Dict {
   banner_disruptions_many: string;
   // Disruption hero strip (newest active disruptions surfaced above the table)
   hero_disruptions: string;
-  // SEO lead (H1 under the brand wordmark) — one sentence, natural train wording
+  // SEO lead (H1 under the brand wordmark) — tight, names the four monitored
+  // stops. Kept verbatim in index.html for en (the served shell), swapped in
+  // by the prerenderer for sv/da.
   lead_tagline: string;
   // Build-time corridor status summary (no-JS/crawler home shell) — the
   // three-sentence snapshot injected at build time from collector data
@@ -57,6 +59,10 @@ export interface Dict {
   type_delay: string;
   type_cancellation: string;
   type_alert: string;
+  // Disruption row detail (backlog B1) — the scheduled-vs-expected time pair
+  // tooltip and the affected-stretch note under the line.
+  time_pair_title: string;
+  route_section_hint: string;
   // Delay bands (audit3 H1) — the DELAY column renders these as color-coded
   // badges instead of raw seconds; the exact delay lives in the badge tooltip.
   delay_band_on_time: string;
@@ -147,6 +153,9 @@ export interface Dict {
   disruptions_back_to_today: string;
   disruptions_today_sep: string;
   disruptions_none_archive: string;
+  // Zero rows under a direction filter (backlog B4) — distinct from the
+  // corridor-wide disruptions_none_today, which would over-claim "all clear".
+  disruptions_none_today_dir: string;
   section_history: string;
   // Consent banner
   consent_title: string;
@@ -209,6 +218,12 @@ export interface Dict {
   station_desc_empty: string;
   station_daily_heading: string;
   station_other_heading: string;
+  // Station scope on the live board (backlog A1) — the departures table shown
+  // while a single station is picked in the picker.
+  station_scope_heading: string;
+  station_scope_intro: string;
+  station_scope_empty: string;
+  station_scope_archive_link: string;
   station_live_heading: string;
   station_live_intro: string;
   station_departures_heading: string;

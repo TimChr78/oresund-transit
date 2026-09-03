@@ -1,7 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { renderApp } from '../src/components/App';
 import { createInitialState } from '../src/state';
+import type { StationResponse } from '../src/api';
 import type { Disruption, LiveStatus } from '@oresund/shared';
+
+/** A /api/transit/station/{slug} reply as the collector serves it (A1). */
+const STATION: StationResponse = {
+  slug: 'hyllie',
+  stop_id: '740001586',
+  stop_name: 'Malmö Hyllie',
+  days: 7,
+  date_from: '2026-08-28',
+  date_to: '2026-09-03',
+  total_departures: 486,
+  on_time_count: 385,
+  delayed_count: 97,
+  canceled_count: 4,
+  on_time_pct: 79.2,
+  avg_delay_seconds: 158,
+  recent: [
+    {
+      id: 87113,
+      stop_id: '740001586',
+      stop_name: 'Malmö Hyllie',
+      line: '803',
+      destination: 'Østerport',
+      sched_time: '2026-09-03T06:14:00',
+      delay_seconds: 0,
+      canceled: 0,
+      status: 'on_time',
+      technical_number: '1017',
+      dep_key: '2026-09-03_803_06:14_Østerport',
+      first_seen: '2026-09-03T05:15:14',
+      last_updated: '2026-09-03T05:25:14',
+    },
+  ],
+};
 
 describe('renderApp — disruptions mode toggle', () => {
   it('shows a "Show all" toggle in today mode', () => {
@@ -208,7 +242,7 @@ describe('renderApp — descriptive H1 (SEO audit H3)', () => {
     expect(html).not.toContain('<h1 class="brand">');
   });
 });
-describe('renderApp — station picker + board scope (audit3 C1)', () => {
+describe('renderApp — station picker + board scope (audit3 C1, backlog A1)', () => {
   it('renders a nav of links to all four station pages, crawler-visible in the board body', () => {
     const html = renderApp(createInitialState(), 'en', 'declined');
     expect(html).toContain('<nav class="station-nav" aria-label="Monitored stations">');
@@ -216,9 +250,13 @@ describe('renderApp — station picker + board scope (audit3 C1)', () => {
     expect(html).toContain('href="/station/malmo-c"');
     expect(html).toContain('href="/station/kastrup"');
     expect(html).toContain('href="/station/kobenhavn-h"');
-    // Real links, not client-side state (Disruption carries no stop_id, so the
-    // table cannot be filtered in place).
-    expect(html).toMatch(/<a href="\/station\/hyllie">Malmö Hyllie<\/a>/);
+    // Real links, not buttons: without JS they still resolve to the station
+    // pages, and a middle-click / open-in-tab keeps working.
+    expect(html).toMatch(/<a href="\/station\/hyllie"[^>]*>Malmö Hyllie<\/a>/);
+    // Every entry carries the hook the board's click handler switches on.
+    expect(html).toContain('data-action="set-station" data-value="hyllie"');
+    // "All" is the corridor reset and links to the board itself.
+    expect(html).toMatch(/<a href="\/"[^>]*>All<\/a>/);
   });
 
   it('names all four monitored stations in the scope label instead of two', () => {
@@ -233,5 +271,67 @@ describe('renderApp — station picker + board scope (audit3 C1)', () => {
     expect(renderApp(createInitialState(), 'sv', 'declined')).toContain('href="/sv/station/hyllie"');
     expect(renderApp(createInitialState(), 'sv', 'declined')).toContain('Malmö Hyllie · Malmö C · Kastrup flygplats · Köpenhamn H');
     expect(renderApp(createInitialState(), 'da', 'declined')).toContain('Malmö Hyllie · Malmö C · Kastrup Lufthavn · København H');
+  });
+
+  it('marks the active option with aria-current and leaves the others unmarked', () => {
+    const all = renderApp(createInitialState(), 'en', 'declined');
+    expect(all).toContain('<a href="/" aria-current="true" data-action="set-station" data-value="all">');
+    expect(all).not.toContain('<a href="/station/hyllie" aria-current="true"');
+
+    const scoped = renderApp({ ...createInitialState(), station: 'hyllie' }, 'en', 'declined');
+    expect(scoped).toContain('<a href="/station/hyllie" aria-current="true"');
+    expect(scoped).not.toContain('<a href="/" aria-current="true"');
+  });
+
+  it('replaces the four-station label with the picked station name', () => {
+    const html = renderApp({ ...createInitialState(), station: 'malmo-c' }, 'en', 'declined');
+    expect(html).toContain('<span class="board-label">Malmö C</span>');
+    expect(html).not.toContain('Malmö C · Københavns Lufthavn (Kastrup)');
+  });
+
+  it('renders no station section while the whole corridor is in scope', () => {
+    const html = renderApp(createInitialState(), 'en', 'declined');
+    expect(html).not.toContain('station-scope');
+    expect(html).not.toContain('station_scope_heading');
+  });
+
+  it('shows the station section loading while the per-station fetch is in flight', () => {
+    const html = renderApp({ ...createInitialState(), station: 'hyllie', stationState: 'loading' }, 'en', 'declined');
+    expect(html).toContain('class="station-scope"');
+    expect(html).toContain('Latest departures at Malmö Hyllie');
+    expect(html).not.toContain('board-table');
+  });
+
+  it('renders the picked station departures, KPIs and onward link', () => {
+    const html = renderApp(
+      { ...createInitialState(), station: 'hyllie', stationState: 'ok', stationData: STATION },
+      'en',
+      'declined',
+    );
+    expect(html).toContain('Latest departures at Malmö Hyllie');
+    expect(html).toContain('Departures observed at Malmö Hyllie.');
+    // KPI row + the departures table itself.
+    expect(html).toContain('79.2%');
+    expect(html).toContain('class="board-table"');
+    expect(html).toContain('#1017');
+    expect(html).toContain('Punctuality archive for Malmö Hyllie');
+    // The scoped table never masquerades as the corridor disruption table.
+    expect(html).not.toContain('id="disruptions-table"');
+  });
+
+  it('shows the empty state when the stop has no observed departures', () => {
+    const html = renderApp(
+      { ...createInitialState(), station: 'kastrup', stationState: 'ok', stationData: { ...STATION, slug: 'kastrup', stop_name: 'Københavns Lufthavn (Kastrup)', recent: [], total_departures: 0 } },
+      'en',
+      'declined',
+    );
+    expect(html).toContain('No departures observed at Københavns Lufthavn (Kastrup) yet.');
+    expect(html).not.toContain('class="board-table"');
+  });
+
+  it('gives the station section its own retry that does not touch the corridor sections', () => {
+    const html = renderApp({ ...createInitialState(), station: 'hyllie', stationState: 'error', stationError: 'boom' }, 'en', 'declined');
+    expect(html).toContain('data-action="retry-station"');
+    expect(html).not.toContain('data-action="retry-disruptions"');
   });
 });

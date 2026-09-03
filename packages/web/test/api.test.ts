@@ -8,6 +8,7 @@ import {
   fetchHistory,
   fetchLiveStatus,
   fetchPunctuality,
+  fetchStation,
   type FetchLike,
 } from '../src/api';
 
@@ -198,5 +199,58 @@ describe('api client', () => {
     const fetchMock = vi.fn<FetchLike>().mockRejectedValue(new TypeError('fetch failed'));
     configureFetch(fetchMock);
     await expect(fetchLiveStatus()).rejects.toThrow('fetch failed');
+  });
+});
+
+describe('fetchStation (backlog A1)', () => {
+  afterEach(() => {
+    configureFetch(() => Promise.reject(new Error('no fetch configured in test')));
+  });
+
+  const PAYLOAD = {
+    slug: 'hyllie',
+    stop_id: '740001586',
+    stop_name: 'Malmö Hyllie',
+    days: 7,
+    date_from: '2026-08-28',
+    date_to: '2026-09-03',
+    total_departures: 486,
+    on_time_count: 385,
+    delayed_count: 97,
+    canceled_count: 4,
+    on_time_pct: 79.2,
+    avg_delay_seconds: 158,
+    daily: [],
+    recent: [],
+  };
+
+  it('GETs /api/transit/station/{slug} with the days window', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse(PAYLOAD));
+    configureFetch(fetchMock);
+    const result = await fetchStation('hyllie', 7);
+    expect(fetchMock).toHaveBeenCalledWith('/api/transit/station/hyllie?days=7', { method: 'GET' });
+    expect(result.slug).toBe('hyllie');
+    expect(result.on_time_pct).toBe(79.2);
+  });
+
+  it('encodes a slug with a character the query grammar reserves', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse(PAYLOAD));
+    configureFetch(fetchMock);
+    await fetchStation('a b', 30);
+    expect(fetchMock).toHaveBeenCalledWith('/api/transit/station/a%20b?days=30', { method: 'GET' });
+  });
+
+  it('rejects a payload without the per-stop departures', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ slug: 'hyllie' }));
+    configureFetch(fetchMock);
+    await expect(fetchStation('hyllie')).rejects.toThrow(TypeError);
+  });
+
+  it('rejects a payload whose punctuality fields are missing', async () => {
+    const fetchMock = vi
+      .fn<FetchLike>()
+      .mockResolvedValue(jsonResponse({ slug: 'hyllie', stop_id: '740001586', days: 7, recent: [] }));
+    configureFetch(fetchMock);
+    await expect(fetchStation('hyllie')).rejects.toThrow(TypeError);
   });
 });

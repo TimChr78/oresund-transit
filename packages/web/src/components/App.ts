@@ -9,7 +9,8 @@ import { renderDisruptionsHero } from './DisruptionsHero';
 import { renderDisruptionsTable } from './DisruptionsTable';
 import { renderFooter } from './Footer';
 import { renderHistoryCharts } from './HistoryCharts';
-import { renderStationPicker, stationScopeLabel } from './StationPicker';
+import { renderStationDepartures } from './StationDepartures';
+import { renderStationPicker, stationNameKey, stationScopeLabel } from './StationPicker';
 import { renderStatCards } from './StatCards';
 import { renderStatusBanner } from './StatusBanner';
 
@@ -67,8 +68,36 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
       sortNewestFirst(filterByDirection(state.disruptions, state.direction)),
       lang,
       state.disruptionsMode,
+      state.direction,
     );
   }
+
+  /**
+   * Station scope (backlog A1): the picked stop's own departures, above the
+   * corridor sections it does not touch. The section renders only once a
+   * station is picked — at 'all' the board is exactly what it always was — and
+   * the previous stop's rows are already gone by the time this runs, because
+   * SET_STATION clears stationData before the new fetch starts.
+   */
+  const stationScope = (() => {
+    if (state.station === 'all') return '';
+    const title = esc(
+      translate('station_scope_heading', lang, {
+        name: translate(stationNameKey(state.station), lang),
+      }),
+    );
+    const body =
+      state.stationState === 'error'
+        ? placeholder('error', lang, 'retry-station')
+        : state.stationData
+          ? renderStationDepartures(state.stationData, lang)
+          : placeholder('loading', lang);
+    return `
+      <section class="station-scope">
+        <h2 class="section-title">${title}</h2>
+        ${body}
+      </section>`;
+  })();
 
   // Hero strip: surface the newest ACTIVE disruptions above the table while
   // the live snapshot reports disruptions (> 0) and the today list has rows.
@@ -105,12 +134,13 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
   <div class="wrap">
     <header class="topbar">
       <div class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></div>
-      <span class="board-label">${esc(stationScopeLabel(lang))}</span>
+      <span class="board-label">${esc(stationScopeLabel(lang, state.station))}</span>
     </header>
-    ${renderStationPicker(lang)}
+    ${renderStationPicker(lang, state.station)}
     <h1 class="lead">${translate('lead_tagline', lang)}</h1>
     ${banner}
     <main class="board">
+      ${stationScope}
       ${stats}
       <section class="disruptions">
         <h2 class="section-title">${translate('section_disruptions', lang)}</h2>

@@ -1,8 +1,8 @@
 import type { Disruption } from '@oresund/shared';
-import { formatDate, formatDelayPlus, formatExactDelay, formatTime } from '../i18n/format';
-import { BAND_BADGE_CLASS, delayBand, localToday, type DelayBand } from '../lib/stats';
+import { actualTime, formatDate, formatDelayPlus, formatExactDelay, formatTime } from '../i18n/format';
+import { BAND_BADGE_CLASS, delayBand, localToday, type DelayBand, type Direction } from '../lib/stats';
 import { translate, type Key, type Lang } from '../i18n';
-import { causeLabel, cleanReason } from '../lib/causes';
+import { causeLabel, cleanReason, effectiveCause } from '../lib/causes';
 import { esc } from '../lib/html';
 
 function typeKey(type: string | null): Key {
@@ -32,6 +32,41 @@ function hasKnownCause(cause: string | null): boolean {
   return !!cause && cause !== 'unknown';
 }
 
+/**
+ * The TIME cell (backlog B1): the scheduled slot, plus the expected time the
+ * delay implies when the row carries both a scheduled time and a measured,
+ * non-zero delay. The pair is the feed's own two fields — the expected value
+ * is their sum, not a new source. Rows without both keep a single time, and a
+ * zero delay is not paired with itself.
+ */
+function timeCell(d: Disruption, lang: Lang): string {
+  const sched = formatTime(d.sched_time ?? d.timestamp, lang) || '—';
+  if (!d.sched_time || !d.delay_seconds || d.delay_seconds <= 0) {
+    return `<span class="time-sched">${esc(sched)}</span>`;
+  }
+  const expected = actualTime(d.sched_time, d.delay_seconds, lang);
+  if (!expected) return `<span class="time-sched">${esc(sched)}</span>`;
+  const title = translate('time_pair_title', lang, {
+    sched,
+    actual: expected,
+    delay: formatDelayPlus(d.delay_seconds, lang) || formatExactDelay(d.delay_seconds, lang),
+  });
+  return `<span class="time-sched">${esc(sched)}</span><span class="time-actual" title="${esc(title)}">→ ${esc(expected)}</span>`;
+}
+
+/**
+ * The LINE cell: the line, the train number, and — when the feed populated it
+ * — the affected stretch as a second line (backlog B1). The collector writes
+ * route_section only when the operator names one, so the extra line stays
+ * absent rather than an empty stub on the rows that have none.
+ */
+function lineCell(d: Disruption, lang: Lang): string {
+  const section = d.route_section
+    ? `<span class="route-section" title="${esc(translate('route_section_hint', lang))}">${esc(d.route_section)}</span>`
+    : '';
+  return `${esc(d.line ?? '—')}${trainNumber(d.technical_number)}${section}`;
+}
+
 /** Disruptions have no destination field — show the affected direction instead. */
 function directionText(direction: string | null, lang: Lang): string {
   if (direction === 'to_denmark') return translate('tab_to_denmark', lang);
@@ -53,7 +88,8 @@ function trainNumber(technicalNumber: string | null): string {
 }
 
 function row(d: Disruption, lang: Lang): string {
-  const time = formatTime(d.sched_time ?? d.timestamp, lang);
+  // TIME: the scheduled slot paired with the delay-implied expectation (B1).
+  const time = timeCell(d, lang);
   // DELAY: a banded badge instead of raw seconds (audit3 H1) — the exact
   // delay moves into the badge's title tooltip. Rows with no measured delay
   // (cancellations, alerts) keep the no-data mark.
@@ -62,24 +98,28 @@ function row(d: Disruption, lang: Lang): string {
   const delay = band
     ? `<span class="badge ${BAND_BADGE_CLASS[band]}" title="${esc(formatExactDelay(d.delay_seconds, lang))}">${esc(bandLabel)}</span>`
     : '—';
+  // LINE: line + train number + the affected stretch when the feed named one (B1).
+  const line = lineCell(d, lang);
   // REASON: delay + translated cause summary + cleaned raw text (full raw
-  // text stays available in the title tooltip). When the cause is unknown the
-  // delay band stands in for the "Unknown" marker, so the reason is derived
-  // from what is actually measured.
+  // text stays available in the title tooltip). The cause is the collector's
+  // verdict, re-classified from the alert text when it stored `unknown` (B2).
+  // Whatever is left unknown shows the delay band instead, so the reason is
+  // always derived from what is actually measured.
   const clean = cleanReason(d.raw_text, lang);
-  const knownCause = hasKnownCause(d.cause);
-  const cause = causeLabel(d.cause, lang);
+  const resolved = effectiveCause(d.cause, d.raw_text);
+  const knownCause = hasKnownCause(resolved);
+  const cause = causeLabel(resolved, lang);
   const reason =
     [formatDelayPlus(d.delay_seconds, lang), knownCause ? cause : bandLabel, clean]
       .filter(Boolean)
       .join(' · ') || '—';
   return `
   <tr>
-    <td class="num">${esc(time)}</td>
-    <td class="line">${esc(d.line ?? '—')}${trainNumber(d.technical_number)}</td>
+    <td class="num">${time}</td>
+    <td class="line">${line}</td>
     <td>
       <span class="badge ${badgeClass(d.type)}">${translate(typeKey(d.type), lang)}</span>
-      ${knownCause ? `<span class="badge badge-cause" title="${esc(d.cause ?? '')}">${esc(cause)}</span>` : ''}
+      ${knownCause ? `<span class="badge badge-cause" title="${esc(resolved)}">${esc(cause)}</span>` : ''}
     </td>
     <td class="num">${delay}</td>
     <td>${esc(directionText(d.direction, lang))}</td>
@@ -103,14 +143,25 @@ function dateSepLabel(date: string, lang: Lang): string {
   return formatDate(date, lang);
 }
 
-/** Dense departure-board table: Time / Line / Type / Delay band / Direction / Reason. */
+/**
+ * Dense departure-board table: Time / Line / Type / Delay band / Direction /
+ * Reason. `direction` is the filter the caller applied to reach this list
+ * (backlog B4): a narrowed board with zero rows gets copy that names the
+ * direction, because the corridor-wide "all clear" would over-claim.
+ */
 export function renderDisruptionsTable(
   disruptions: Disruption[],
   lang: Lang,
   mode: DisruptionViewMode = 'today',
+  direction: Direction = 'all',
 ): string {
   if (disruptions.length === 0) {
-    const key: Key = mode === 'archive' ? 'disruptions_none_archive' : 'disruptions_none_today';
+    const key: Key =
+      mode === 'archive'
+        ? 'disruptions_none_archive'
+        : direction === 'all'
+          ? 'disruptions_none_today'
+          : 'disruptions_none_today_dir';
     return `<div class="empty">${translate(key, lang)}</div>`;
   }
   const headers: Key[] = [

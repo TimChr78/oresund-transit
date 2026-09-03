@@ -18,7 +18,7 @@ export const en: Dict = {
   hero_disruptions: 'Active now',
   // SEO lead (H1 under the brand wordmark)
   lead_tagline:
-    'Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts, updated every 5 min (Trafiklab).',
+    'Live train departures: Hyllie, Malmö C, Kastrup, København H',
   // Build-time corridor status summary (no-JS/crawler home shell) — written
   // as plain sentences so crawlers and JS-disabled visitors get the snapshot.
   seo_status_normal: 'Trains are running normally across the Øresund crossing.',
@@ -53,6 +53,9 @@ export const en: Dict = {
   type_delay: 'Delay',
   type_cancellation: 'Cancellation',
   type_alert: 'Alert',
+  // Disruption row detail (B1)
+  time_pair_title: 'Scheduled {sched} · expected {actual} ({delay})',
+  route_section_hint: 'Affected section',
   // Delay bands (audit3 H1) — badge text in the DELAY column
   delay_band_on_time: 'On time',
   delay_band_minor: '5–15 min',
@@ -142,6 +145,7 @@ export const en: Dict = {
   disruptions_back_to_today: 'Back to today',
   disruptions_today_sep: 'Today',
   disruptions_none_archive: 'No disruptions logged in the recent archive.',
+  disruptions_none_today_dir: 'No disruptions in this direction today.',
   section_history: 'History',
   // Consent banner
   consent_title: 'Cookies & privacy',
@@ -213,6 +217,12 @@ export const en: Dict = {
     'Punctuality history for {name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.',
   station_daily_heading: 'Daily on-time performance',
   station_other_heading: 'Other stations',
+  // Station scope on the live board (A1)
+  station_scope_heading: 'Latest departures at {name}',
+  station_scope_intro:
+    'Departures observed at {name}. The status band, KPI cards and history charts cover all four monitored stations.',
+  station_scope_empty: 'No departures observed at {name} yet.',
+  station_scope_archive_link: 'Punctuality archive for {name}',
   station_live_heading: 'Live status right now',
   station_live_intro:
     'The status band covers the whole Øresund corridor; the departures below were observed at {name}.',

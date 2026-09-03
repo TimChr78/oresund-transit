@@ -25,19 +25,19 @@ export const META: Record<Route, Record<Lang, PageMeta>> = {
     en: {
       title: 'Øresund.live — live train status across the Sound',
       description:
-        'Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab.',
+        'Live Øresundståg train status for Malmö Hyllie, Malmö C, Kastrup and København H — delays, cancellations and alerts, updated every 5 min (Trafiklab).',
       canonical: 'https://oresund.live/',
     },
     sv: {
       title: 'Øresund.live — live tågstatus över Öresund',
       description:
-        'Live tågstatus för Øresundstågs avgångar mellan Hyllie och København H — förseningar, inställda tåg och störningar, uppdaterat var 5:e minut från Trafiklab.',
+        'Live tågstatus för Øresundståg vid Malmö Hyllie, Malmö C, Kastrup och Köpenhamn H — förseningar, inställda tåg och störningar, var 5:e minut (Trafiklab).',
       canonical: 'https://oresund.live/sv/',
     },
     da: {
       title: 'Øresund.live — live togstatus over Øresund',
       description:
-        'Live togstatus for Øresundstågs afgange mellem Hyllie og København H — forsinkelser, aflysninger og driftsforstyrrelser, opdateret hvert 5. minut fra Trafiklab.',
+        'Live togstatus for Øresundståg ved Malmö Hyllie, Malmö C, Kastrup og København H — forsinkelser, aflysninger og forstyrrelser, hvert 5. minut (Trafiklab).',
       canonical: 'https://oresund.live/da/',
     },
   },

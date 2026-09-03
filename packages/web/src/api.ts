@@ -1,4 +1,4 @@
-import type { DelayStats, Disruption, LiveStatus } from '@oresund/shared';
+import type { DelayStats, Departure, Disruption, LiveStatus } from '@oresund/shared';
 
 /**
  * API client for the collector Worker (Phase 3a). All paths are RELATIVE
@@ -133,6 +133,50 @@ export function parseDisruptionsResponse(json: unknown): Disruption[] {
     throw new TypeError('invalid /api/transit/disruptions response shape');
   }
   return body.disruptions as Disruption[];
+}
+
+/**
+ * The /api/transit/station/{slug}?days=N response: the stop's punctuality
+ * window (fields mirrored from queryStationPunctuality) plus the `recent`
+ * departures observed at that stop — the only per-station data the collector
+ * exposes, and what the board's station scope renders (backlog A1: disruption
+ * rows carry no stop_id, so the corridor feed cannot be filtered by station).
+ */
+export interface StationResponse {
+  slug: string;
+  stop_id: string;
+  stop_name: string;
+  days: number;
+  date_from: string;
+  date_to: string;
+  total_departures: number;
+  on_time_count: number;
+  delayed_count: number;
+  canceled_count: number;
+  on_time_pct: number;
+  avg_delay_seconds: number | null;
+  recent: Departure[];
+}
+
+export function fetchStation(slug: string, days: HistoryDays = 30): Promise<StationResponse> {
+  return request(`station/${encodeURIComponent(slug)}`, parseStationResponse, { days });
+}
+
+/** Guarded parse of the /api/transit/station/{slug} JSON shape. */
+export function parseStationResponse(json: unknown): StationResponse {
+  const body = json as Partial<StationResponse> | null;
+  if (
+    !body ||
+    typeof body.slug !== 'string' ||
+    typeof body.stop_id !== 'string' ||
+    typeof body.days !== 'number' ||
+    typeof body.total_departures !== 'number' ||
+    typeof body.on_time_pct !== 'number' ||
+    !Array.isArray(body.recent)
+  ) {
+    throw new TypeError('invalid /api/transit/station response shape');
+  }
+  return body as StationResponse;
 }
 
 /** Guarded parse of the Phase 3a /api/transit/history JSON shape. */

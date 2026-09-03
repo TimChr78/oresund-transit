@@ -73,6 +73,36 @@ export function formatExactDelay(seconds: number | null | undefined, lang: Lang)
   return lang === 'da' ? `${min} min. ${rest} sek.` : `${min} min ${rest} s`;
 }
 
+/**
+ * The realtime-adjusted departure: scheduled + measured delay. The API stores
+ * the pair (sched_time, delay_seconds), not the sum, and the sum is exactly
+ * the realtime time the source feed reports for that slot — so the board can
+ * show a scheduled-vs-expected pair without a second field. The delay is
+ * rounded to whole minutes first (650 s → 11 min), because that is the
+ * granularity the timetable slot lives at and the only value that agrees with
+ * the "+11 min" the same row shows in its reason column — a truncated
+ * "expected 22:09" next to "+11 min" from 21:59 would read as a contradiction.
+ * Pure string/second arithmetic (no Date), so a browser in another timezone
+ * cannot shift the wall-clock values. Empty when either input is missing:
+ * cancellations and alerts carry no measurable delay, and a row without a
+ * scheduled time has nothing to offset.
+ */
+export function actualTime(
+  sched: string | null | undefined,
+  delaySeconds: number | null | undefined,
+  lang: Lang,
+): string {
+  if (!sched || delaySeconds === null || delaySeconds === undefined) return '';
+  const m = /T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(normalizeTs(sched)) ?? /(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(sched);
+  if (!m) return '';
+  const base = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] ?? '0');
+  const total = Math.max(0, base + Math.round(delaySeconds / 60) * 60);
+  const day = ((total % 86400) + 86400) % 86400;
+  const h = String(Math.floor(day / 3600)).padStart(2, '0');
+  const min = String(Math.floor((day % 3600) / 60)).padStart(2, '0');
+  return lang === 'da' ? `${h}.${min}` : `${h}:${min}`;
+}
+
 /** Render a percentage with one decimal, locale decimal separator. */
 export function formatPct(value: number, lang: Lang): string {
   if (!Number.isFinite(value)) return '—';

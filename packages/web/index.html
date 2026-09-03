@@ -13,7 +13,7 @@
     />
     <meta
       name="description"
-      content="Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
+      content="Live Øresundståg train status for Malmö Hyllie, Malmö C, Kastrup and København H — delays, cancellations and alerts, updated every 5 min (Trafiklab)."
     />
     <!-- The board is dark-only (styles.css declares no light palette), so the
          theme colour and color-scheme stay dark — a light variant would paint
@@ -38,7 +38,7 @@
     <meta property="og:title" content="Øresund.live — live train status across the Sound" />
     <meta
       property="og:description"
-      content="Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
+      content="Live Øresundståg train status for Malmö Hyllie, Malmö C, Kastrup and København H — delays, cancellations and alerts, updated every 5 min (Trafiklab)."
     />
     <meta property="og:url" content="https://oresund.live/" />
     <meta property="og:site_name" content="Øresund.live" />
@@ -51,7 +51,7 @@
     <meta name="twitter:title" content="Øresund.live — live train status across the Sound" />
     <meta
       name="twitter:description"
-      content="Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
+      content="Live Øresundståg train status for Malmö Hyllie, Malmö C, Kastrup and København H — delays, cancellations and alerts, updated every 5 min (Trafiklab)."
     />
     <meta name="twitter:image" content="https://oresund.live/og-card.png" />
     <!-- Umami analytics — cookieless, anonymized; no consent interaction needed. -->
@@ -68,14 +68,14 @@
             "@id": "https://oresund.live/#website",
             "name": "Øresund.live",
             "url": "https://oresund.live/",
-            "description": "Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab."
+            "description": "Live Øresundståg train status for Malmö Hyllie, Malmö C, Kastrup and København H — delays, cancellations and alerts, updated every 5 min (Trafiklab)."
           },
           {
             "@type": "Organization",
             "@id": "https://oresund.live/#organization",
             "name": "Øresund.live",
             "url": "https://oresund.live/",
-            "description": "Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab.",
+            "description": "Live Øresundståg train status for Malmö Hyllie, Malmö C, Kastrup and København H — delays, cancellations and alerts, updated every 5 min (Trafiklab).",
             "logo": "https://oresund.live/og-card.png",
             "sameAs": ["https://github.com/TimChr78/oresund-transit"],
             "contactPoint": {
@@ -94,7 +94,7 @@
     <div id="static-shell" class="wrap">
       <!--
         No-JS / crawler fallback: the dashboard itself is client-rendered, so
-        the SEO-critical lead (H1 with Øresundståg + train wording) is shipped
+        the SEO-critical lead (H1 naming the four monitored stops) is shipped
         in the initial HTML. boot() removes this element on startup and renders
         the live board into #app; the static routes remove it via prerender.
       -->
@@ -102,12 +102,15 @@
         <div class="brand">Øresund <span class="brand-sub">live</span></div>
         <span class="board-label">Malmö Hyllie · Malmö C · Københavns Lufthavn (Kastrup) · København H</span>
       </header>
-      <!-- Station picker (audit3 C1): the four monitored stations as real
-           links, shipped in the crawler/no-JS payload. Kept in lockstep with
-           components/StationPicker.ts (test/app.test.ts asserts the en output
-           matches this markup); prerender swaps in the sv/da names + routes. -->
-      <nav class="station-nav" aria-label="Monitored stations"><a href="/station/hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h">København H</a></nav>
-      <h1 class="lead">Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).</h1>
+      <!-- Station picker (audit3 C1 nav, backlog A1 live scope): "All" plus the
+           four monitored stations as real links, shipped in the crawler/no-JS
+           payload. On the board main.ts intercepts the click and switches the
+           scope in place; without JS the hrefs still resolve to real pages.
+           Kept in lockstep with components/StationPicker.ts
+           (test/prerender.test.ts asserts the shell matches the en output);
+           prerender swaps in the sv/da names + routes. -->
+      <nav class="station-nav" aria-label="Monitored stations"><a href="/" aria-current="true" data-action="set-station" data-value="all">All</a><span class="sep" aria-hidden="true">·</span><a href="/station/hyllie" data-action="set-station" data-value="hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c" data-action="set-station" data-value="malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup" data-action="set-station" data-value="kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h" data-action="set-station" data-value="kobenhavn-h">København H</a></nav>
+      <h1 class="lead">Live train departures: Hyllie, Malmö C, Kastrup, København H</h1>
       <section class="home-about">
       <h2>Train punctuality across the Øresund, station by station</h2>
       <p>Øresund.live follows cross-border Øresundståg services on the corridor between Malmö and Copenhagen. Every scheduled departure passing one of the four monitored stations — Malmö Hyllie, Malmö C, Kastrup and København H — is compared with the timetable and stored, so each station page can show how that stop actually performed.</p>

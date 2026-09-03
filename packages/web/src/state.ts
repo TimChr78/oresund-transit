@@ -1,5 +1,6 @@
 import type { DelayStats, Disruption, LiveStatus } from '@oresund/shared';
-import type { HistoryResponse, PunctualityResponse } from './api';
+import type { HistoryResponse, PunctualityResponse, StationResponse } from './api';
+import type { StationScope } from './components/StationPicker';
 import type { DayRange, Direction } from './lib/stats';
 
 /**
@@ -17,10 +18,18 @@ export type LiveSectionState = 'loading' | 'ok' | 'no_data' | 'error';
  */
 export type DisruptionsMode = 'today' | 'archive';
 
+/** Section state of the station-scoped departures table (backlog A1). */
+export type StationSectionState = 'idle' | 'loading' | 'ok' | 'error';
+
 export interface AppState {
   direction: Direction;
   dayRange: DayRange;
   lastRefresh: number;
+  /** Station scope of the board: the whole corridor, or one monitored stop. */
+  station: StationScope;
+  stationData: StationResponse | null;
+  stationState: StationSectionState;
+  stationError: string | null;
   live: LiveStatus | null;
   liveState: LiveSectionState;
   liveError: string | null;
@@ -42,6 +51,9 @@ export interface AppState {
 export type Action =
   | { type: 'SET_DIRECTION'; direction: Direction }
   | { type: 'SET_DAY_RANGE'; dayRange: DayRange }
+  | { type: 'SET_STATION'; station: StationScope }
+  | { type: 'STATION_OK'; station: StationResponse }
+  | { type: 'STATION_ERROR'; message: string }
   | { type: 'LIVE_OK'; live: LiveStatus; at: number }
   | { type: 'LIVE_NO_DATA'; at: number }
   | { type: 'LIVE_ERROR'; message: string }
@@ -62,6 +74,10 @@ export function createInitialState(): AppState {
     direction: 'all',
     dayRange: 7,
     lastRefresh: 0,
+    station: 'all',
+    stationData: null,
+    stationState: 'idle',
+    stationError: null,
     live: null,
     liveState: 'loading',
     liveError: null,
@@ -97,6 +113,28 @@ export function reducer(state: AppState, action: Action): AppState {
         punctuality: null,
         punctualityError: null,
       };
+
+    case 'SET_STATION':
+      // Station scope: drop the previous stop's rows (never show station A's
+      // departures under station B's name while the new fetch is in flight)
+      // and keep the corridor sections untouched — they are scope-independent.
+      if (state.station === action.station) return state;
+      return {
+        ...state,
+        station: action.station,
+        stationData: null,
+        stationState: action.station === 'all' ? 'idle' : 'loading',
+        stationError: null,
+      };
+
+    case 'STATION_OK':
+      // A slow reply for a station the visitor has already left is discarded.
+      if (state.station === 'all' || state.station !== action.station.slug) return state;
+      return { ...state, stationData: action.station, stationState: 'ok', stationError: null };
+
+    case 'STATION_ERROR':
+      // Keep the last good station on screen; the section shows its own retry.
+      return { ...state, stationState: 'error', stationError: action.message };
 
     case 'LIVE_OK':
       return { ...state, live: action.live, liveState: 'ok', liveError: null, lastRefresh: action.at };

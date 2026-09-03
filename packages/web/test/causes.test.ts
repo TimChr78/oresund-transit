@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CAUSE_KEYS, causeLabel, cleanReason } from '../src/lib/causes';
+import { CAUSE_KEYS, causeFromText, causeLabel, cleanReason, effectiveCause } from '../src/lib/causes';
 
 describe('causeLabel', () => {
   it('maps every cause enum key to its Swedish reference label', () => {
@@ -58,5 +58,70 @@ describe('cleanReason', () => {
   it('returns an empty string for null/undefined', () => {
     expect(cleanReason(null, 'en')).toBe('');
     expect(cleanReason(undefined, 'en')).toBe('');
+  });
+});
+
+describe('causeFromText (backlog B2)', () => {
+  it('recognises the alert phrasings the collector\'s keyword map misses', () => {
+    // Each of these was sampled live from /api/transit/disruptions.
+    expect(causeFromText('Resande mot Lund C ska byta tåg på Malmö C. Orsaken är att tåget ska till verkstad.')).toBe('vehicle');
+    expect(causeFromText('Tåget står stilla vid København Østerport. Orsaken är ordningsproblem.')).toBe('police');
+    expect(causeFromText('Tåget är försenat. Orsaken är många resande.')).toBe('congestion');
+    expect(causeFromText('Det är stopp i tågtrafiken mellan Hyllie och CPH Airport sedan klockan 23:45.')).toBe('signal_failure');
+    expect(causeFromText('Tåget är försenat. Orsaken är framkomlighetsproblem.')).toBe('signal_failure');
+    expect(causeFromText('Buss ersätter i pendeltrafik på sträckan CPH Airport - Malmö C.')).toBe('infrastructure');
+  });
+
+  it('matches through the Scandinavian normalization the collector applies', () => {
+    // "många"/"ersätter" are stored with diacritics in raw_text.
+    expect(causeFromText('Orsaken är MÅNGA resande')).toBe('congestion');
+    expect(causeFromText('Buss ERSÄTTER på sträckan')).toBe('infrastructure');
+  });
+
+  it('returns null for text that names no cause', () => {
+    expect(causeFromText('DELAY 08:14 803 -> Østerport: +12min forsening')).toBeNull();
+    expect(causeFromText('Tåget är försenat.')).toBeNull();
+    expect(causeFromText(null)).toBeNull();
+    expect(causeFromText('')).toBeNull();
+  });
+});
+
+describe('effectiveCause (backlog B2)', () => {
+  it('never overrides a verdict the collector already reached', () => {
+    expect(effectiveCause('person_on_tracks', 'Tåget ska till verkstad')).toBe('person_on_tracks');
+    expect(effectiveCause('signal_failure', 'Orsaken är många resande')).toBe('signal_failure');
+  });
+
+  it('fills the gap when the collector stored unknown and the text names a cause', () => {
+    expect(effectiveCause('unknown', 'Orsaken är att tåget ska till verkstad.')).toBe('vehicle');
+    expect(effectiveCause(null, 'Orsaken är ordningsproblem.')).toBe('police');
+    expect(effectiveCause(undefined, 'Orsaken är många resande.')).toBe('congestion');
+  });
+
+  it('stays unknown when neither the collector nor the text knows', () => {
+    expect(effectiveCause('unknown', null)).toBe('unknown');
+    expect(effectiveCause('unknown', 'Tåget är försenat.')).toBe('unknown');
+    expect(effectiveCause(null, undefined)).toBe('unknown');
+  });
+
+  it('passes legacy free-text causes through verbatim', () => {
+    expect(effectiveCause('Signalfel', null)).toBe('Signalfel');
+  });
+
+  it('only ever returns CAUSE_KEYS members, so i18n parity covers every label it can show', () => {
+    const texts = [
+      'tåget ska till verkstad',
+      'ordningsproblem',
+      'många resande',
+      'stopp i tågtrafiken',
+      'framkomlighetsproblem',
+      'buss ersätter',
+      'ersättningsbuss',
+      'ingen orsak här',
+    ];
+    for (const text of texts) {
+      const resolved = causeFromText(text);
+      expect(resolved === null || (CAUSE_KEYS as readonly string[]).includes(resolved), text).toBe(true);
+    }
   });
 });

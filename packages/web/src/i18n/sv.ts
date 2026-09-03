@@ -18,7 +18,7 @@ export const sv: Dict = {
   hero_disruptions: 'Just nu',
   // SEO lead (H1 under the brand wordmark)
   lead_tagline:
-    'Live Øresundståg / tågavgångar Hyllie ↔ Köpenhamn H — förseningar, inställda avgångar och trafikstörningar, uppdaterat var 5:e minut (Trafiklab).',
+    'Live tågavgångar: Hyllie, Malmö C, Kastrup, Köpenhamn H',
   // Byggtids-citat av trafikläget (hemmets no-JS/crawler-skal) — skrivet som
   // vanliga meningar så att sökmotorer och besökare utan JS får lägesbilden.
   seo_status_normal: 'Tågen går normalt över Öresund.',
@@ -53,6 +53,9 @@ export const sv: Dict = {
   type_delay: 'Försening',
   type_cancellation: 'Inställd',
   type_alert: 'Varning',
+  // Detalj på störningsraden (B1)
+  time_pair_title: 'Planerad {sched} · beräknad {actual} ({delay})',
+  route_section_hint: 'Berörd sträcka',
   // Delay bands (audit3 H1) — badge text in the DELAY column
   delay_band_on_time: 'I tid',
   delay_band_minor: '5–15 min',
@@ -142,6 +145,7 @@ export const sv: Dict = {
   disruptions_back_to_today: 'Tillbaka till idag',
   disruptions_today_sep: 'Idag',
   disruptions_none_archive: 'Inga störningar i det senaste arkivet.',
+  disruptions_none_today_dir: 'Inga störningar i den här riktningen idag.',
   section_history: 'Historik',
   // Consent banner
   consent_title: 'Cookies & integritet',
@@ -211,6 +215,12 @@ export const sv: Dict = {
     'Punktlighetshistorik för {name} över Öresund — inga avgångar registrerade ännu; data börjar samlas in så snart live-övervakningen startar.',
   station_daily_heading: 'Punktlighet dag för dag',
   station_other_heading: 'Övriga stationer',
+  // Stationsval på tavlan (A1)
+  station_scope_heading: 'Senaste avgångarna på {name}',
+  station_scope_intro:
+    'Avgångar observerade på {name}. Statusbandet, KPI-korten och historiken täcker alla fyra övervakade stationer.',
+  station_scope_empty: 'Inga avgångar observerade på {name} än.',
+  station_scope_archive_link: 'Punktlighetsarkiv för {name}',
   station_live_heading: 'Läge just nu',
   station_live_intro:
     'Statusbandet gäller hela Öresundskorridoren; avgångarna nedan är observerade på {name}.',

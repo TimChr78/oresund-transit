@@ -71,4 +71,17 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.hbar-meta \{[^}]*text-align:\s*left/);
     expect(css).toMatch(/\.hbar-meta \{[^}]*font-variant-numeric:\s*tabular-nums/);
   });
+
+  it('shows the active station scope on the picker, distinct from hover (backlog A1)', () => {
+    expect(css).toMatch(/\.station-nav a\[aria-current\] \{[^}]*color:\s*var\(--text\)/);
+    expect(css).toMatch(/\.station-nav a\[aria-current\] \{[^}]*text-decoration:\s*underline/);
+    // Hover keeps its own colour, so current and pointed-at never look alike.
+    expect(css).toMatch(/\.station-nav a:hover \{[^}]*color:\s*var\(--green\)/);
+  });
+
+  it('styles the scheduled-vs-expected time pair (backlog B1)', () => {
+    expect(css).toMatch(/\.time-sched \{[^}]*font-family:\s*var\(--mono\)/);
+    expect(css).toMatch(/\.time-actual \{[^}]*color:\s*var\(--dim\)/);
+    expect(css).toMatch(/\.route-section \{[^}]*display:\s*block/);
+  });
 });

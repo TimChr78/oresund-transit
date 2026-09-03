@@ -20,6 +20,67 @@ export const CAUSE_KEYS = [
 
 export type CauseKey = (typeof CAUSE_KEYS)[number];
 
+/**
+ * Keyword fallback (backlog B2) for rows the collector stored as `unknown` but
+ * whose alert text still names a cause. Inventoried over 45 days of live
+ * /disruptions (2026-07-19 → 2026-09-03, 973 rows): the collector only ever
+ * writes enum keys — `unknown` 645, `vehicle` 95, `signal_failure` 90,
+ * `person_on_tracks` 86, `staffing` 43, `congestion` 12, `police` 2 — so every
+ * verdict it reaches is already covered by CAUSE_KEYS and the enum needs no
+ * new member. The gap is the reverse one: 89 of those 645 `unknown` rows DO
+ * carry text, and a recurring phrasing in it never hits the collector's
+ * keyword map. These are those phrases, each seen in the live sample; a catch
+ * there relabels ~20% of the unknown-but-explained rows.
+ *
+ * Matching runs over the same Scandinavian normalization the collector applies
+ * (å/ä→a, ö→o, ø→o, æ→ae), and the fallback NEVER runs when the collector
+ * already reached a verdict — it only fills the gap it left, so the two can
+ * disagree about a row without either of them changing what is shown.
+ */
+const CAUSE_TEXT_KEYWORDS: readonly { cause: CauseKey; keywords: readonly string[] }[] = [
+  // "tåget ska till verkstad" — the vehicle is out for maintenance, not broken en route.
+  { cause: 'vehicle', keywords: ['verkstad'] },
+  { cause: 'police', keywords: ['ordningsproblem'] },
+  { cause: 'congestion', keywords: ['manga resande'] },
+  { cause: 'signal_failure', keywords: ['stopp i tagtrafiken', 'framkomlighetsproblem'] },
+  { cause: 'infrastructure', keywords: ['buss ersatter', 'ersattningsbuss'] },
+];
+
+/** Lowercase + the collector's Scandinavian normalization, so both sides match the same tokens. */
+function normalizeScan(text: string): string {
+  return text
+    .toLowerCase()
+    .replaceAll('ø', 'o')
+    .replaceAll('æ', 'ae')
+    .replaceAll('å', 'a')
+    .replaceAll('ö', 'o')
+    .replaceAll('ä', 'a');
+}
+
+/**
+ * Re-classify from the alert text alone; null when no keyword matches (the
+ * plain "DELAY 08:14 803 -> Østerport: +12min" prefix matches nothing, so
+ * those rows stay unknown — there is genuinely no cause in them).
+ */
+export function causeFromText(raw: string | null | undefined): CauseKey | null {
+  if (!raw) return null;
+  const text = ` ${normalizeScan(raw)} `;
+  for (const { cause, keywords } of CAUSE_TEXT_KEYWORDS) {
+    if (keywords.some((keyword) => text.includes(keyword))) return cause;
+  }
+  return null;
+}
+
+/**
+ * The cause a row should display (backlog B2): the collector's verdict when it
+ * reached one, else the text fallback, else 'unknown'. Legacy free-text values
+ * from old seeds pass through untouched, exactly as causeLabel renders them.
+ */
+export function effectiveCause(cause: string | null | undefined, raw: string | null | undefined): string {
+  if (cause && cause !== 'unknown') return cause;
+  return causeFromText(raw) ?? 'unknown';
+}
+
 /** Translation key for a cause enum value; anything outside the enum → unknown. */
 export function causeKey(cause: string | null | undefined): Key {
   return cause && (CAUSE_KEYS as readonly string[]).includes(cause) ? (`cause_${cause}` as Key) : 'cause_unknown';
