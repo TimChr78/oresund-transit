@@ -213,10 +213,10 @@ describe('renderDisruptionsTable — empty archive', () => {
 
 describe('renderDisruptionsTable — delay band badges (audit3 H1)', () => {
   it('renders the delay band badge instead of raw seconds', () => {
-    const html = renderDisruptionsTable([disruption({ delay_seconds: 650 })], 'en');
+    const html = renderDisruptionsTable([disruption({ delay_seconds: 480 })], 'en');
     expect(html).toContain('badge-band-minor');
-    expect(html).toContain('>5–15 min<');
-    expect(html).not.toContain('>11 min<');
+    expect(html).toContain('>4–10 min<');
+    expect(html).not.toContain('>8 min<');
   });
 
   it('keeps the exact delay in the badge title tooltip', () => {
@@ -235,7 +235,7 @@ describe('renderDisruptionsTable — delay band badges (audit3 H1)', () => {
   it('localizes the band labels across SV/DA/EN', () => {
     expect(renderDisruptionsTable([disruption({ delay_seconds: 0 })], 'sv')).toContain('>I tid<');
     expect(renderDisruptionsTable([disruption({ delay_seconds: 0 })], 'da')).toContain('>Til tiden<');
-    expect(renderDisruptionsTable([disruption({ delay_seconds: 2000 })], 'sv')).toContain('>30+ min<');
+    expect(renderDisruptionsTable([disruption({ delay_seconds: 2000 })], 'sv')).toContain('>15+ min<');
   });
 
   it('renders the no-data mark when no delay was measured', () => {
@@ -253,6 +253,50 @@ describe('renderDisruptionsTable — delay band badges (audit3 H1)', () => {
   });
 });
 
+describe('renderDisruptionsTable — on-time band gating (audit4 N-H3)', () => {
+  it('never bands a cancellation green, even with a zero delay', () => {
+    const html = renderDisruptionsTable(
+      [disruption({ type: 'cancellation', delay_seconds: 0 })],
+      'en',
+    );
+    expect(html).toContain('>Cancellation<');
+    expect(html).not.toContain('badge-band-on-time');
+    expect(html).not.toContain('>On time<');
+    // No delay to report → the no-data mark, not a badge with empty text.
+    expect(html).toContain('<td class="num">—</td>');
+  });
+
+  it('never bands an alert green, even with a zero delay', () => {
+    const html = renderDisruptionsTable([disruption({ type: 'alert', delay_seconds: 0 })], 'en');
+    expect(html).toContain('>Alert<');
+    expect(html).not.toContain('badge-band-on-time');
+    expect(html).not.toContain('>On time<');
+  });
+
+  it('keeps a real delay band on an alert row (only the green claim is gated)', () => {
+    const html = renderDisruptionsTable([disruption({ type: 'alert', delay_seconds: 660 })], 'en');
+    expect(html).toContain('badge-band-moderate');
+    expect(html).toContain('>10–15 min<');
+    expect(html).not.toContain('badge-band-on-time');
+  });
+
+  it('keeps the on-time band on a plain delay row', () => {
+    const html = renderDisruptionsTable([disruption({ type: 'delay', delay_seconds: 120 })], 'en');
+    expect(html).toContain('badge-band-on-time');
+    expect(html).toContain('>On time<');
+  });
+
+  it('does not fall back to the band in the reason cell of a gated row', () => {
+    // A cancellation with an unclassifiable cause used to read "+0 min · On time".
+    const html = renderDisruptionsTable(
+      [disruption({ type: 'cancellation', delay_seconds: 0, cause: 'unknown', raw_text: null })],
+      'en',
+    );
+    expect(html).not.toContain('>On time<');
+    expect(html).not.toContain('On time');
+  });
+});
+
 describe('renderDisruptionsTable — cause gating (audit3 H1)', () => {
   it('renders no cause badge for the unknown cause', () => {
     const html = renderDisruptionsTable([disruption({ cause: 'unknown', raw_text: null })], 'en');
@@ -261,8 +305,8 @@ describe('renderDisruptionsTable — cause gating (audit3 H1)', () => {
   });
 
   it('derives the reason from the delay band when the cause is unknown', () => {
-    const html = renderDisruptionsTable([disruption({ cause: 'unknown', raw_text: null, delay_seconds: 650 })], 'en');
-    expect(html).toContain('+11 min · 5–15 min');
+    const html = renderDisruptionsTable([disruption({ cause: 'unknown', raw_text: null, delay_seconds: 660 })], 'en');
+    expect(html).toContain('+11 min · 10–15 min');
     expect(html).not.toContain('Unknown');
   });
 

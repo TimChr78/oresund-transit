@@ -4,6 +4,7 @@ import hyllieRaw from './fixtures/hyllie-raw.json';
 import kobenhavnHRaw from './fixtures/kobenhavn-h-raw.json';
 import type { TrafiklabDeparture } from '@oresund/shared';
 import { runScheduled, handleFetch, departureKey, type Env, type FetchLike } from '../src/index.js';
+import type { D1PreparedLike } from '../src/db.js';
 import { FakeD1 } from './fake-d1.js';
 
 // Real fixture SiteIds (from the fixtures' query.query) — the same values the
@@ -53,6 +54,43 @@ function fetchFor(stops: Record<string, unknown>): FetchLike {
 
 function env(db: FakeD1): Env {
   return { DB: db, TRAFIKLAB_KEY: 'test-key' };
+}
+
+/**
+ * A FakeD1 that evaluates the recent-departures `sched_time <= ?` bound for
+ * real: seeded rows are filtered, sorted and limited by the values the query
+ * binds, the way D1 would. A plain stub would make the "no future rows"
+ * assertion merely restate what the stub was seeded with (audit4 N-C1).
+ */
+class BoundAwareD1 extends FakeD1 {
+  constructor(private readonly departures: Record<string, unknown>[]) {
+    super();
+  }
+
+  override prepare(sql: string): D1PreparedLike {
+    const inner = super.prepare(sql);
+    if (!sql.includes('sched_time <= ? ORDER BY sched_time DESC LIMIT ?')) return inner;
+    let binds: unknown[] = [];
+    const filtered: D1PreparedLike = {
+      bind: (...values: unknown[]) => {
+        binds = values;
+        inner.bind(...values);
+        return filtered;
+      },
+      // inner.all() first, so the call is still recorded for lastBindsFor.
+      all: async <T = Record<string, unknown>>(): Promise<{ results: T[] }> => {
+        await inner.all();
+        const results = this.departures
+          .filter((r) => r.stop_id === binds[0] && String(r.sched_time) <= String(binds[1]))
+          .sort((a, b) => String(b.sched_time).localeCompare(String(a.sched_time)))
+          .slice(0, Number(binds[2]));
+        return { results: results as T[] };
+      },
+      first: () => inner.first(),
+      run: () => inner.run(),
+    };
+    return filtered;
+  }
 }
 
 // The first Hyllie fixture departure — a real 804 train to Østerport that
@@ -759,7 +797,8 @@ describe('handleFetch — archive: lines / line', () => {
 describe('handleFetch — archive: stations / station', () => {
   const PUNCT_SQL =
     'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
-  const RECENT_SQL = 'SELECT * FROM departures WHERE stop_id = ? ORDER BY sched_time DESC LIMIT ?';
+  const RECENT_SQL =
+    'SELECT * FROM departures WHERE stop_id = ? AND sched_time <= ? ORDER BY sched_time DESC LIMIT ?';
 
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -786,7 +825,7 @@ describe('handleFetch — archive: stations / station', () => {
       { date: '2026-08-06', status: 'delayed', count: 1, avg_delay: 600 },
     ]);
     db.stubAll(RECENT_SQL, [
-      { id: 3, stop_id: '740001586', stop_name: 'Malmö Hyllie', line: '804', sched_time: '2026-08-06T21:59:00' },
+      { id: 3, stop_id: '740001586', stop_name: 'Malmö Hyllie', line: '804', sched_time: '2026-08-06T13:59:00' },
     ]);
 
     const res = await handleFetch(new Request('https://oresund.live/api/transit/station/hyllie?days=7'), env(db));
@@ -799,6 +838,7 @@ describe('handleFetch — archive: stations / station', () => {
       total_departures: number;
       on_time_pct: number;
       daily: unknown[];
+      as_of: string;
       recent: { id: number; line: string }[];
     };
     expect(body.slug).toBe('hyllie');
@@ -808,8 +848,36 @@ describe('handleFetch — archive: stations / station', () => {
     expect(body.total_departures).toBe(10);
     expect(body.on_time_pct).toBe(90);
     expect(body.daily).toHaveLength(7);
-    expect(body.recent).toEqual([{ id: 3, stop_id: '740001586', stop_name: 'Malmö Hyllie', line: '804', sched_time: '2026-08-06T21:59:00' }]);
+    expect(body.recent).toEqual([{ id: 3, stop_id: '740001586', stop_name: 'Malmö Hyllie', line: '804', sched_time: '2026-08-06T13:59:00' }]);
+    // audit4 N-C1: the payload carries the read the rows were bounded with, in
+    // the same naive local format the rows' sched_time uses.
+    expect(body.as_of).toBe('2026-08-06T14:00:00');
     expect(db.lastBindsFor('WHERE stop_id = ? AND sched_time >= ? AND sched_time < ? GROUP BY')).toEqual(['740001586', '2026-07-31', '2026-08-07']);
+    // The recent list is bounded to already-observed slots and shares the
+    // response's clock: (stop_id, as_of, limit).
+    expect(db.lastBindsFor('AND sched_time <= ?')).toEqual(['740001586', '2026-08-06T14:00:00', 20]);
+    expect(body.as_of >= '2026-08-06T13:59:00').toBe(true);
+  });
+
+  it('GET /api/transit/station/hyllie never serves future slots as observed (audit4 N-C1)', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new BoundAwareD1([
+      // The departures table holds the whole Trafiklab lookahead window: slots
+      // from an hour back to ~50 min ahead. Only the past ones are observable.
+      { id: 1, stop_id: '740001586', line: '804', sched_time: '2026-08-06T13:00:00', status: 'on_time', delay_seconds: 0, canceled: 0 },
+      { id: 2, stop_id: '740001586', line: '804', sched_time: '2026-08-06T14:00:00', status: 'delayed', delay_seconds: 300, canceled: 0 },
+      { id: 3, stop_id: '740001586', line: '804', sched_time: '2026-08-06T14:20:00', status: 'on_time', delay_seconds: 0, canceled: 0 },
+      { id: 4, stop_id: '740001586', line: '804', sched_time: '2026-08-06T15:00:00', status: 'on_time', delay_seconds: 0, canceled: 0 },
+    ]);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/station/hyllie'), env(db));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { as_of: string; recent: { id: number; sched_time: string }[] };
+    expect(body.as_of).toBe('2026-08-06T14:00:00');
+    // Newest-first among the slots that have actually happened; the 14:20 and
+    // 15:00 rows stay invisible even though they are the newest in the table.
+    expect(body.recent.map((d) => d.sched_time)).toEqual(['2026-08-06T14:00:00', '2026-08-06T13:00:00']);
+    for (const row of body.recent) expect(row.sched_time <= body.as_of).toBe(true);
   });
 
   it('GET /api/transit/station/kastrup serves the new stop (empty-archive shape)', async () => {

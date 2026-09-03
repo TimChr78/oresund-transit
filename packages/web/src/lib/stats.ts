@@ -379,15 +379,17 @@ export function filterByDirection<T extends { direction: Disruption['direction']
 export type DelayBand = 'on_time' | 'minor' | 'moderate' | 'major';
 
 /**
- * Upper bound (seconds, exclusive) of each band, ascending: under 5 min reads
- * as punctual, then 5–15, 15–30 and 30+ min. Round commuter-facing edges —
- * deliberately coarser than the 240 s RT3 punctuality threshold the KPI uses,
- * because these label single disruption rows, not the on-time share.
+ * Upper bound (seconds, exclusive) of each band, ascending: under 4 min reads
+ * as punctual, then 4–10, 10–15 and 15+ min (audit4 N-H2). The first edge is
+ * the 240 s punctuality threshold the on-time KPI and the methodology page
+ * already define, so a row banded "On time" and the KPI's "on time" share can
+ * never disagree about the same departure; the rest stay round commuter-facing
+ * multiples above it.
  */
 const BAND_EDGES: readonly { limit: number; band: DelayBand }[] = [
-  { limit: 5 * 60, band: 'on_time' },
-  { limit: 15 * 60, band: 'minor' },
-  { limit: 30 * 60, band: 'moderate' },
+  { limit: 240, band: 'on_time' },
+  { limit: 10 * 60, band: 'minor' },
+  { limit: 15 * 60, band: 'moderate' },
 ];
 
 /**

@@ -33,6 +33,18 @@ function hasKnownCause(cause: string | null): boolean {
 }
 
 /**
+ * Whether the row may be banded "On time" (audit4 N-H3). A cancellation did
+ * not run, and an alert is a service notice whose delay field can be 0 while
+ * the row still describes a problem — banding either of those green would put
+ * "On time" one cell away from the "Cancellation"/"Alert" badge saying the
+ * opposite. A real, non-zero delay on an alert row keeps its band: it is
+ * measured, and amber/red says nothing that contradicts the type.
+ */
+function showsOnTimeBand(d: Disruption): boolean {
+  return d.type !== 'cancellation' && d.type !== 'alert';
+}
+
+/**
  * The TIME cell (backlog B1): the scheduled slot, plus the expected time the
  * delay implies when the row carries both a scheduled time and a measured,
  * non-zero delay. The pair is the feed's own two fields — the expected value
@@ -103,11 +115,13 @@ function row(d: Disruption, lang: Lang): string {
   const time = timeCell(d, lang);
   // DELAY: a banded badge instead of raw seconds (audit3 H1) — the exact
   // delay moves into the badge's title tooltip. Rows with no measured delay
-  // (cancellations, alerts) keep the no-data mark.
+  // keep the no-data mark, and cancelled/alert rows never read "On time"
+  // (audit4 N-H3).
   const band = delayBand(d.delay_seconds);
-  const bandLabel = band ? translate(bandKey(band), lang) : '';
-  const delay = band
-    ? `<span class="badge ${BAND_BADGE_CLASS[band]}" title="${esc(formatExactDelay(d.delay_seconds, lang))}">${esc(bandLabel)}</span>`
+  const shown: DelayBand | null = band === 'on_time' && !showsOnTimeBand(d) ? null : band;
+  const bandLabel = shown ? translate(bandKey(shown), lang) : '';
+  const delay = shown
+    ? `<span class="badge ${BAND_BADGE_CLASS[shown]}" title="${esc(formatExactDelay(d.delay_seconds, lang))}">${esc(bandLabel)}</span>`
     : '—';
   // LINE: line + train number + the affected stretch when the feed named one (B1).
   const line = lineCell(d, lang);

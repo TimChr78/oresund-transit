@@ -59,9 +59,9 @@ export const da: Dict = {
   route_section_hint: 'Berørt strækning',
   // Delay bands (audit3 H1) — badge text in the DELAY column
   delay_band_on_time: 'Til tiden',
-  delay_band_minor: '5–15 min',
-  delay_band_moderate: '15–30 min',
-  delay_band_major: '30+ min',
+  delay_band_minor: '4–10 min',
+  delay_band_moderate: '10–15 min',
+  delay_band_major: '15+ min',
   // Causes
   cause_staffing: 'Mangel på personale',
   cause_person_on_tracks: 'Person på sporet',
@@ -226,6 +226,8 @@ export const da: Dict = {
   station_live_intro:
     'Statusbåndet gælder hele Øresundskorridoren; afgangene nedenfor er observeret på {name}.',
   station_departures_heading: 'Senest observerede afgange',
+  // audit4 N-C1 — tidsstempel som de seneste rækker er begrænset til.
+  station_as_of: 'Observeret til og med {time} den {date}',
   // Samme tonefall som meth_lag_body: erklær forsinkelsen i stedet for at lade
   // som om tabellen var en forudsigende afgangstavle.
   station_observed_note:

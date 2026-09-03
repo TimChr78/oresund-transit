@@ -118,7 +118,9 @@ describe('renderStationDepartures (backlog A1)', () => {
     expect(html).toContain('<td class="line">803</td>');
     expect(html).toContain('#1017');
     expect(html).toContain('<td>Østerport</td>');
-    expect(html).toContain('badge-band-minor');
+    // 650 s sits in the 10–15 min band under the audit4 N-H2 edges (240/600/900).
+    expect(html).toContain('badge-band-moderate');
+    expect(html).toContain('>10–15 min<');
   });
 
   it('renders a cancellation as a badge, not a banded zero delay', () => {

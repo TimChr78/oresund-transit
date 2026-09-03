@@ -64,6 +64,16 @@ export function renderStationDepartures(data: StationResponse, lang: Lang): stri
     }),
   )}</p>
   ${
+    data.as_of
+      ? `<p class="scope-meta">${esc(
+          translate('station_as_of', lang, {
+            time: formatTime(data.as_of, lang) || '—',
+            date: formatDate(data.as_of, lang) || '—',
+          }),
+        )}</p>`
+      : ''
+  }
+  ${
     rows
       ? `<div class="table-wrap"><table class="board-table">
       <thead><tr>${head}</tr></thead>

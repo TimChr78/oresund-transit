@@ -227,6 +227,9 @@ export interface Dict {
   station_live_heading: string;
   station_live_intro: string;
   station_departures_heading: string;
+  // As-of line under the departures heading (audit4 N-C1) — the collector
+  // stamps every /station response with the read the rows were bounded to.
+  station_as_of: string;
   station_observed_note: string;
   station_col_destination: string;
   nav_stations: string;

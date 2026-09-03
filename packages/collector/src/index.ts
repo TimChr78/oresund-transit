@@ -458,12 +458,18 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
     const stop = STATIONS.find((s) => s.slug === slug);
     if (!stop) return json({ error: 'unknown station' }, 404);
     const days = parseDays(url);
-    const punctuality = await queryStationPunctuality(env.DB, stop.stop_id, days);
+    // One clock for the whole response: the punctuality window's "today", the
+    // sched_time <= bound on the recent rows, and the as_of stamp all read the
+    // same instant, so the page cannot pair rows with a timestamp they predate.
+    const now = new Date();
+    const punctuality = await queryStationPunctuality(env.DB, stop.stop_id, days, now);
+    const recent = await queryRecentDepartures(env.DB, stop.stop_id, 20, now);
     return json({
       ...punctuality,
       slug: stop.slug,
       stop_name: stop.stop_name,
-      recent: await queryRecentDepartures(env.DB, stop.stop_id, 20),
+      as_of: recent.as_of,
+      recent: recent.rows,
     });
   }
 
