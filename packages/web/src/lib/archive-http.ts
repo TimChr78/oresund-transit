@@ -39,14 +39,39 @@ const HTML_HEADERS: Record<string, string> = {
   'Cache-Control': 'public, max-age=300',
 };
 
+/**
+ * The security header set public/_headers applies to static assets (audit4
+ * N-C2). Cloudflare only reads `_headers` for files it serves from dist/ — a
+ * Pages Function's Response is NOT covered by it, so before this the ~30
+ * archive URLs the Functions render shipped with no HSTS, CSP, nosniff,
+ * frame or referrer policy at all. Kept in one place and merged into every
+ * response this module builds; test/security-headers.test.ts asserts the two
+ * stay in sync.
+ */
+/** Exported so the test suite can prove _headers and this set never diverge. */
+export const SECURITY_HEADERS: Record<string, string> = {
+  'Strict-Transport-Security': 'max-age=31536000',
+  'Content-Security-Policy':
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'DENY',
+};
+
+/** Merge the security set over a response's own headers. */
+function withSecurityHeaders(headers: Record<string, string>): Record<string, string> {
+  return { ...SECURITY_HEADERS, ...headers };
+}
+
 function html(body: string): Response {
-  return new Response(body, { status: 200, headers: HTML_HEADERS });
+  return new Response(body, { status: 200, headers: withSecurityHeaders(HTML_HEADERS) });
 }
 
 function unavailable(route: string): Response {
   return new Response(`Archive temporarily unavailable (${esc(route)})`, {
     status: 502,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    headers: withSecurityHeaders({ 'Content-Type': 'text/plain; charset=utf-8' }),
   });
 }
 
@@ -125,7 +150,10 @@ function parseStation(json: unknown): ArchiveStationStats {
     typeof b.total_departures !== 'number' ||
     typeof b.slug !== 'string' ||
     !Array.isArray(b.daily) ||
-    !Array.isArray(b.recent)
+    !Array.isArray(b.recent) ||
+    // as_of (audit4 N-C1) is optional so a payload from a not-yet-updated
+    // collector still renders; when it is there it must be a timestamp.
+    (b.as_of !== undefined && typeof b.as_of !== 'string')
   ) {
     throw new TypeError('invalid station shape');
   }
@@ -200,10 +228,10 @@ export async function handleArchiveRequest(pathname: string, fetchImpl: FetchLik
     if (p === '/history') {
       return new Response(null, {
         status: 301,
-        headers: {
+        headers: withSecurityHeaders({
           Location: '/history/30',
           'Cache-Control': 'public, max-age=3600',
-        },
+        }),
       });
     }
     const hist = /^\/history\/(7|14|30|90)$/.exec(p);

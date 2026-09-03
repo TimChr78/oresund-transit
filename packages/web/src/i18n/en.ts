@@ -58,9 +58,9 @@ export const en: Dict = {
   route_section_hint: 'Affected section',
   // Delay bands (audit3 H1) — badge text in the DELAY column
   delay_band_on_time: 'On time',
-  delay_band_minor: '5–15 min',
-  delay_band_moderate: '15–30 min',
-  delay_band_major: '30+ min',
+  delay_band_minor: '4–10 min',
+  delay_band_moderate: '10–15 min',
+  delay_band_major: '15+ min',
   // Causes
   cause_staffing: 'Staffing shortage',
   cause_person_on_tracks: 'Person on tracks',
@@ -227,6 +227,8 @@ export const en: Dict = {
   station_live_intro:
     'The status band covers the whole Øresund corridor; the departures below were observed at {name}.',
   station_departures_heading: 'Latest observed departures',
+  // audit4 N-C1 — the stamp the recent rows were bounded to (sched_time <= it).
+  station_as_of: 'Observed up to {time} on {date}',
   // Tone follows meth_lag_body: declare the lag instead of implying a live
   // predictive board (the collector polls every 5 min and reads back slots).
   station_observed_note:

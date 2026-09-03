@@ -496,22 +496,27 @@ describe('heatColor', () => {
 });
 
 describe('delayBand', () => {
-  it('bands delays under 5 min as on time', () => {
+  it('bands delays under 4 min as on time', () => {
     expect(delayBand(0)).toBe('on_time');
     expect(delayBand(60)).toBe('on_time');
-    expect(delayBand(299)).toBe('on_time');
+    expect(delayBand(239)).toBe('on_time');
   });
 
-  it('bands 5-15 min as minor and 15-30 min as moderate', () => {
+  it('cuts the on-time band at the 240 s punctuality threshold (audit4 N-H2)', () => {
+    // The same 240 s the on-time KPI and the methodology page define, so a
+    // banded "On time" row and the KPI's on-time share cannot disagree.
+    expect(delayBand(240)).toBe('minor');
     expect(delayBand(300)).toBe('minor');
-    expect(delayBand(650)).toBe('minor');
-    expect(delayBand(899)).toBe('minor');
-    expect(delayBand(900)).toBe('moderate');
-    expect(delayBand(1799)).toBe('moderate');
+    expect(delayBand(599)).toBe('minor');
   });
 
-  it('bands 30 min and above as major', () => {
-    expect(delayBand(1800)).toBe('major');
+  it('bands 4-10 min as minor and 10-15 min as moderate', () => {
+    expect(delayBand(600)).toBe('moderate');
+    expect(delayBand(899)).toBe('moderate');
+  });
+
+  it('bands 15 min and above as major', () => {
+    expect(delayBand(900)).toBe('major');
     expect(delayBand(7200)).toBe('major');
   });
 

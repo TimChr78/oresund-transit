@@ -7,6 +7,7 @@ import {
   readLiveStatus,
   queryDelayStats,
   queryPunctuality,
+  queryRecentDepartures,
 } from '../src/db.js';
 import { FakeD1 } from './fake-d1.js';
 
@@ -368,5 +369,35 @@ describe('queryPunctuality', () => {
     expect(stats.daily).toHaveLength(30);
     expect(stats.date_from).toBe('2026-07-08');
     expect(stats.date_to).toBe('2026-08-06');
+  });
+});
+
+describe('queryRecentDepartures', () => {
+  const recentSql =
+    'SELECT * FROM departures WHERE stop_id = ? AND sched_time <= ? ORDER BY sched_time DESC LIMIT ?';
+
+  it('bounds the query to already-observed slots and stamps the read (audit4 N-C1)', async () => {
+    const db = new FakeD1();
+    db.stubAll(recentSql, [{ stop_id: '740001586', sched_time: '2026-08-06T13:59:00' }]);
+
+    const recent = await queryRecentDepartures(db, '740001586', 20, new Date('2026-08-06T12:00:00Z'));
+
+    expect(recent.rows).toEqual([{ stop_id: '740001586', sched_time: '2026-08-06T13:59:00' }]);
+    // Naive local (Europe/Stockholm, UTC+2 in August) — the format sched_time
+    // itself is stored in, so the two compare lexicographically in SQL.
+    expect(recent.as_of).toBe('2026-08-06T14:00:00');
+    // (stop_id, as_of, limit) — the second bind is what keeps future slots out.
+    expect(db.lastBindsFor('AND sched_time <= ?')).toEqual(['740001586', '2026-08-06T14:00:00', 20]);
+  });
+
+  it('stamps the read with the injectable clock, not the wall clock', async () => {
+    const db = new FakeD1();
+    db.stubAll(recentSql, []);
+
+    const recent = await queryRecentDepartures(db, '860000626', 5, new Date('2026-01-15T22:30:00Z'));
+
+    // January = CET (UTC+1), so the same instant stamps as 23:30 local.
+    expect(recent.as_of).toBe('2026-01-15T23:30:00');
+    expect(db.lastBindsFor('AND sched_time <= ?')).toEqual(['860000626', '2026-01-15T23:30:00', 5]);
   });
 });
