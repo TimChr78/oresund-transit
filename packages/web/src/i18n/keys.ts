@@ -54,6 +54,13 @@ export interface Dict {
   th_status: string;
   th_train: string;
   th_on_time_pct: string;
+  // Chart data tables (audit4 N-M15) — the accessible alternative for the
+  // charts, whose values live in pixel geometry.
+  th_total: string;
+  th_hour: string;
+  th_share: string;
+  th_count: string;
+  sr_data_table: string;
   th_canceled: string;
   // Disruption types
   type_delay: string;
@@ -153,15 +160,14 @@ export interface Dict {
   disruptions_back_to_today: string;
   disruptions_today_sep: string;
   disruptions_none_archive: string;
+  // Accessible names for the two board tables (audit4 LOW): neither table has a
+  // visible heading of its own inside .table-wrap.
+  disruptions_caption_today: string;
+  disruptions_caption_archive: string;
   // Zero rows under a direction filter (backlog B4) — distinct from the
   // corridor-wide disruptions_none_today, which would over-claim "all clear".
   disruptions_none_today_dir: string;
   section_history: string;
-  // Consent banner
-  consent_title: string;
-  consent_body: string;
-  consent_accept: string;
-  consent_decline: string;
   // Empty / loading / error states
   empty_no_data: string;
   empty_loading: string;
@@ -192,6 +198,8 @@ export interface Dict {
   meth_source_body: string;
   meth_lag_title: string;
   meth_lag_body: string;
+  meth_tracking_title: string;
+  meth_tracking_body: string;
   nav_methodology: string;
   meth_def_on_time: string;
   meth_def_delayed: string;
@@ -243,6 +251,9 @@ export interface Dict {
   nav_stations: string;
   nav_board: string;
   station_nav_label: string;
+  // Accessible names for the two filter groups on the board (audit4 LOW)
+  filter_direction: string;
+  filter_range: string;
   // Footer
   footer_attribution: string;
   footer_disclaimer: string;
@@ -309,6 +320,7 @@ export interface Dict {
   // unreachable. Server-rendered, so it cannot reuse the SPA dictionaries at
   // runtime; the language is picked from the URL prefix, then Accept-Language.
   err502_title: string;
+  nav_site_sections: string;
   err502_body: string;
   err502_retry: string;
   err502_home: string;

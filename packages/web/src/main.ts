@@ -9,7 +9,7 @@ import {
   fetchStation,
 } from './api';
 import { detectLang, getDict, saveLang, translate, type Dict, type Key, type Lang } from './i18n';
-import { renderApp, type ConsentState } from './components/App';
+import { renderApp } from './components/App';
 import { renderMethodologyPage } from './components/MethodologyPage';
 import { renderPrivacyPage } from './components/PrivacyPage';
 import {
@@ -40,25 +40,6 @@ import { delayStatsRange, type DayRange, type Direction } from './lib/stats';
  */
 
 const REFRESH_MS = 120_000;
-const CONSENT_KEY = 'oresund-consent';
-
-function readConsent(): ConsentState {
-  try {
-    const value = globalThis.localStorage?.getItem(CONSENT_KEY);
-    if (value === 'accepted' || value === 'declined') return value;
-  } catch {
-    // storage blocked — show the banner again next load
-  }
-  return null;
-}
-
-function saveConsent(value: 'accepted' | 'declined'): void {
-  try {
-    globalThis.localStorage?.setItem(CONSENT_KEY, value);
-  } catch {
-    // non-fatal
-  }
-}
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -147,7 +128,7 @@ function stationTitleUpdater(): (scope: StationScope, lang: Lang) => void {
 
 /**
  * Static-page boot (privacy / methodology): static render + language switcher
- * only. No data fetching, no consent banner. `forcedLang` is present on the
+ * only. No data fetching. `forcedLang` is present on the
  * localized /sv/ and /da/ paths so the page renders in the URL's language
  * rather than the saved/browser one.
  */
@@ -234,8 +215,8 @@ export function boot(): void {
   document.querySelector('footer.site-footer')?.remove();
 
   // /privacy and /methodology render their static pages instead of the
-  // dashboard. No data fetching, no consent banner — just the shell, footer
-  // and lang switcher. Localized /sv/* and /da/* paths force their language.
+  // dashboard. No data fetching — just the shell, footer and lang switcher.
+  // Localized /sv/* and /da/* paths force their language.
   // Their prerendered HTML has no shell at all (the content is injected into
   // #app at build time), so this removal only bites in dev, where the
   // unbuilt shell is still present and its dashboard copy must not leak onto
@@ -258,7 +239,6 @@ export function boot(): void {
 
   let lang: Lang = pathLang ?? detectLang();
   document.documentElement.lang = lang;
-  let consent: ConsentState = readConsent();
   let state: AppState = createInitialState();
 
   // A shared ?station= link opens the board already scoped to that stop; the
@@ -277,7 +257,7 @@ export function boot(): void {
     // Reconciled rather than assigned (audit4 N-H7): a 120-second refresh
     // changes a handful of cells, not the board, and the nodes it does not
     // touch keep their place, their selection and their scroll offset.
-    reconcile(root, renderApp(state, lang, consent));
+    reconcile(root, renderApp(state, lang));
     // document.title follows the scope (audit4 N-M5): it is a document side
     // effect, so it lives here next to the DOM write rather than in the pure
     // renderer, and it re-runs on a language switch like the board does.
@@ -476,16 +456,6 @@ export function boot(): void {
         // The about block is the one part of the page the board does not own,
         // so it is swapped here rather than inside render() (audit4 N-H5).
         mountHomeAbout(lang);
-        render();
-        break;
-      case 'consent-accept':
-        consent = 'accepted';
-        saveConsent(consent);
-        render();
-        break;
-      case 'consent-decline':
-        consent = 'declined';
-        saveConsent(consent);
         render();
         break;
       case 'retry-live':

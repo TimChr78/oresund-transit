@@ -48,6 +48,12 @@ export const sv: Dict = {
   th_status: 'Status',
   th_train: 'Tåg',
   th_on_time_pct: 'I tid %',
+  // Diagramdatatabeller (audit4 N-M15)
+  th_total: 'Totalt',
+  th_hour: 'Timme',
+  th_share: 'Andel',
+  th_count: 'Antal',
+  sr_data_table: 'datatabell',
   th_canceled: 'Inställda',
   // Disruption types
   type_delay: 'Försening',
@@ -145,13 +151,11 @@ export const sv: Dict = {
   disruptions_back_to_today: 'Tillbaka till idag',
   disruptions_today_sep: 'Idag',
   disruptions_none_archive: 'Inga störningar i det senaste arkivet.',
+  disruptions_caption_today: 'Störningar idag',
+  disruptions_caption_archive: 'Störningar i arkivet',
   disruptions_none_today_dir: 'Inga störningar i den här riktningen idag.',
   section_history: 'Historik',
   // Consent banner
-  consent_title: 'Cookies & integritet',
-  consent_body: 'Vi använder cookies bara för att spara ditt språkval. Inga annonser, ingen spårning.',
-  consent_accept: 'OK',
-  consent_decline: 'Neka',
   // Empty / loading / error states
   empty_no_data: 'Inga avgångar ännu — första schemalagda avläsningen väntas.',
   empty_loading: 'Läser in…',
@@ -189,6 +193,10 @@ export const sv: Dict = {
   meth_lag_title: 'Eftersläpning i data',
   meth_lag_body:
     'Trafiklab-data kan ligga ungefär 10–15 minuter efter Skånetrafikens officiella app när det gäller inställda avgångar.',
+  meth_tracking_title: 'Mätning och samtycke',
+  meth_tracking_body:
+    'Besöksräkningen sköts av Umami: en cookiefri och anonymiserad räknare som inte lagrar personuppgifter och inte följer dig mellan webbplatser. Det enda som sparas i din webbläsare är ditt språkval, i localStorage. Eftersom mätningen är neutral statistik utan identifierare efterfrågas inget samtycke och ingen cookiebanner visas.',
+
   nav_methodology: 'Metod',
   meth_def_on_time: 'Andel av dagens gränsöverskridande avgångar med under 240 sekunders (4 minuters) försening.',
   meth_def_delayed:
@@ -239,6 +247,8 @@ export const sv: Dict = {
   nav_stations: 'Stationer',
   nav_board: 'Live-tavlan',
   station_nav_label: 'Övervakade stationer',
+  filter_direction: 'Filtrera störningar efter riktning',
+  filter_range: 'Historikens tidsintervall',
   // Footer
   footer_attribution: 'Data från Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligga ~10–15 min efter officiella appar; inställda avgångar kan missas.',
@@ -310,6 +320,7 @@ export const sv: Dict = {
 
   // Collector-outage fallback (audit4 N-H4)
   err502_title: 'Tillfälligt otillgänglig',
+  nav_site_sections: 'Webbplatsavdelningar',
   err502_body:
     'Datakällan svarade inte, så sidan kunde inte byggas. Den brukar vara tillbaka inom några minuter — försök igen om en stund.',
   err502_retry: 'Ladda om sidan',

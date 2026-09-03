@@ -24,12 +24,21 @@ import { STATIC_PAGE_PATHS } from '../src/lib/static-pages';
 
 const SPA_PAGES = new Set(['/index.html', ...STATIC_PAGE_PATHS]);
 
-const NOT_FOUND_HTML = `<!doctype html>
-<html lang="en">
+const NOT_FOUND_I18N = {
+  en: { h1: 'Page not found', body: 'The page you\u2019re looking for doesn\u2019t exist or has moved.', nav: 'Site sections', home: 'Live board', history: 'Disruption history', lines: 'Line archives', stations: 'Station archives' },
+  sv: { h1: 'Sidan hittades inte', body: 'Sidan du letar efter finns inte eller har flyttats.', nav: 'Webbplatsavdelningar', home: 'Livetavla', history: 'St\u00f6rningshistorik', lines: 'Linjearkiv', stations: 'Stationsarkiv' },
+  da: { h1: 'Side ikke fundet', body: 'Siden du leder efter findes ikke eller er flyttet.', nav: 'Sektioner p\u00e5 webstedet', home: 'Live-tavle', history: 'Forstyrrelleshistorik', lines: 'Linjearkiv', stations: 'Stationsarkiver' },
+};
+
+function notFoundHtml(pathname) {
+  const lang = pathname.startsWith('/sv/') ? 'sv' : pathname.startsWith('/da/') ? 'da' : 'en';
+  const t = NOT_FOUND_I18N[lang];
+  return `<!doctype html>
+<html lang="${lang}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Page not found — Øresund.live</title>
+    <title>${t.h1} — Øresund.live</title>
     <meta name="robots" content="noindex" />
     <style>
       :root { color-scheme: dark; }
@@ -47,17 +56,18 @@ const NOT_FOUND_HTML = `<!doctype html>
   <body>
     <main>
       <a class="brand" href="/">Øresund.live</a>
-      <h1>Page not found</h1>
+      <h1>${t.h1}</h1>
       <p>The page you’re looking for doesn’t exist or has moved.</p>
-      <nav>
-        <a href="/">Live board</a>
-        <a href="/history">Disruption history</a>
-        <a href="/line">Line archives</a>
-        <a href="/station">Station archives</a>
+      <nav aria-label="${t.nav}">
+        <a href="/"> ${t.home}</a>
+        <a href="/history/30">${t.history}</a>
+        <a href="/line">${t.lines}</a>
+        <a href="/station">${t.stations}</a>
       </nav>
     </main>
   </body>
 </html>`;
+}
 
 const NOT_FOUND_HEADERS = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -71,7 +81,7 @@ export async function onRequest(context) {
   const contentType = (asset.headers.get('content-type') || '').toLowerCase();
   const isSpaFallback = asset.status === 404 || (contentType.includes('text/html') && !SPA_PAGES.has(pathname));
   if (isSpaFallback) {
-    return new Response(NOT_FOUND_HTML, { status: 404, headers: NOT_FOUND_HEADERS });
+    return new Response(notFoundHtml(pathname), { status: 404, headers: NOT_FOUND_HEADERS });
   }
   return asset;
 }

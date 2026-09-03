@@ -728,7 +728,7 @@ describe('archive table scroll containers (audit3 H5)', () => {
 
   it('wraps the history daily table in the scroll container', () => {
     const html = renderHistoryPage(7, history);
-    expect(html).toContain('<div class="table-scroll"><table><thead><tr><th>Date</th>');
+    expect(html).toContain('<div class="table-scroll"><table><thead><tr><th scope="col">Date</th>');
     expect(html).toMatch(/<\/table><\/div>/);
   });
 
@@ -740,7 +740,7 @@ describe('archive table scroll containers (audit3 H5)', () => {
   it('wraps the 7-column station daily table in the scroll container', () => {
     const html = renderStationPage(stationStats, stationStatsSlugList());
     expect(html).toContain('<div class="table-scroll">');
-    expect(html).toContain('<th>Date</th><th>Departures</th><th>On time</th><th>Delayed</th><th>Cancelled</th><th>On time %</th><th>Avg delay</th>');
+    expect(html).toContain('<th scope="col">Date</th><th scope="col">Departures</th><th scope="col">On time</th><th scope="col">Delayed</th><th scope="col">Canceled</th><th scope="col">On time %</th><th scope="col">Avg delay</th>');
   });
 });
 
@@ -835,7 +835,7 @@ describe('station live section + localized routes (audit3 C1/H2)', () => {
 
   it('shows the train technical_number (H2) and bands the delay like the board does', () => {
     const html = renderStationPage(stationStats, stationStatsSlugList(), live);
-    expect(html).toContain('<th>Time</th><th>Line</th><th>Train</th><th>Destination</th><th>Status</th><th>Delay</th>');
+    expect(html).toContain('<th scope="col">Time</th><th scope="col">Line</th><th scope="col">Train</th><th scope="col">Destination</th><th scope="col">Status</th><th scope="col">Delay</th>');
     expect(html).toContain('#1143');
     // on_time departure → the hyphenated badge class the stylesheet defines.
     expect(html).toContain('<span class="badge badge-band-on-time"');
@@ -868,8 +868,8 @@ describe('station live section + localized routes (audit3 C1/H2)', () => {
     expect(da).toContain('<h1>Malmö Hyllie — rettidighedsarkiv</h1>');
     expect(sv).toContain('<h2>Senast observerade avgångar</h2>');
     expect(da).toContain('<h2>Senest observerede afgange</h2>');
-    expect(sv).toContain('<th>Tåg</th>');
-    expect(da).toContain('<th>Tog</th>');
+    expect(sv).toContain('<th scope="col">Tåg</th>');
+    expect(da).toContain('<th scope="col">Tog</th>');
     // Sibling links follow the language prefix (those pages exist).
     expect(sv).toContain('href="/sv/station/kobenhavn-h"');
     expect(da).toContain('href="/da/station/malmo-c"');

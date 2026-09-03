@@ -13,7 +13,7 @@
  */
 import type { Disruption, Departure, LiveStatus } from '@oresund/shared';
 import { getDict, translate, type Key, type Lang } from '../i18n';
-import { formatExactDelay, formatDate, formatTime } from '../i18n/format';
+import { formatDelaySeconds, formatExactDelay, formatDate, formatPct, formatTime } from '../i18n/format';
 import { bannerModel } from '../components/StatusBanner';
 import { stationNameKey, stationTitleName } from '../components/StationPicker';
 import { BAND_BADGE_CLASS, delayBand, type DelayBand } from './stats';
@@ -312,9 +312,14 @@ ${hreflang}
       .badge { display: inline-block; border-radius: 5px; padding: 1px 8px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
       .badge-band-on-time { color: #10b981; background: rgba(16, 185, 129, .12); border: 1px solid rgba(16, 185, 129, .26); }
       .badge-band-minor { color: #f59e0b; background: rgba(245, 158, 11, .1); border: 1px solid rgba(245, 158, 11, .22); }
-      .badge-band-moderate { color: #ef4444; background: rgba(239, 68, 68, .1); border: 1px solid rgba(239, 68, 68, .26); }
-      .badge-band-major { color: #ffffff; background: #ef4444; border: 1px solid #ef4444; }
-      .badge-cancellation { color: #ef4444; background: rgba(239, 68, 68, .14); border: 1px solid rgba(239, 68, 68, .3); }
+      /* N-M13: the same text/fill tier split as styles.css. On these pages the
+         tint composites over the page's own #0a0c10 body rather than the
+         board's --surface, so #ef4444 clears AA here (4.61:1) — but the values
+         stay in lockstep with the board so a badge never changes colour
+         between the board and its archive. */
+      .badge-band-moderate { color: #f46565; background: rgba(239, 68, 68, .1); border: 1px solid rgba(239, 68, 68, .26); }
+      .badge-band-major { color: #0a0c10; background: #ef4444; border: 1px solid #ef4444; }
+      .badge-cancellation { color: #f46565; background: rgba(239, 68, 68, .14); border: 1px solid rgba(239, 68, 68, .3); }
       ul.plain { list-style: none; padding: 0; margin: 0; }
       ul.plain li { padding: .4rem 0; border-bottom: 1px solid #171d28; }
       ul.plain a { color: #9fc9ff; text-decoration: none; }
@@ -460,7 +465,7 @@ const NO_DATA_MARK = '—';
 
 function dailyTable(rows: ArchiveHistory['daily']): string {
   const head =
-    '<thead><tr><th>Date</th><th>Total</th><th>Cancellations</th><th>Delays</th><th>Alerts</th><th>Avg delay</th></tr></thead>';
+    '<thead><tr><th scope="col">Date</th><th scope="col">Total</th><th scope="col">Cancellations</th><th scope="col">Delays</th><th scope="col">Alerts</th><th scope="col">Avg delay</th></tr></thead>';
   const body = rows
     .map((r) => {
       // M1: a day with no recorded disruptions has no average to report —
@@ -804,7 +809,7 @@ export function renderStationPage(
     : translate('station_desc', lang, {
         name,
         n: stats.total_departures,
-        pct: stats.on_time_pct,
+        pct: formatPct(stats.on_time_pct, lang).replace('%', ''),
         days: stats.days,
       });
   const dailyRows = stats.daily
@@ -813,8 +818,8 @@ export function renderStationPage(
       // recorded traffic) have no on-time share or average delay — the
       // collector zero-fills the window, so rendering the raw 0/0% would
       // read as a catastrophic all-delayed service day.
-      const pct = r.total === 0 ? NO_DATA_MARK : `${r.on_time_pct}%`;
-      const avg = r.total === 0 ? NO_DATA_MARK : fmtDelay(r.avg_delay_seconds);
+      const pct = r.total === 0 ? NO_DATA_MARK : formatPct(r.on_time_pct, lang);
+      const avg = r.total === 0 ? NO_DATA_MARK : formatDelaySeconds(r.avg_delay_seconds, lang);
       const cells = [r.date, r.total, r.on_time, r.delayed, r.canceled, pct, avg]
         .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(typeof v === 'number' ? String(v) : v)}</td>`)
         .join('');
@@ -826,7 +831,15 @@ export function renderStationPage(
   const body = `
     <p class="crumb"><a href="${localizedPath('/', lang)}">Øresund.live</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
     <h1>${esc(translate('station_h1', lang, { name }))}</h1>
-    <p class="sub">${esc(translate('station_sub', lang, { days: stats.days, from: fmtDate(stats.date_from), to: fmtDate(stats.date_to) }))} ${esc(translate('archive_attribution', lang))}.</p>
+    <p class="sub">${esc(
+      translate('station_sub', lang, {
+        days: stats.days,
+        // formatDate, not fmtDate: a localized page must not switch to English
+        // month names in its own subtitle (audit4 LOW).
+        from: formatDate(stats.date_from, lang),
+        to: formatDate(stats.date_to, lang),
+      }),
+    )} ${esc(translate('archive_attribution', lang))}.</p>
     ${renderStationLive(stats, live ?? null, lang)}
 ${
     empty
@@ -835,7 +848,7 @@ ${
       <span class="stat"><b>${stats.total_departures}</b><span>${esc(translate('stat_departures', lang))}</span></span>
       <span class="stat"><b>${stats.on_time_pct}%</b><span>${esc(translate('stat_on_time', lang))}</span></span>
       <span class="stat"><b>${stats.canceled_count}</b><span>${esc(translate('th_canceled', lang))}</span></span>
-      <span class="stat"><b>${fmtDelay(stats.avg_delay_seconds)}</b><span>${esc(translate('stat_avg_delay', lang))}</span></span>
+      <span class="stat"><b>${formatDelaySeconds(stats.avg_delay_seconds, lang)}</b><span>${esc(translate('stat_avg_delay', lang))}</span></span>
     </div>
 ${
         stats.daily.length
@@ -851,7 +864,7 @@ ${
             'th_on_time_pct',
             'stat_avg_delay',
           ]
-            .map((k) => `<th>${esc(translate(k as Key, lang))}</th>`)
+            .map((k) => `<th scope="col">${esc(translate(k as Key, lang))}</th>`)
             .join('')}</tr></thead>
         <tbody>${dailyRows}</tbody>
       </table>
@@ -917,7 +930,7 @@ ${allStations
               'Departures per day',
               'On-time departures per day',
               'Delayed departures per day',
-              'Cancelled departures per day',
+              'Canceled departures per day',
               'On-time percentage per day',
               'Average delay per day',
             ],
@@ -963,7 +976,7 @@ export function renderStationLive(stats: ArchiveStationStats, live: LiveStatus |
     'th_status',
     'th_delay',
   ]
-    .map((k) => `<th>${esc(translate(k as Key, lang))}</th>`)
+    .map((k) => `<th scope="col">${esc(translate(k as Key, lang))}</th>`)
     .join('');
   return `
     <section class="station-live">
@@ -1012,6 +1025,6 @@ function departureRow(d: Departure, lang: Lang): string {
   const train = d.technical_number ? `#${esc(d.technical_number)}` : NO_DATA_MARK;
   const dest = d.destination ? esc(d.destination) : NO_DATA_MARK;
   const line = d.line ? esc(d.line) : NO_DATA_MARK;
-  const delay = d.status === 'canceled' ? NO_DATA_MARK : fmtDelay(d.delay_seconds);
+  const delay = d.status === 'canceled' ? NO_DATA_MARK : formatDelaySeconds(d.delay_seconds, lang);
   return `<tr><td class="meta">${esc(time)}</td><td>${line}</td><td class="meta">${train}</td><td>${dest}</td><td>${departureStatus(d, lang)}</td><td>${esc(delay)}</td></tr>`;
 }

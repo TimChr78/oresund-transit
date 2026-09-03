@@ -389,7 +389,7 @@ describe("boot() and #static-shell (audit4 N-H5)", () => {
     // The whole point of N-H5: the static node is never re-rendered client-side.
     // renderApp() must not emit a home-about section, or the block would exist
     // twice — once as the preserved prerender, once from the dictionary.
-    expect(renderApp(createInitialState(), 'en', null)).not.toContain('home-about');
+    expect(renderApp(createInitialState(), 'en')).not.toContain('home-about');
     expect(shell).toContain('<section class="home-about">');
     expect(shell).toContain('id="static-shell"');
   });
@@ -684,6 +684,26 @@ describe('og:locale + og:locale:alternate (audit3 M10)', () => {
           );
         }
       }
+    }
+  });
+});
+
+describe('JSON-LD description localization (CodeRabbit PR51 critical)', () => {
+  // The shell's single ld+json block carries English `description` members on the
+  // WebSite and Organization nodes. applySeo drops those members on sv/da variants
+  // (name/url/sameAs stay — the language-neutral facts), so structured data never
+  // publishes English sentences inside lang="sv"/"da".
+  it('keeps the English description on the en home', () => {
+    const home = renderLocalizedHome(shell, 'en', META.dashboard.en, hreflangCluster('/'));
+    expect(home).toContain('"description": "Live');
+  });
+
+  it('strips the description members from the sv and da homes, keeps name/url', () => {
+    for (const lang of ['sv', 'da'] as Lang[]) {
+      const home = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster(`/${lang}`));
+      expect(home, `home/${lang} still has ld+json`).toContain('application/ld+json');
+      expect(home, `home/${lang} kept a description member`).not.toContain('"description": "Live');
+      expect(home, `home/${lang} kept name`).toContain('"name"');
     }
   });
 });

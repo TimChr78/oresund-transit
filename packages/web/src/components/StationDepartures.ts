@@ -44,7 +44,7 @@ export function renderStationDepartures(data: StationResponse, lang: Lang): stri
   const name = translate(stationNameKey(data.slug), lang);
   const rows = data.recent.map((d) => departureRow(d, lang)).join('');
   const head = ['th_time', 'th_line', 'th_train', 'station_col_destination', 'th_status', 'th_delay']
-    .map((k) => `<th>${translate(k as Key, lang)}</th>`)
+    .map((k) => `<th scope="col">${translate(k as Key, lang)}</th>`)
     .join('');
   const stat = (value: string, label: string): string =>
     `<div class="stat"><span class="stat-value">${esc(value)}</span><span class="stat-label">${esc(label)}</span></div>`;
@@ -76,6 +76,7 @@ export function renderStationDepartures(data: StationResponse, lang: Lang): stri
   ${
     rows
       ? `<div class="table-wrap"><table class="board-table">
+      <caption class="sr-only">${esc(translate('station_departures_heading', lang))}</caption>
       <thead><tr>${head}</tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`

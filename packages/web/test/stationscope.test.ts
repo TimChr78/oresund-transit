@@ -79,15 +79,15 @@ describe('stationScopeLabel (backlog A1)', () => {
 describe('renderStationPicker (backlog A1)', () => {
   it('leads with the All reset and links it to the board itself', () => {
     const html = renderStationPicker('en');
-    expect(html).toContain('<a href="/" aria-current="true" data-action="set-station" data-value="all">All</a>');
+    expect(html).toContain('<a href="/" aria-current="page" data-action="set-station" data-value="all">All</a>');
     expect(html.indexOf('data-value="all"')).toBeLessThan(html.indexOf('data-value="hyllie"'));
   });
 
   it('marks the active option with aria-current, the link form of the state attribute', () => {
     const html = renderStationPicker('en', 'kastrup');
-    expect(html).toContain('<a href="/station/kastrup" aria-current="true"');
+    expect(html).toContain('<a href="/station/kastrup" aria-current="page"');
     // Exactly one active entry: the others must not carry a stale aria-current.
-    expect(html.match(/aria-current="true"/g)).toHaveLength(1);
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
     expect(html).not.toContain('aria-pressed');
   });
 

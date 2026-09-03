@@ -1,5 +1,6 @@
 import type { Dict, Key, Lang } from '../i18n';
 import { esc } from '../lib/html';
+import { localizedPath } from '../lib/seo';
 import { renderFooter } from './Footer';
 import { renderRelatedPages } from './ArchiveLinks';
 
@@ -35,7 +36,7 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
   const rows = METHODOLOGY_DEFS.map(
     ({ name, def }) => `
       <tr>
-        <td>${esc(dict[name])}</td>
+        <th scope="row">${esc(dict[name])}</th>
         <td>${esc(dict[def])}</td>
       </tr>`,
   ).join('');
@@ -43,7 +44,7 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
   <div class="wrap privacy-wrap">
     <header class="topbar">
       <div class="brand">${esc(dict.brand_name)} <span class="brand-sub">${esc(dict.brand_sub)}</span></div>
-      <a class="privacy-back" href="/">${esc(dict.privacy_back)}</a>
+      <a class="privacy-back" href="${esc(localizedPath('/', lang))}">${esc(dict.privacy_back)}</a>
     </header>
     <main class="privacy">
       <h1 class="privacy-title">${esc(dict.meth_title)}</h1>
@@ -55,10 +56,11 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
       <h2 class="meth-h">${esc(dict.meth_defs_title)}</h2>
       <div class="table-wrap meth-table-wrap">
         <table class="meth-table">
+          <caption class="sr-only">${esc(dict.meth_defs_title)}</caption>
           <thead>
             <tr>
-              <th>${esc(dict.meth_col_kpi)}</th>
-              <th>${esc(dict.meth_col_definition)}</th>
+              <th scope="col">${esc(dict.meth_col_kpi)}</th>
+              <th scope="col">${esc(dict.meth_col_definition)}</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -72,6 +74,17 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
       <p>${esc(dict.meth_source_body)}</p>
       <h2 class="meth-h">${esc(dict.meth_lag_title)}</h2>
       <p>${esc(dict.meth_lag_body)}</p>
+      <!-- N-M16: the analytics disclosure lives here instead of a consent
+           banner. The one measurement on the site is cookieless, anonymised
+           Umami — no identifier, no personal data, no cross-site tracking — so
+           there is nothing to opt into and no dialog to dismiss. Documented
+           next to the numbers the measurement feeds, with the fuller statement
+           one click away on the privacy page. -->
+      <h2 class="meth-h">${esc(dict.meth_tracking_title)}</h2>
+      <p>
+        ${esc(dict.meth_tracking_body)}
+        <a href="${esc(localizedPath('/privacy', lang))}">${esc(dict.nav_privacy)}</a>
+      </p>
       <h2 class="meth-h">${esc(dict.meth_related_title)}</h2>
       <p>${esc(dict.meth_related_intro)}</p>
       ${renderRelatedPages(lang, 'archive-links')}

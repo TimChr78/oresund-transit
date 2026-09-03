@@ -41,15 +41,38 @@
      re-checking the smallest size it is used at. */
   --faint: #838b9c;
   --border: rgba(255, 255, 255, 0.07);
+  /* Accent tokens come in two tiers (audit4 N-M13), because on a near-black
+     theme the two roles pull in OPPOSITE directions:
+
+       * as TEXT on a dark surface, an accent needs MORE luminance to clear
+         4.5:1 — this is the same physics that made wave 2 LIGHTEN --faint
+         from #636b7b to #838b9c;
+       * as a FILL carrying white text (active tab, day/lang toggle), it needs
+         LESS luminance — lightening the fill would push the white text under
+         AA instead.
+
+     So each accent used in both roles is split: the bare token keeps the brand
+     hue for fills and non-text graphics (bar segments, legend dots, trend
+     line, focus ring, heatmap scale) and the *-text sibling is the lightest
+     step of the SAME hue that clears 4.5:1 everywhere it is rendered as text,
+     including on its own tinted badge background (a badge's chip background is
+     the accent at 10–14% alpha over --surface, which is lighter — and harder —
+     than any bare surface). test/styles.test.ts computes the real composites
+     rather than pinning these hexes; change a value there first.
+
+     --green and --amber already clear 4.5:1 in both roles, so they carry no
+     text sibling. */
   --green: #10b981;
   --amber: #f59e0b;
   --red: #ef4444;
+  --red-text: #f46565;
   --blue: #3b82f6;
-  --indigo: #6366f1;
+  --blue-text: #5c97f7;
+  --indigo: #5d60f0;
+  --indigo-text: #7b7ef4;
   --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-body: Inter, ui-sans-serif, system-ui, sans-serif;
   --mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
-  --radius: 10px;
   --radius-sm: 8px;
   --maxw: 1100px;
   --dot: rgba(255, 255, 255, 0.045);
@@ -127,7 +150,7 @@ body::after {
   margin: 0;
 }
 .brand-sub {
-  color: var(--indigo);
+  color: var(--indigo-text);
   font-weight: 600;
 }
 .board-label {
@@ -220,7 +243,7 @@ body::after {
   max-width: 64em;
 }
 .home-about a {
-  color: var(--indigo);
+  color: var(--indigo-text);
   text-decoration: none;
 }
 .home-about a:hover {
@@ -302,7 +325,11 @@ body::after {
   font-weight: 700;
 }
 .sb-updated {
-  opacity: 0.72;
+  /* 0.72 blended the "Updated" stamp into the band to 3.78:1 on --red and
+     3.73:1 on --blue; 0.85 is the step that keeps it visibly secondary while
+     clearing 4.5:1 on the worst band (blue, 4.54:1) at this 12px size
+     (audit4 N-M13). Same value as the archive band's .band-count. */
+  opacity: 0.85;
   font-weight: 500;
 }
 .sb-clock {
@@ -482,16 +509,25 @@ body::after {
   text-align: center;
 }
 .tab.active .tab-count {
-  background: rgba(255, 255, 255, 0.22);
+  /* A light pill would sit between the white label and the indigo fill and
+     drop the count under AA (3.24:1 at white/22%); a dark one deepens the fill
+     and lifts the same white text to 6.69:1 (audit4 N-M13). */
+  background: rgba(10, 12, 16, 0.22);
 }
 
 /* -------------------------------------------------------- board table */
 
 .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
+}
+/* The hero strip links here and then sticks below the top edge; without a
+   scroll margin the jump lands the table's first row underneath it. */
+#disruptions-table {
+  scroll-margin-top: 64px;
 }
 .board-table {
   width: 100%;
@@ -644,12 +680,15 @@ body::after {
   border: 1px solid rgba(245, 158, 11, 0.28);
 }
 .badge-cancellation {
-  color: var(--red);
+  /* N-M13: the text tier, not the fill tier — the chip's own background is
+     --red at 14% over --surface, which is lighter than any bare surface, so
+     the fill value would sit at 3.90:1 here. */
+  color: var(--red-text);
   background: rgba(239, 68, 68, 0.14);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 .badge-alert {
-  color: var(--blue);
+  color: var(--blue-text);
   background: rgba(59, 130, 246, 0.14);
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
@@ -678,12 +717,17 @@ body::after {
   border: 1px solid rgba(245, 158, 11, 0.22);
 }
 .badge-band-moderate {
-  color: var(--red);
+  color: var(--red-text);
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.26);
 }
 .badge-band-major {
-  color: #ffffff;
+  /* The one solid-accent badge. Its ink is --band-ink, not #fff: white on
+     --red is 3.76:1 at this 11px size, and no single red can carry both white
+     and dark ink above AA (the two constraints are mutually exclusive), so the
+     badge inherits the status band's own coloured-band/dark-ink treatment —
+     5.20:1 — instead of forking a second red token (audit4 N-M13). */
+  color: var(--band-ink);
   background: var(--red);
   border: 1px solid var(--red);
 }
@@ -835,6 +879,7 @@ body::after {
   display: flex;
   flex-direction: column;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   overflow-y: hidden;
 }
 .plot-band {
@@ -1097,7 +1142,11 @@ body::after {
   text-align: left;
 }
 .hbar-meta {
-  flex: 0 0 auto;
+  /* Shrinkable, unlike the fixed label and count columns: "avg 1m 20s · max
+     4m 10s" is ~138px and would otherwise starve the bar it describes to a
+     39px sliver on a phone (audit4 N-M14). It wraps to a second line instead. */
+  flex: 0 1 auto;
+  min-width: 0;
   font-family: var(--mono);
   font-size: 10px;
   color: var(--faint);
@@ -1210,14 +1259,8 @@ body::after {
   border: 1px solid var(--border);
   background: transparent;
 }
-.btn-primary {
-  background: var(--indigo);
-  border-color: var(--indigo);
-  color: #fff;
-}
-.btn-primary:hover {
-  background: #7679f5;
-}
+/* .btn-primary is gone with the consent banner it belonged to (N-M16); the
+   board's own actions are ghosts and toggles. */
 .btn-ghost {
   color: var(--dim);
 }
@@ -1227,34 +1270,6 @@ body::after {
 }
 .btn-sm {
   padding: 4px 10px;
-}
-
-/* ---------------------------------------------------------- consent bar */
-
-.consent {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 40;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
-  padding: 14px 16px 16px;
-}
-.consent-title {
-  font-family: var(--font-display);
-  font-size: 14px;
-  margin: 0 0 4px;
-}
-.consent-body {
-  font-size: 12px;
-  color: var(--dim);
-  margin: 0 0 10px;
-}
-.consent-actions {
-  display: flex;
-  gap: 8px;
 }
 
 /* -------------------------------------------------------------- privacy */
@@ -1291,7 +1306,7 @@ body::after {
   color: var(--text);
 }
 .privacy a {
-  color: var(--indigo);
+  color: var(--indigo-text);
   text-decoration: none;
 }
 .privacy a:hover {
@@ -1366,7 +1381,7 @@ body::after {
   color: var(--faint);
 }
 .footer a {
-  color: var(--indigo);
+  color: var(--indigo-text);
   text-decoration: none;
 }
 .footer a:hover {
@@ -1441,13 +1456,40 @@ body::after {
 
 /* ------------------------------------------------------------- a11y/focus */
 
+/* Visually hidden, still in the accessibility tree — the standard clip pattern
+   (display:none would hide a chart's data table from screen readers too). Used
+   by the charts' data alternatives (audit4 N-M15).
+
+   max-width and table-layout are the non-negotiable halves for THIS site:
+   width: 1px alone does not shrink a <table>, whose columns keep their
+   intrinsic width — measured in headless Chromium, the daily chart's 30-row
+   table was 462px wide and pushed the whole 375px document sideways
+   (audit4 N-M14). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  max-width: 1px;
+  table-layout: fixed;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 :focus-visible {
   outline: 2px solid var(--indigo);
   outline-offset: 1px;
 }
 
-/* -------------------------------------------------------------- desktop */
+/* ------------------------------------------------------- small screens */
 
+/* Every rule here is a 375px fix (audit4 N-M14). The board is 347px of content
+   at that width, and the two nowrap flex rows below are wider than that in the
+   localized languages, so they were pushing the whole document sideways. */
 @media (max-width: 719px) {
   /* The scope label names all four monitored stations (audit3 C1), so let the
      topbar wrap instead of pushing the label off-screen on a narrow phone. */
@@ -1457,27 +1499,90 @@ body::after {
   .board-label {
     white-space: normal;
   }
-  /* subtle edge-fade affordance on the horizontally scrolling table */
-  .table-wrap {
+
+  /* Status band: the "16 disruptions · Updated 14:32" run is one nowrap block
+     ~240px wide on its own, which beside a Swedish status word overflows the
+     viewport and takes the page with it. Let the band stack instead — the
+     status text stays first, the stamp lands under it. */
+  .status-banner {
+    flex-wrap: wrap;
+  }
+  .sb-meta {
+    white-space: normal;
+  }
+
+  /* Hero strip: a chip's cause badge is clamped to 170px, which floors the
+     chip's min-content at ~258px — wider than the label + chip + arrow fit.
+     Wrapping lets the chips stack instead of shoving the strip off-screen. */
+  .hero-strip {
+    flex-wrap: wrap;
+  }
+  .hero-strip .badge-cause {
+    max-width: 110px;
+  }
+
+  /* Scroll affordances. .table-wrap and .bar-plot are the two containers that
+     actually pan (the board table by 293px, the 30/90-day bars by up to
+     ~1.2kpx); a narrow fade marks the edge without veiling the first column's
+     digits. */
+  .table-wrap,
+  .bar-plot {
     position: relative;
   }
   .table-wrap::before,
-  .table-wrap::after {
+  .table-wrap::after,
+  .bar-plot::before,
+  .bar-plot::after {
     content: '';
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 26px;
+    width: 14px;
     pointer-events: none;
     z-index: 1;
   }
-  .table-wrap::before {
+  .table-wrap::before,
+  .bar-plot::before {
     left: 0;
     background: linear-gradient(to right, var(--surface), transparent);
   }
-  .table-wrap::after {
+  .table-wrap::after,
+  .bar-plot::after {
     right: 0;
     background: linear-gradient(to left, var(--surface), transparent);
+  }
+
+  /* Tap targets. Nothing on the desktop board reaches 44px, and the smallest
+     controls are the densest: the lang switcher is 24px tall, the day toggles
+     26px with 4px between them, the station nav 17px. Controls get a real
+     min-height; inline links get padding pulled back out with a negative
+     margin, so the hit area grows without moving the layout. Prose links
+     (about/privacy paragraphs) are left alone — a 44px box there would
+     overlap the lines above and below it. */
+  .tab,
+  .day-toggle-btn,
+  .lang-btn,
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+  }
+  /* The lang switcher is three 11px buttons side by side; without a floor the
+     label alone makes them ~35px wide, under the target-size minimum. */
+  .lang-btn {
+    min-width: 44px;
+  }
+  .station-nav a,
+  .site-footer a,
+  .footer .links a,
+  .privacy-back,
+  .about-links a,
+  .archive-links a,
+  .scope-link a {
+    display: inline-block;
+    padding: 14px 6px;
+    margin: -14px -6px;
   }
 }
 
@@ -1493,15 +1598,5 @@ body::after {
   }
   .stats-grid {
     grid-template-columns: repeat(5, 1fr);
-  }
-  .consent {
-    left: 50%;
-    right: auto;
-    bottom: 16px;
-    transform: translateX(-50%);
-    width: min(640px, calc(100vw - 32px));
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   }
 }
