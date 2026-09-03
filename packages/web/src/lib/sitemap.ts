@@ -9,8 +9,9 @@
  *
  * Pure function — no I/O — so it is trivially testable.
  */
+import type { Lang } from '../i18n';
 import { SITE_URL, DAY_RANGES, unionCanonicalLines, CANONICAL_LINES, type ArchiveLine, type ArchiveStation } from './archive';
-import { META } from './seo';
+import { META, localizedPath } from './seo';
 
 /** changefreq hints — archives are stable enough for daily crawls. */
 const ARCHIVE_CHANGEFREQ = 'daily';
@@ -60,11 +61,11 @@ function hreflangLinks(basePath: string): string {
 }
 
 /**
- * The minimal xhtml:link alternate set for an archive URL. Archive routes
- * exist as one URL per page (no sv/da twins — localized variants only exist
- * for the static pages, and the board switches language client-side), so each
- * announces itself via en + a self-referencing x-default, same as the HTML
- * <head> emission (seo.hreflangSelf).
+ * The minimal xhtml:link alternate set for an archive URL. Most archive routes
+ * exist as one URL per page (no sv/da twins — localized variants exist only
+ * for the static pages and the station pages), so each announces itself via
+ * en + a self-referencing x-default, same as the HTML <head> emission
+ * (archive.pageShell's hreflangSelf).
  */
 function archiveAlternateLinks(url: string): string {
   return [
@@ -113,9 +114,15 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], l
   }
 
   add(`${SITE_URL}/station`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/station`));
+  // The per-station pages are the one archive family with localized twins
+  // (audit3 C1): each slug emits en + sv + da, each URL carrying the full
+  // hreflang cluster so Google maps the three variants to each other.
   for (const s of stations) {
-    const url = `${SITE_URL}/station/${encodeURIComponent(s.slug)}`;
-    add(url, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(url));
+    const base = `/station/${encodeURIComponent(s.slug)}`;
+    for (const lang of LANGS) {
+      const url = lang === 'en' ? `${SITE_URL}${base}` : `${SITE_URL}/${lang}${base}`;
+      add(url, ARCHIVE_CHANGEFREQ, hreflangLinks(base));
+    }
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -126,17 +133,69 @@ ${locs.join('\n')}
 }
 
 /**
- * The monitored stops, as a STATIC set for build-time artifacts (llms.txt
- * only — the sitemap keeps discovering stations from the collector at request
- * time). /station/{slug} pages exist for exactly these slugs; mirror of the
- * collector's MONITORED_STOPS (packages/collector/src/index.ts).
+ * The monitored stops, as a STATIC set for build-time artifacts (llms.txt and
+ * the TrainStation JSON-LD — the sitemap keeps discovering stations from the
+ * collector at request time). /station/{slug} pages exist for exactly these
+ * slugs; mirror of the collector's MONITORED_STOPS
+ * (packages/collector/src/index.ts).
+ *
+ * `place` and `geo` are the entity facts the station pages' TrainStation
+ * JSON-LD needs (audit3 M12). Coordinates are Wikidata P625 for the station
+ * entity, rounded to 4 decimals (~11 m) — verified, not estimated from a map:
+ *   hyllie      Q1844369  55°33'45.7"N 12°58'33"E
+ *   malmo-c     Q575797   55°36'32.0"N 12°59'58.9"E
+ *   kastrup     Q2431774  55°37'46.6"N 12°38'57.8"E (railway station, T3)
+ *   kobenhavn-h Q171332   55°40'21.7"N 12°33'52.2"E
  */
-const STATIC_STATIONS: readonly ArchiveStation[] = [
-  { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
-  { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
-  { slug: 'malmo-c', stop_id: '740000003', stop_name: 'Malmö C' },
-  { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
+export interface StaticStation extends ArchiveStation {
+  /** The containing place the TrainStation node points at. */
+  place: string;
+  /** Station coordinates, Wikidata P625 rounded to 4 decimals. */
+  geo: { lat: number; lng: number };
+}
+
+export const STATIC_STATIONS: readonly StaticStation[] = [
+  {
+    slug: 'hyllie',
+    stop_id: '740001586',
+    stop_name: 'Malmö Hyllie',
+    place: 'Malmö, Sweden',
+    geo: { lat: 55.5627, lng: 12.9758 },
+  },
+  {
+    slug: 'kobenhavn-h',
+    stop_id: '860000626',
+    stop_name: 'København H',
+    place: 'Copenhagen, Denmark',
+    geo: { lat: 55.6727, lng: 12.5645 },
+  },
+  {
+    slug: 'malmo-c',
+    stop_id: '740000003',
+    stop_name: 'Malmö C',
+    place: 'Malmö, Sweden',
+    geo: { lat: 55.6089, lng: 12.9997 },
+  },
+  {
+    slug: 'kastrup',
+    stop_id: '860000858',
+    stop_name: 'Københavns Lufthavn (Kastrup)',
+    place: 'Tårnby Municipality, Denmark',
+    geo: { lat: 55.6296, lng: 12.6494 },
+  },
 ];
+
+/** The localized-language label llms.txt uses to distinguish the 12 station URLs. */
+const LLMS_LANG_LABEL: Record<Lang, string> = { en: 'English', sv: 'svenska', da: 'dansk' };
+
+/** One-line description of a station page, in the page's own language. The
+ * stop id is appended as its own sentence — nestling it in brackets after a
+ * name that already ends in one (Kastrup) reads badly. */
+const LLMS_STATION_DESC: Record<Lang, string> = {
+  en: 'Punctuality archive and latest observed departures at {name} on the Øresund corridor. Trafiklab stop id {id}.',
+  sv: 'Punktlighetsarkiv och senaste observerade avgångar vid {name} på Öresundskorridoren. Trafiklab-hållplats-id {id}.',
+  da: 'Punktualitetsarkiv og seneste observerede afgange ved {name} på Øresundskorridoren. Trafiklab-stoppested-id {id}.',
+};
 
 /**
  * Build-time /llms.txt — the LLM-readable site index (llmstxt.org), generated
@@ -149,10 +208,23 @@ const STATIC_STATIONS: readonly ArchiveStation[] = [
  * so the file never depends on the collector being up at build time. Relative
  * URLs are used per the llmstxt.org spec. Emitted to dist/llms.txt by
  * scripts/generate-llms.ts.
+ *
+ * The station section (audit3 M9) enumerates every station URL there is —
+ * four stops in en + sv + da, 12 pages — each with a one-line description in
+ * the page's own language, so an LLM can answer "which station should I
+ * check?" and pick the right language variant instead of guessing from bare
+ * links.
  */
 export function buildLlmsTxt(): string {
   const lines = CANONICAL_LINES.map((l) => `- [Line ${l}](/line/${encodeURIComponent(l)})`).join('\n');
-  const stations = STATIC_STATIONS.map((s) => `- [${s.stop_name}](/station/${encodeURIComponent(s.slug)})`).join('\n');
+  const stations = STATIC_STATIONS.flatMap((s) =>
+    (['en', 'sv', 'da'] as const).map((lang) => {
+      const desc = LLMS_STATION_DESC[lang]
+        .replace('{name}', s.stop_name)
+        .replace('{id}', s.stop_id);
+      return `- [${s.stop_name} — ${LLMS_LANG_LABEL[lang]}](${localizedPath(`/station/${encodeURIComponent(s.slug)}`, lang)}): ${desc}`;
+    }),
+  ).join('\n');
   const windows = DAY_RANGES.map((d) => `- [Last ${d} days](/history/${d})`).join('\n');
 
   return `# Øresund.live
@@ -161,13 +233,16 @@ export function buildLlmsTxt(): string {
 
 ## Live status
 
-- [Live departure board](/): delays, cancellations and alerts for Øresundståg departures across the Sound
+- [Live departure board](/): delays, cancellations and alerts for Øresundståg departures, updated every 5 minutes. Four stops are monitored across the crossing: Malmö Hyllie, Malmö C, Københavns Lufthavn (Kastrup) and København H.
 
 ## Archives per line/station
 
 - [Line archives](/line): historical disruptions per line
 ${lines}
 - [Station archives](/station): historical punctuality per station
+
+### Stations (each page in three languages)
+
 ${stations}
 
 ## History windows
@@ -177,7 +252,7 @@ ${windows}
 
 ## Methodology
 
-- [Methodology](/methodology): how every metric on the dashboard is defined
+- [Methodology](/methodology): how every metric on the dashboard is defined — the on-time threshold, the data source and its lag
 
 ## Privacy
 

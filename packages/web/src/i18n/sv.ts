@@ -40,18 +40,24 @@ export const sv: Dict = {
   th_time: 'Tid',
   th_line: 'Linje',
   th_type: 'Typ',
-  th_severity: 'Allvarlighet',
   th_delay: 'Försening',
   th_direction: 'Riktning',
   th_reason: 'Orsak',
+  // Tabellhuvuden på stationssidorna (audit3 C1/H2)
+  th_date: 'Datum',
+  th_status: 'Status',
+  th_train: 'Tåg',
+  th_on_time_pct: 'I tid %',
+  th_canceled: 'Inställda',
   // Disruption types
   type_delay: 'Försening',
   type_cancellation: 'Inställd',
   type_alert: 'Varning',
-  // Severities
-  sev_minor: 'Mindre',
-  sev_moderate: 'Måttlig',
-  sev_major: 'Allvarlig',
+  // Delay bands (audit3 H1) — badge text in the DELAY column
+  delay_band_on_time: 'I tid',
+  delay_band_minor: '5–15 min',
+  delay_band_moderate: '15–30 min',
+  delay_band_major: '30+ min',
   // Causes (Swedish reference — matches the private board)
   cause_staffing: 'Personalbrist',
   cause_person_on_tracks: 'Person på spår',
@@ -196,6 +202,27 @@ export const sv: Dict = {
   meth_def_by_hour: 'Andel av störningarna per timme — senaste 30 dagarna.',
   meth_def_peak: 'Andel av störningarna under rusningstid (07–09 och 16–18) jämfört med övrig tid.',
   station_archive_title: '{name} — punktlighet — Øresund.live',
+  // Stationssidor (audit3 C1) — sidan lokaliserats i alla tre språk.
+  station_h1: '{name} — punktlighetsarkiv',
+  station_sub: 'Observerade avgångar de senaste {days} dagarna ({from}–{to}).',
+  station_desc:
+    'Punktlighetshistorik för {name} över Öresund — {n} avgångar, {pct}% i tid de senaste {days} dagarna.',
+  station_desc_empty:
+    'Punktlighetshistorik för {name} över Öresund — inga avgångar registrerade ännu; data börjar samlas in så snart live-övervakningen startar.',
+  station_daily_heading: 'Punktlighet dag för dag',
+  station_other_heading: 'Övriga stationer',
+  station_live_heading: 'Läge just nu',
+  station_live_intro:
+    'Statusbandet gäller hela Öresundskorridoren; avgångarna nedan är observerade på {name}.',
+  station_departures_heading: 'Senast observerade avgångar',
+  // Samma tonläge som meth_lag_body: deklarera eftersläpningen i stället för
+  // att låtsas vara en prognostiserande avgångstavla.
+  station_observed_note:
+    'Det här är observerade avgångar, inte en prognostiserande avgångstavla — insamlaren hämtar data från Trafiklab var 5:e minut och läser tillbaka de senaste planerade avgångarna, så de nyaste raderna kan ligga upp till 15 minuter efter verkligheten.',
+  station_col_destination: 'Destination',
+  nav_stations: 'Stationer',
+  nav_board: 'Live-tavlan',
+  station_nav_label: 'Övervakade stationer',
   // Footer
   footer_attribution: 'Data från Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligga ~10–15 min efter officiella appar; inställda avgångar kan missas.',
@@ -236,4 +263,32 @@ export const sv: Dict = {
   station_kobenhavn_h: 'Köpenhamn H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup flygplats',
+
+  // Informationstext på startsidan (audit3 C2) — permanent, crawlbar text i
+  // skal utan JS. Beskrivande only: vad som mäts, hur ett tal definieras och
+  // var datan kommer ifrån. {link} i about_method byts mot
+  // /methodology-ankaret efter escapning (se HomeAbout.ts); {stations} är de
+  // översatta stationsnamnen i korridorens ordning.
+  about_title: 'Tågpunktlighet över Öresund, station för station',
+  about_corridor:
+    'Öresund.live följer gränsöverskridande Øresundståg på korridoren mellan Malmö och Köpenhamn. Varje planerad avgång som passerar en av de fyra övervakade stationerna — {stations} — jämförs med tidtabellen och sparas, så att varje stationssida kan visa hur hållplatsen faktiskt presterade.',
+  about_method:
+    'En avgång räknas som punktlig när den lämnar mindre än fyra minuter försenad — den RT3-tröskel för punktlighet som Skånetrafiken använder. Större avvikelser registreras som förseningar eller inställda tåg, och operatörens meddelanden grupperas i orsaker som signalstörning, fordonsfel eller personalbrist. Sidan {link} definierar varje tal på tavlan.',
+  about_source:
+    'Data kommer från Trafiklab (Skånetrafiken) realtidsavgångar, hämtas var femte minut och publiceras under en CC-BY 4.0-licens. Liveövervakningen började i augusti 2026, så arkiven är fortfarande korta — och tavlan visar observerade avgångar, inte en prognos för nästa tåg.',
+
+  // Arkivlänkar (audit3 C3) — en uppsättning etiketter + beskrivningar som
+  // delas av tavlan (App.ts), informationstexten på startsidan (HomeAbout.ts)
+  // och metodsidans lista med relaterade sidor.
+  arch_link_station: 'Stationsarkiv',
+  arch_link_line: 'Linjearkiv',
+  arch_link_history: 'Störningshistorik, senaste 30 dagarna',
+  arch_link_station_desc: 'Andel avgångar i tid, inställda avgångar och snittförsening vid varje övervakad hållplats.',
+  arch_link_line_desc: 'Störningar per tåglinje under de senaste 30 dagarna.',
+  arch_link_history_desc: 'Inställda tåg, förseningar och störningar dag för dag över Öresund.',
+  board_archives_heading: 'Historik & arkiv',
+  board_archives_intro: 'Tavlan visar idag. Arkiven bevarar den långa historiken — per station, per linje och dag för dag.',
+  meth_related_title: 'Relaterade sidor',
+  meth_related_intro:
+    'Samma definitioner i praktiken: punktlighetsarkivet för varje övervakad station och störningshistoriken bakom diagrammen.',
 };

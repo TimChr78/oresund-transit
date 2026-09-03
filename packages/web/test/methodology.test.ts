@@ -74,4 +74,20 @@ describe('renderMethodologyPage', () => {
     expect(da).toContain('Definitioner');
     expect(da).toContain('802–805');
   });
+
+  it('links a Related pages section: the four station pages plus the archive hubs (audit3 C3)', () => {
+    for (const lang of LANGS) {
+      const html = renderMethodologyPage(lang, getDict(lang));
+      expect(html, lang).toContain(getDict(lang).meth_related_title);
+      // The four stations the definitions are measured at — localized routes,
+      // localized names.
+      for (const slug of ['hyllie', 'malmo-c', 'kastrup', 'kobenhavn-h']) {
+        expect(html, `${lang} station/${slug}`).toContain(`href="/${lang === 'en' ? '' : `${lang}/`}station/${slug}"`);
+      }
+      // …and the hubs that hold the data the page describes.
+      expect(html, lang).toContain('href="/station"');
+      expect(html, lang).toContain('href="/line"');
+      expect(html, lang).toContain('href="/history/30"');
+    }
+  });
 });

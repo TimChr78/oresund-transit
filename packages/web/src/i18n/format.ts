@@ -57,6 +57,22 @@ export function formatDelayPlus(seconds: number | null | undefined, lang: Lang):
   return lang === 'da' ? `+${minutes} min.` : `+${minutes} min`;
 }
 
+/**
+ * Render a delay WITHOUT rounding — minutes plus leftover seconds ("8 min 12 s",
+ * DA "8 min. 12 sek.") — for the delay badge's title tooltip, where the exact
+ * value lives once the visible cell shows only the band (audit3 H1).
+ */
+export function formatExactDelay(seconds: number | null | undefined, lang: Lang): string {
+  if (seconds === null || seconds === undefined) return '—';
+  const s = Math.max(0, Math.round(seconds));
+  const sek = lang === 'da' ? 'sek.' : 's';
+  if (s < 60) return `${s} ${sek}`;
+  const min = Math.floor(s / 60);
+  const rest = s % 60;
+  if (rest === 0) return lang === 'da' ? `${min} min.` : `${min} min`;
+  return lang === 'da' ? `${min} min. ${rest} sek.` : `${min} min ${rest} s`;
+}
+
 /** Render a percentage with one decimal, locale decimal separator. */
 export function formatPct(value: number, lang: Lang): string {
   if (!Number.isFinite(value)) return '—';

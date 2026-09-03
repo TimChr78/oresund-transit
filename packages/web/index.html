@@ -100,9 +100,32 @@
       -->
       <header class="topbar">
         <div class="brand">Øresund <span class="brand-sub">live</span></div>
-        <span class="board-label">Hyllie ↔ København H</span>
+        <span class="board-label">Malmö Hyllie · Malmö C · Københavns Lufthavn (Kastrup) · København H</span>
       </header>
+      <!-- Station picker (audit3 C1): the four monitored stations as real
+           links, shipped in the crawler/no-JS payload. Kept in lockstep with
+           components/StationPicker.ts (test/app.test.ts asserts the en output
+           matches this markup); prerender swaps in the sv/da names + routes. -->
+      <nav class="station-nav" aria-label="Monitored stations"><a href="/station/hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h">København H</a></nav>
       <h1 class="lead">Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).</h1>
+      <section class="home-about">
+      <h2>Train punctuality across the Øresund, station by station</h2>
+      <p>Øresund.live follows cross-border Øresundståg services on the corridor between Malmö and Copenhagen. Every scheduled departure passing one of the four monitored stations — Malmö Hyllie, Malmö C, Kastrup and København H — is compared with the timetable and stored, so each station page can show how that stop actually performed.</p>
+      <p>A departure counts as on time when it leaves less than four minutes late — the RT3 punctuality threshold Skånetrafiken uses. Larger deviations are recorded as delays or cancellations, and operator alerts are grouped into cause categories such as signal failure, vehicle fault or staffing. The <a href="/methodology">Methodology</a> page defines every number on the board.</p>
+      <p>Data comes from Trafiklab (Skånetrafiken) realtime departures, polled every five minutes and published under a CC-BY 4.0 license. Live monitoring began in August 2026, so the archives are still short — and the board shows observed departures, not a prediction of the next train.</p>
+      <ul class="about-links">
+        <li><a href="/station/hyllie">Malmö Hyllie</a></li>
+        <li><a href="/station/malmo-c">Malmö C</a></li>
+        <li><a href="/station/kastrup">Københavns Lufthavn (Kastrup)</a></li>
+        <li><a href="/station/kobenhavn-h">København H</a></li>
+      </ul>
+      <p class="about-more">The board shows today. The archives keep the longer record — per station, per line and day by day.</p>
+      <ul class="about-links archive-links">
+        <li><a href="/station">Station archives</a> <span class="why">— On-time share, cancellations and average delay at each monitored stop.</span></li>
+        <li><a href="/line">Line archives</a> <span class="why">— Disruptions recorded per train line over the last 30 days.</span></li>
+        <li><a href="/history/30">Disruption history, last 30 days</a> <span class="why">— Day-by-day cancellations, delays and alerts across the crossing.</span></li>
+      </ul>
+    </section>
     </div>
     <footer class="site-footer">
       <nav aria-label="Site sections">

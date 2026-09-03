@@ -4,8 +4,10 @@
  * Worker (dynamic data) — see src/lib/archive-http.ts for the dispatch +
  * render logic and src/lib/archive.ts for the pure renderers.
  *
- * Scoped to /station/* via _routes.json so every other route stays on the
- * free static tier. Unknown stations return a clean 404 (the collector 404s).
+ * This file serves the English (unprefixed) station pages; the localized twins
+ * live in functions/{sv,da}/station/[[path]].js and render the same page in
+ * Swedish and Danish (audit3 C1). Unknown stations return a clean 404 (the
+ * collector 404s).
  */
 import { handleArchiveRequest } from '../../src/lib/archive-http';
 

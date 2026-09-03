@@ -40,18 +40,24 @@ export const en: Dict = {
   th_time: 'Time',
   th_line: 'Line',
   th_type: 'Type',
-  th_severity: 'Severity',
   th_delay: 'Delay',
   th_direction: 'Direction',
   th_reason: 'Reason',
+  // Station-page table headers (audit3 C1/H2)
+  th_date: 'Date',
+  th_status: 'Status',
+  th_train: 'Train',
+  th_on_time_pct: 'On time %',
+  th_canceled: 'Cancelled',
   // Disruption types
   type_delay: 'Delay',
   type_cancellation: 'Cancellation',
   type_alert: 'Alert',
-  // Severities
-  sev_minor: 'Minor',
-  sev_moderate: 'Moderate',
-  sev_major: 'Major',
+  // Delay bands (audit3 H1) — badge text in the DELAY column
+  delay_band_on_time: 'On time',
+  delay_band_minor: '5–15 min',
+  delay_band_moderate: '15–30 min',
+  delay_band_major: '30+ min',
   // Causes
   cause_staffing: 'Staffing shortage',
   cause_person_on_tracks: 'Person on tracks',
@@ -198,6 +204,27 @@ export const en: Dict = {
   // Archive page titles — template must keep the rendered <title> ≤ 60 chars
   // even for the longest monitored stop name ("Københavns Lufthavn (Kastrup)").
   station_archive_title: '{name} — punctuality — Øresund.live',
+  // Station pages (audit3 C1) — the per-station page is fully localized.
+  station_h1: '{name} — punctuality archive',
+  station_sub: 'Observed departures over the last {days} days ({from}–{to}).',
+  station_desc:
+    'Punctuality history for {name} on the Øresund crossing — {n} departures, {pct}% on time over the last {days} days.',
+  station_desc_empty:
+    'Punctuality history for {name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.',
+  station_daily_heading: 'Daily on-time performance',
+  station_other_heading: 'Other stations',
+  station_live_heading: 'Live status right now',
+  station_live_intro:
+    'The status band covers the whole Øresund corridor; the departures below were observed at {name}.',
+  station_departures_heading: 'Latest observed departures',
+  // Tone follows meth_lag_body: declare the lag instead of implying a live
+  // predictive board (the collector polls every 5 min and reads back slots).
+  station_observed_note:
+    'These are observed departures, not a predictive departure board — the collector polls Trafiklab every 5 minutes and reads back the most recent scheduled slots, so the newest rows can lag real time by up to 15 minutes.',
+  station_col_destination: 'Destination',
+  nav_stations: 'Stations',
+  nav_board: 'Live board',
+  station_nav_label: 'Monitored stations',
   // Footer
   footer_attribution: 'Data from Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data can lag official apps by ~10–15 min; cancellations may be missed.',
@@ -237,4 +264,31 @@ export const en: Dict = {
   station_kobenhavn_h: 'København H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Københavns Lufthavn (Kastrup)',
+
+  // Homepage about block (audit3 C2) — evergreen, crawlable copy in the
+  // no-JS/crawler shell. Descriptive only: what is tracked, how a number is
+  // defined, where the data comes from. {link} in about_method is replaced
+  // with the /methodology anchor after escaping (see HomeAbout.ts).
+  about_title: 'Train punctuality across the Øresund, station by station',
+  about_corridor:
+    'Øresund.live follows cross-border Øresundståg services on the corridor between Malmö and Copenhagen. Every scheduled departure passing one of the four monitored stations — Malmö Hyllie, Malmö C, Kastrup and København H — is compared with the timetable and stored, so each station page can show how that stop actually performed.',
+  about_method:
+    'A departure counts as on time when it leaves less than four minutes late — the RT3 punctuality threshold Skånetrafiken uses. Larger deviations are recorded as delays or cancellations, and operator alerts are grouped into cause categories such as signal failure, vehicle fault or staffing. The {link} page defines every number on the board.',
+  about_source:
+    'Data comes from Trafiklab (Skånetrafiken) realtime departures, polled every five minutes and published under a CC-BY 4.0 license. Live monitoring began in August 2026, so the archives are still short — and the board shows observed departures, not a prediction of the next train.',
+
+  // Archive hub links (audit3 C3) — one set of labels + one-line descriptions
+  // shared by the board body (App.ts), the homepage about block
+  // (HomeAbout.ts) and the methodology page's related-pages list.
+  arch_link_station: 'Station archives',
+  arch_link_line: 'Line archives',
+  arch_link_history: 'Disruption history, last 30 days',
+  arch_link_station_desc: 'On-time share, cancellations and average delay at each monitored stop.',
+  arch_link_line_desc: 'Disruptions recorded per train line over the last 30 days.',
+  arch_link_history_desc: 'Day-by-day cancellations, delays and alerts across the crossing.',
+  board_archives_heading: 'History & archives',
+  board_archives_intro: 'The board shows today. The archives keep the longer record — per station, per line and day by day.',
+  meth_related_title: 'Related pages',
+  meth_related_intro:
+    'The same definitions applied: the punctuality record of each monitored station, and the disruption history behind the charts.',
 };

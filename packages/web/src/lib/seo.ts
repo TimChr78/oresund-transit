@@ -84,13 +84,24 @@ export const META: Record<Route, Record<Lang, PageMeta>> = {
 };
 
 /**
+ * Relative path of a page in a language: en is served without a language
+ * prefix, sv/da live under /sv and /da. `path` is the en canonical path, e.g.
+ * '/station/hyllie'. The relative counterpart of localizedUrl — used by
+ * internal links (the station picker), while canonical/hreflang/og:url use the
+ * absolute form.
+ */
+export function localizedPath(path: string, lang: Lang): string {
+  const prefix = lang === 'en' ? '' : `/${lang}`;
+  return `${prefix}${path}`;
+}
+
+/**
  * Absolute URL of a static page's canonical path in a language. `path` is the
  * en (unprefixed) canonical path, e.g. '/' or '/methodology'; en is served
  * without a language prefix, sv/da live under /sv and /da.
  */
 export function localizedUrl(path: string, lang: Lang): string {
-  const prefix = lang === 'en' ? '' : `/${lang}`;
-  return `${SITE_URL}${prefix}${path}`;
+  return `${SITE_URL}${localizedPath(path, lang)}`;
 }
 
 /**
@@ -102,4 +113,70 @@ export function hreflangCluster(path: string): string {
     .map((l) => `    <link rel="alternate" hreflang="${l}" href="${localizedUrl(path, l)}" />`)
     .concat([`    <link rel="alternate" hreflang="x-default" href="${localizedUrl(path, 'en')}" />`]);
   return links.join('\n');
+}
+
+/**
+ * Open Graph locale for a page language (audit3 M10). `en` maps to `en_GB` —
+ * the archive pages already render dates in en-GB form, so the locale follows
+ * the content rather than defaulting to en_US.
+ */
+export const OG_LOCALE: Record<Lang, string> = { en: 'en_GB', sv: 'sv_SE', da: 'da_DK' };
+
+/**
+ * og:locale plus og:locale:alternate for the other two languages (audit3
+ * M2/M10). Every og-tagged page family is served in three languages, so a
+ * social crawler can tell /sv/ from / — previously only og:title/og:url
+ * differed, and the language itself was never announced.
+ *
+ * Returns the tags pre-indented for <head>; both emitters (prerender's
+ * applySeo and archive's pageShell) inject the block as one unit, so the
+ * locale set can never drift between the page families.
+ */
+export function ogLocaleTags(lang: Lang): string {
+  const alternates = (['en', 'sv', 'da'] as const)
+    .filter((l) => l !== lang)
+    .map((l) => `    <meta property="og:locale:alternate" content="${OG_LOCALE[l]}" />`)
+    .join('\n');
+  return `    <meta property="og:locale" content="${OG_LOCALE[lang]}" />\n${alternates}`;
+}
+
+/**
+ * A TrainStation entity for a station page's @graph (audit3 M12). The station
+ * pages are Dataset archives; nothing told a search engine the page is *about
+ * a place*, which is the entity match for the "malmö c förseningar" query set
+ * the station pages target.
+ *
+ * The Trafiklab/GTFS stop id goes in `identifier` — schema.org has no
+ * `stationCode` property, and `identifier` is the standard home for a code
+ * that names the entity. `place`/`geo` are passed only where they are known
+ * (the static station table in sitemap.ts); a station without verified
+ * coordinates simply renders without them rather than with an estimate.
+ */
+export function trainStationJsonLd(opts: {
+  stopId: string;
+  name: string;
+  url: string;
+  place?: string | undefined;
+  geo?: { lat: number; lng: number } | undefined;
+}): unknown {
+  return {
+    '@type': 'TrainStation',
+    // The #station fragment makes the node referenceable from the page's
+    // Dataset node ("about") without re-describing it.
+    '@id': `${opts.url}#station`,
+    name: opts.name,
+    url: opts.url,
+    identifier: opts.stopId,
+    ...(opts.place ? { containedInPlace: { '@type': 'Place', name: opts.place } } : {}),
+    ...(opts.geo
+      ? {
+          geo: {
+            '@type': 'GeoCoordinates',
+            latitude: opts.geo.lat,
+            longitude: opts.geo.lng,
+          },
+        }
+      : {}),
+    isAccessibleForFree: true,
+  };
 }

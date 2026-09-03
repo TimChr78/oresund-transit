@@ -1,6 +1,6 @@
 import type { Disruption } from '@oresund/shared';
-import { formatDate, formatDelayPlus, formatDelaySeconds, formatTime } from '../i18n/format';
-import { localToday } from '../lib/stats';
+import { formatDate, formatDelayPlus, formatExactDelay, formatTime } from '../i18n/format';
+import { BAND_BADGE_CLASS, delayBand, localToday, type DelayBand } from '../lib/stats';
 import { translate, type Key, type Lang } from '../i18n';
 import { causeLabel, cleanReason } from '../lib/causes';
 import { esc } from '../lib/html';
@@ -11,21 +11,25 @@ function typeKey(type: string | null): Key {
   return 'type_delay';
 }
 
-function severityKey(severity: string | null): Key {
-  if (severity === 'major') return 'sev_major';
-  if (severity === 'minor') return 'sev_minor';
-  return 'sev_moderate';
-}
-
 function badgeClass(type: string | null): string {
   if (type === 'cancellation') return 'badge-cancellation';
   if (type === 'alert') return 'badge-alert';
   return 'badge-delay';
 }
 
-function severityBadgeClass(severity: string | null): string {
-  if (severity === 'major' || severity === 'minor') return `badge-sev-${severity}`;
-  return 'badge-sev-moderate';
+function bandKey(band: DelayBand): Key {
+  return `delay_band_${band}` as Key;
+}
+
+/**
+ * A cause worth a badge. 'unknown' (and null) render no chip at all: with no
+ * alert text the collector structurally cannot classify a plain late train,
+ * so 78% of live rows would otherwise repeat a meaningless "Unknown" (audit3
+ * H1). Legacy free-text causes keep their badge — causeLabel passes them
+ * through verbatim.
+ */
+function hasKnownCause(cause: string | null): boolean {
+  return !!cause && cause !== 'unknown';
 }
 
 /** Disruptions have no destination field — show the affected direction instead. */
@@ -35,24 +39,49 @@ function directionText(direction: string | null, lang: Lang): string {
   return '—';
 }
 
+/**
+ * The physical train's number (audit3 H2) — populated on every row, and the
+ * one field that identifies "is this MY train" across consecutive slots, since
+ * the same technical_number repeats on back-to-back departures. Rendered as a
+ * muted token inside the LINE cell rather than an eighth column: the table is
+ * already at the edge of fitting a phone, and a hidden-by-overflow column
+ * would carry no information at all.
+ */
+function trainNumber(technicalNumber: string | null): string {
+  if (!technicalNumber) return '';
+  return `<span class="train-no">#${esc(technicalNumber)}</span>`;
+}
+
 function row(d: Disruption, lang: Lang): string {
   const time = formatTime(d.sched_time ?? d.timestamp, lang);
-  const delay = d.delay_seconds !== null ? formatDelaySeconds(d.delay_seconds, lang) : '—';
+  // DELAY: a banded badge instead of raw seconds (audit3 H1) — the exact
+  // delay moves into the badge's title tooltip. Rows with no measured delay
+  // (cancellations, alerts) keep the no-data mark.
+  const band = delayBand(d.delay_seconds);
+  const bandLabel = band ? translate(bandKey(band), lang) : '';
+  const delay = band
+    ? `<span class="badge ${BAND_BADGE_CLASS[band]}" title="${esc(formatExactDelay(d.delay_seconds, lang))}">${esc(bandLabel)}</span>`
+    : '—';
   // REASON: delay + translated cause summary + cleaned raw text (full raw
-  // text stays available in the title tooltip).
+  // text stays available in the title tooltip). When the cause is unknown the
+  // delay band stands in for the "Unknown" marker, so the reason is derived
+  // from what is actually measured.
   const clean = cleanReason(d.raw_text, lang);
+  const knownCause = hasKnownCause(d.cause);
   const cause = causeLabel(d.cause, lang);
-  const reason = [formatDelayPlus(d.delay_seconds, lang), cause, clean].filter(Boolean).join(' · ') || '—';
+  const reason =
+    [formatDelayPlus(d.delay_seconds, lang), knownCause ? cause : bandLabel, clean]
+      .filter(Boolean)
+      .join(' · ') || '—';
   return `
   <tr>
     <td class="num">${esc(time)}</td>
-    <td class="line">${esc(d.line ?? '—')}</td>
+    <td class="line">${esc(d.line ?? '—')}${trainNumber(d.technical_number)}</td>
     <td>
       <span class="badge ${badgeClass(d.type)}">${translate(typeKey(d.type), lang)}</span>
-      ${d.cause ? `<span class="badge badge-cause" title="${esc(d.cause)}">${esc(cause)}</span>` : ''}
+      ${knownCause ? `<span class="badge badge-cause" title="${esc(d.cause ?? '')}">${esc(cause)}</span>` : ''}
     </td>
-    <td><span class="badge ${severityBadgeClass(d.severity)}">${translate(severityKey(d.severity), lang)}</span></td>
-    <td class="num">${esc(delay)}</td>
+    <td class="num">${delay}</td>
     <td>${esc(directionText(d.direction, lang))}</td>
     <td class="reason" title="${esc(d.raw_text ?? reason)}">${esc(reason)}</td>
   </tr>`;
@@ -74,7 +103,7 @@ function dateSepLabel(date: string, lang: Lang): string {
   return formatDate(date, lang);
 }
 
-/** Dense departure-board table: Time / Line / Type / Severity / Delay / Direction / Reason. */
+/** Dense departure-board table: Time / Line / Type / Delay band / Direction / Reason. */
 export function renderDisruptionsTable(
   disruptions: Disruption[],
   lang: Lang,
@@ -88,7 +117,6 @@ export function renderDisruptionsTable(
     'th_time',
     'th_line',
     'th_type',
-    'th_severity',
     'th_delay',
     'th_direction',
     'th_reason',
@@ -99,7 +127,7 @@ export function renderDisruptionsTable(
     const date = rowDate(d);
     if (mode === 'archive' && date && date !== prevDate) {
       bodyRows.push(
-        `<tr class="date-sep"><td colspan="7">${esc(dateSepLabel(date, lang))}</td></tr>`,
+        `<tr class="date-sep"><td colspan="6">${esc(dateSepLabel(date, lang))}</td></tr>`,
       );
     }
     prevDate = date;

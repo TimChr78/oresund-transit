@@ -2,12 +2,14 @@ import type { AppState } from '../state';
 import { translate, type Lang } from '../i18n';
 import { esc } from '../lib/html';
 import { filterByDirection, sortNewestFirst } from '../lib/stats';
+import { renderArchiveHubLinks } from './ArchiveLinks';
 import { renderConsentBanner } from './ConsentBanner';
 import { renderDirectionTabs } from './DirectionTabs';
 import { renderDisruptionsHero } from './DisruptionsHero';
 import { renderDisruptionsTable } from './DisruptionsTable';
 import { renderFooter } from './Footer';
 import { renderHistoryCharts } from './HistoryCharts';
+import { renderStationPicker, stationScopeLabel } from './StationPicker';
 import { renderStatCards } from './StatCards';
 import { renderStatusBanner } from './StatusBanner';
 
@@ -103,8 +105,9 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
   <div class="wrap">
     <header class="topbar">
       <div class="brand">${translate('brand_name', lang)} <span class="brand-sub">${translate('brand_sub', lang)}</span></div>
-      <span class="board-label">Hyllie ↔ København H</span>
+      <span class="board-label">${esc(stationScopeLabel(lang))}</span>
     </header>
+    ${renderStationPicker(lang)}
     <h1 class="lead">${translate('lead_tagline', lang)}</h1>
     ${banner}
     <main class="board">
@@ -121,6 +124,11 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
         ${modeToggle}
       </section>
       ${history}
+      <section class="archives">
+        <h2 class="section-title">${esc(translate('board_archives_heading', lang))}</h2>
+        <p class="section-intro">${esc(translate('board_archives_intro', lang))}</p>
+        ${renderArchiveHubLinks(lang, 'archive-links')}
+      </section>
     </main>
     ${consent === null ? renderConsentBanner(lang) : ''}
     ${renderFooter(lang)}

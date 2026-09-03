@@ -13,6 +13,8 @@
  * stubbed global fetch.
  */
 import { esc } from './html';
+import type { Lang } from '../i18n';
+import type { LiveStatus } from '@oresund/shared';
 import {
   DAY_RANGES,
   renderHistoryPage,
@@ -134,6 +136,32 @@ function isDays(value: number): value is ArchiveDays {
   return (DAY_RANGES as readonly number[]).includes(value);
 }
 
+/**
+ * The collector /api/transit/live shape — only the fields the corridor status
+ * band renders are validated; the rest passes through as parsed JSON.
+ */
+function parseLive(json: unknown): LiveStatus {
+  const b = json as Partial<LiveStatus> | null;
+  if (
+    !b ||
+    typeof b.status !== 'string' ||
+    typeof b.timestamp !== 'string' ||
+    typeof b.disruption_count !== 'number' ||
+    typeof b.service_shutdown !== 'boolean'
+  ) {
+    throw new TypeError('invalid live shape');
+  }
+  return b as LiveStatus;
+}
+
+/**
+ * The language prefix of a localized station route. Only the station family
+ * localizes (audit3 C1) — /line/* and /history/* stay single-URL — so a
+ * prefixed path that is not a station route is answered by the caller's 404
+ * rather than silently rendering an English page.
+ */
+const LANG_PREFIX = /^\/(sv|da)(\/.+)$/;
+
 /** Normalize a pathname: strip trailing slashes (except root). */
 function normalizePath(pathname: string): string {
   const trimmed = pathname.replace(/\/+$/, '');
@@ -141,13 +169,28 @@ function normalizePath(pathname: string): string {
 }
 
 /**
- * Dispatch a request for `/line/*`, `/station/*` or `/history/*`. Returns a
+ * Dispatch a request for `/line/*`, `/station/*` or `/history/*` — including
+ * the localized station routes `/sv/station/*` and `/da/station/*`. Returns a
  * Response for every matched path (data errors → 502), or null when the path
  * is not an archive route.
  */
 export async function handleArchiveRequest(pathname: string, fetchImpl: FetchLike = fetch): Promise<Response | null> {
-  const p = normalizePath(pathname);
+  let p = normalizePath(pathname);
   const enc = encodeURIComponent;
+
+  // Localized station pages: strip the language prefix and render in that
+  // language. The canonical/hreflang/sibling links all follow the prefix, so
+  // /sv/station/hyllie is a real Swedish page and not a translated clone of
+  // the English one.
+  let lang: Lang = 'en';
+  const prefixed = LANG_PREFIX.exec(p);
+  if (prefixed) {
+    lang = prefixed[1] as Lang;
+    p = normalizePath(prefixed[2]!);
+    // Only the station family localizes (audit3 C1) — /line, /history and the
+    // hubs ship no localized twins, so a prefixed path to them is not a page.
+    if (!p.startsWith('/station/')) return null;
+  }
 
   try {
     // --- /history ---
@@ -194,12 +237,15 @@ export async function handleArchiveRequest(pathname: string, fetchImpl: FetchLik
     const station = /^\/station\/([^/]+)$/.exec(p);
     if (station) {
       const slug = decodeURIComponent(station[1]!);
-      const [stats, stations] = await Promise.all([
+      // The corridor snapshot is best-effort: a /live gap must degrade to a
+      // page without its status band, not fail the whole station URL.
+      const [stats, stations, live] = await Promise.all([
         fetchJsonOrNull(`${COLLECTOR_BASE}/station/${enc(slug)}?days=30`, parseStation, fetchImpl),
         fetchJson(`${COLLECTOR_BASE}/stations`, parseStations, fetchImpl).catch(() => [] as ArchiveStation[]),
+        fetchJson(`${COLLECTOR_BASE}/live`, parseLive, fetchImpl).catch(() => null),
       ]);
       if (!stats) return null; // unknown station → 404
-      return html(renderStationPage(stats, stations));
+      return html(renderStationPage(stats, stations, live, lang));
     }
     return null;
   } catch (err) {

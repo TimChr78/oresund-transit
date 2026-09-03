@@ -5,6 +5,7 @@ import {
   barHeightPct,
   dailyBarSegments,
   dailyLabelPlan,
+  delayBand,
   filterByDirection,
   hBarWidth,
   heatColor,
@@ -491,5 +492,31 @@ describe('heatColor', () => {
     expect(heatColor(150, 100)).toBe('rgb(239, 68, 68)');
     expect(heatColor(-5, 100)).toBe('rgb(16, 185, 129)');
     expect(heatColor(10, 0)).toBe('rgb(16, 185, 129)');
+  });
+});
+
+describe('delayBand', () => {
+  it('bands delays under 5 min as on time', () => {
+    expect(delayBand(0)).toBe('on_time');
+    expect(delayBand(60)).toBe('on_time');
+    expect(delayBand(299)).toBe('on_time');
+  });
+
+  it('bands 5-15 min as minor and 15-30 min as moderate', () => {
+    expect(delayBand(300)).toBe('minor');
+    expect(delayBand(650)).toBe('minor');
+    expect(delayBand(899)).toBe('minor');
+    expect(delayBand(900)).toBe('moderate');
+    expect(delayBand(1799)).toBe('moderate');
+  });
+
+  it('bands 30 min and above as major', () => {
+    expect(delayBand(1800)).toBe('major');
+    expect(delayBand(7200)).toBe('major');
+  });
+
+  it('returns null when no delay was measured (cancellations, alerts)', () => {
+    expect(delayBand(null)).toBeNull();
+    expect(delayBand(undefined)).toBeNull();
   });
 });

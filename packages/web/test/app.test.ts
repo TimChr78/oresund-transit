@@ -24,6 +24,24 @@ describe('renderApp — disruptions mode toggle', () => {
   });
 });
 
+describe('renderApp — archive hub links (audit3 C3)', () => {
+  it('links the archive hubs from the board body, not only the footer', () => {
+    const html = renderApp(createInitialState(), 'en', 'declined');
+    expect(html).toContain('History &amp; archives');
+    expect(html).toContain('href="/station"');
+    expect(html).toContain('href="/line"');
+    expect(html).toContain('href="/history/30"');
+    // Each hub carries a one-line description, so the anchor is contextual.
+    expect(html).toContain('Station archives</a> <span class="why">');
+  });
+
+  it('localizes the section with the rest of the board', () => {
+    expect(renderApp(createInitialState(), 'sv', 'declined')).toContain('Historik &amp; arkiv');
+    expect(renderApp(createInitialState(), 'da', 'declined')).toContain('Historik &amp; arkiver');
+    expect(renderApp(createInitialState(), 'sv', 'declined')).toContain('Stationsarkiv');
+  });
+});
+
 describe('renderApp — disruption hero strip', () => {
   const live: LiveStatus = {
     status: 'amber',
@@ -188,5 +206,32 @@ describe('renderApp — descriptive H1 (SEO audit H3)', () => {
     expect(h1s[0]).toContain('class="lead"');
     expect(html).toContain('<div class="brand">');
     expect(html).not.toContain('<h1 class="brand">');
+  });
+});
+describe('renderApp — station picker + board scope (audit3 C1)', () => {
+  it('renders a nav of links to all four station pages, crawler-visible in the board body', () => {
+    const html = renderApp(createInitialState(), 'en', 'declined');
+    expect(html).toContain('<nav class="station-nav" aria-label="Monitored stations">');
+    expect(html).toContain('href="/station/hyllie"');
+    expect(html).toContain('href="/station/malmo-c"');
+    expect(html).toContain('href="/station/kastrup"');
+    expect(html).toContain('href="/station/kobenhavn-h"');
+    // Real links, not client-side state (Disruption carries no stop_id, so the
+    // table cannot be filtered in place).
+    expect(html).toMatch(/<a href="\/station\/hyllie">Malmö Hyllie<\/a>/);
+  });
+
+  it('names all four monitored stations in the scope label instead of two', () => {
+    const html = renderApp(createInitialState(), 'en', 'declined');
+    expect(html).toContain('<span class="board-label">Malmö Hyllie · Malmö C · Københavns Lufthavn (Kastrup) · København H</span>');
+    // The two-station under-claim is gone from the label (the H1 lead still
+    // names the corridor, which is a different, documented scope).
+    expect(html).not.toContain('<span class="board-label">Hyllie ↔ København H</span>');
+  });
+
+  it('localizes the picker and the scope label', () => {
+    expect(renderApp(createInitialState(), 'sv', 'declined')).toContain('href="/sv/station/hyllie"');
+    expect(renderApp(createInitialState(), 'sv', 'declined')).toContain('Malmö Hyllie · Malmö C · Kastrup flygplats · Köpenhamn H');
+    expect(renderApp(createInitialState(), 'da', 'declined')).toContain('Malmö Hyllie · Malmö C · Kastrup Lufthavn · København H');
   });
 });

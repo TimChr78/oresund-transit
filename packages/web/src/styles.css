@@ -129,6 +129,29 @@ body::after {
   letter-spacing: 0.12em;
   white-space: nowrap;
 }
+/* Station picker (audit3 C1): the four monitored stations as plain links,
+   under the topbar. The same links ship in #static-shell (index.html) so
+   crawlers and no-JS visitors see them too — this is navigation between real
+   pages, not client-side state. */
+.station-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 7px;
+  font-size: 12px;
+  margin: 0 2px 12px;
+}
+.station-nav a {
+  color: var(--dim);
+  text-decoration: none;
+}
+.station-nav a:hover {
+  color: var(--green);
+  text-decoration: underline;
+}
+.station-nav .sep {
+  color: var(--faint);
+}
 .lead {
   font-family: var(--font-display);
   font-size: 14px;
@@ -145,6 +168,58 @@ body::after {
   line-height: 1.5;
   max-width: 48em;
   margin: 0 2px 14px;
+}
+/* Homepage about block (audit3 C2) — evergreen crawlable copy inside
+   #static-shell. JS visitors never see it (boot() removes the whole block);
+   it stays styled for no-JS visitors and for the pre-boot flash. */
+.home-about {
+  max-width: 64em;
+  margin: 8px 2px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.home-about h2 {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin: 0 0 10px;
+}
+.home-about p {
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.6;
+  margin: 0 0 10px;
+  max-width: 64em;
+}
+.home-about a {
+  color: var(--indigo);
+  text-decoration: none;
+}
+.home-about a:hover {
+  text-decoration: underline;
+}
+.home-about .about-more {
+  color: var(--dim);
+}
+/* Archive hub link lists (audit3 C3) — the board body, the homepage about
+   block and the methodology page all link the same three hubs. */
+.about-links,
+.archive-links {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  font-size: 13px;
+}
+.about-links li,
+.archive-links li {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.archive-links .why {
+  color: var(--faint);
 }
 
 /* ------------------------------------------------------- status banner
@@ -287,6 +362,14 @@ body::after {
 .disruptions .section-title {
   margin-top: 4px;
 }
+/* One-line lead-in for a section that links onward (audit3 C3 archives). */
+.section-intro {
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.55;
+  max-width: 64em;
+  margin: 0 0 8px;
+}
 
 /* ------------------------------------------------------------ stat cards */
 
@@ -423,6 +506,18 @@ body::after {
   font-weight: 600;
   font-size: 14px;
 }
+/* The physical train's number (audit3 H2), a muted token after the line so the
+   column count stays phone-sized. Repeats across consecutive slots — that is
+   the point: it is the same train. */
+.train-no {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--faint);
+  letter-spacing: 0.03em;
+  margin-left: 5px;
+  white-space: nowrap;
+}
 .board-table td.reason {
   max-width: 260px;
   overflow: hidden;
@@ -491,20 +586,28 @@ body::after {
   white-space: nowrap;
   vertical-align: middle;
 }
-.badge-sev-minor {
+/* Delay bands (audit3 H1): the DELAY cell renders one of four bands derived
+   from delay_seconds instead of the near-constant collector severity. Colour
+   escalates green → amber → red → solid red with the delay. */
+.badge-band-on-time {
   color: var(--green);
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.26);
 }
-.badge-sev-moderate {
+.badge-band-minor {
   color: var(--amber);
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.22);
 }
-.badge-sev-major {
+.badge-band-moderate {
   color: var(--red);
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.26);
+}
+.badge-band-major {
+  color: #ffffff;
+  background: var(--red);
+  border: 1px solid var(--red);
 }
 
 /* -------------------------------------------------------------- history */
@@ -1268,6 +1371,14 @@ body::after {
 /* -------------------------------------------------------------- desktop */
 
 @media (max-width: 719px) {
+  /* The scope label names all four monitored stations (audit3 C1), so let the
+     topbar wrap instead of pushing the label off-screen on a narrow phone. */
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .board-label {
+    white-space: normal;
+  }
   /* subtle edge-fade affordance on the horizontally scrolling table */
   .table-wrap {
     position: relative;

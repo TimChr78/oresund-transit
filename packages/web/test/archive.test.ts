@@ -100,6 +100,18 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+/** A corridor snapshot, the same shape /api/transit/live returns. */
+const liveSnapshot = {
+  status: 'amber' as const,
+  status_text: 'Delays',
+  timestamp: '2026-08-06T21:59:27',
+  time_short: '21:59',
+  disruption_count: 2,
+  departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
+  service_shutdown: false,
+  directions: { to_denmark: [], to_sweden: [], bus: [] },
+};
+
 function parseJsonLd(html: string): unknown[] {
   const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) =>
     JSON.parse(m[1]!),
@@ -356,8 +368,9 @@ describe('archive renderers', () => {
 
   it('station recent observations include the destination where available (M4)', () => {
     const html = renderStationPage(stationStats, stationStatsSlugList());
-    // On time | line 804 → Østerport (route context from Departure.destination).
-    expect(html).toMatch(/line 804 → Østerport/);
+    // The departures table gives a row its route context in columns:
+    // 21:59 | 804 | #1143 | Østerport (C1's table replaced the old <ul>).
+    expect(html).toContain('<td class="meta">21:59</td><td>804</td><td class="meta">#1143</td><td>Østerport</td>');
   });
 
   it('station index renders the monitored stops', () => {
@@ -667,5 +680,297 @@ describe('handleArchiveRequest dispatch', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({})));
     const res = await handleArchiveRequest('/methodology');
     expect(res).toBeNull();
+  });
+});
+
+describe('archive table scroll containers (audit3 H5)', () => {
+  it('pageShell ships the overflow-x scroll container and stops page-level sideways scroll', () => {
+    const html = renderHistoryPage(7, history);
+    expect(html).toContain('.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }');
+    expect(html).toContain('main { max-width: 880px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; overflow-x: hidden; }');
+    // the wrapped table keeps a floor width, so the scroll is real on a 375px screen
+    expect(html).toContain('.table-scroll table { min-width: 540px; }');
+  });
+
+  it('wraps the history daily table in the scroll container', () => {
+    const html = renderHistoryPage(7, history);
+    expect(html).toContain('<div class="table-scroll"><table><thead><tr><th>Date</th>');
+    expect(html).toMatch(/<\/table><\/div>/);
+  });
+
+  it('wraps the line daily table in the scroll container', () => {
+    const html = renderLinePage('804', lineStats, [{ line: '803', disruptions: 1 }]);
+    expect(html).toContain('<div class="table-scroll"><table>');
+  });
+
+  it('wraps the 7-column station daily table in the scroll container', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    expect(html).toContain('<div class="table-scroll">');
+    expect(html).toContain('<th>Date</th><th>Departures</th><th>On time</th><th>Delayed</th><th>Cancelled</th><th>On time %</th><th>Avg delay</th>');
+  });
+});
+
+describe('station live section + localized routes (audit3 C1/H2)', () => {
+  beforeEach(() => vi.unstubAllGlobals());
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stubFetch(routes: Record<string, unknown>): void {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const ok = Object.keys(routes).find((k) => url.includes(k.toLowerCase()));
+        if (ok) return jsonResponse(routes[ok]);
+        throw new Error(`no stub for ${url}`);
+      }),
+    );
+  }
+
+  /** A corridor snapshot, the same shape /api/transit/live returns. */
+  const live = {
+    status: 'amber' as const,
+    status_text: 'Delays',
+    timestamp: '2026-08-06T21:59:27',
+    time_short: '21:59',
+    disruption_count: 2,
+    departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
+    service_shutdown: false,
+    directions: { to_denmark: [], to_sweden: [], bus: [] },
+  };
+
+  it('renders the corridor status band with the StatusBanner colour semantics, as static HTML', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList(), live);
+    // amber snapshot → the amber band, translated status + disruption count.
+    expect(html).toContain('<p class="status-band status-amber" role="status">');
+    expect(html).toContain('Delays');
+    expect(html).toContain('<span class="band-count">2 disruptions</span>');
+    // No client-side behaviour: the archive shell ships no JS at all.
+    expect(html).not.toContain('<script src');
+  });
+
+  it('renders the red band when service is shut down, whatever the status field says', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList(), {
+      ...live,
+      status: 'green',
+      service_shutdown: true,
+    });
+    expect(html).toContain('status-band status-red');
+    expect(html).toContain('No train service across the Øresund right now');
+  });
+
+  it('drops the band but keeps the departures when no live snapshot is available', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList(), null);
+    // Assertions target the rendered elements, not the stylesheet (the shell
+    // CSS always carries the .status-band rules).
+    expect(html).not.toContain('<p class="status-band');
+    // The departures come from the station payload, not the /live snapshot, so
+    // a corridor-status gap degrades the band only.
+    expect(html).toContain('<section class="station-live">');
+    expect(html).toContain('<h2>Latest observed departures</h2>');
+    expect(html).toContain('#1143');
+    // …and the punctuality archive is untouched.
+    expect(html).toContain('Daily on-time performance');
+  });
+
+  it('labels the departures table as OBSERVED, not a predictive board', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList(), live);
+    expect(html).toContain('<h2>Latest observed departures</h2>');
+    expect(html).toContain('These are observed departures, not a predictive departure board');
+    // The heading is what a crawler reads — "next departures" must not appear.
+    expect(html).not.toMatch(/next departures/i);
+  });
+
+  it('shows the train technical_number (H2) and bands the delay like the board does', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList(), live);
+    expect(html).toContain('<th>Time</th><th>Line</th><th>Train</th><th>Destination</th><th>Status</th><th>Delay</th>');
+    expect(html).toContain('#1143');
+    // on_time departure → the hyphenated badge class the stylesheet defines.
+    expect(html).toContain('<span class="badge badge-band-on-time"');
+  });
+
+  it('renders a cancellation as a cancellation, never as an on-time badge', () => {
+    const canceled = {
+      ...stationStats.recent[0]!,
+      id: 2,
+      status: 'canceled' as const,
+      canceled: 1 as const,
+      delay_seconds: 0,
+      technical_number: '1188',
+    };
+    const stats = { ...stationStats, recent: [canceled] };
+    const html = renderStationPage(stats, stationStatsSlugList(), live);
+    expect(html).toContain('<span class="badge badge-cancellation">Cancellation</span>');
+    expect(html).not.toContain('<span class="badge badge-band-on-time"');
+    // A cancelled train has no delay to report — not "0 min".
+    expect(html).not.toContain('<td>0 min</td>');
+  });
+
+  it('localizes the whole page for /sv and /da (names, headings, table headers, siblings)', () => {
+    const sv = renderStationPage(stationStats, stationStatsSlugList(), live, 'sv');
+    const da = renderStationPage(stationStats, stationStatsSlugList(), live, 'da');
+    expect(sv).toContain('<html lang="sv">');
+    expect(da).toContain('<html lang="da">');
+    // M4: the stop name comes from the dictionary, not the collector literal.
+    expect(sv).toContain('<h1>Malmö Hyllie — punktlighetsarkiv</h1>');
+    expect(da).toContain('<h1>Malmö Hyllie — rettidighedsarkiv</h1>');
+    expect(sv).toContain('<h2>Senast observerade avgångar</h2>');
+    expect(da).toContain('<h2>Senest observerede afgange</h2>');
+    expect(sv).toContain('<th>Tåg</th>');
+    expect(da).toContain('<th>Tog</th>');
+    // Sibling links follow the language prefix (those pages exist).
+    expect(sv).toContain('href="/sv/station/kobenhavn-h"');
+    expect(da).toContain('href="/da/station/malmo-c"');
+    // …and the SEO copy localizes too: title + meta description in the page's
+    // language (the JSON-LD Dataset name stays the English site identifier).
+    expect(sv).toContain('<title>Malmö Hyllie — punktlighet — Øresund.live</title>');
+    expect(sv).toContain('name="description" content="Punktlighetshistorik för Malmö Hyllie');
+    expect(da).toContain('<title>Malmö Hyllie — rettidighed — Øresund.live</title>');
+  });
+
+  it('announces the full hreflang cluster on station routes only', () => {
+    const station = renderStationPage(stationStats, stationStatsSlugList(), live, 'en');
+    for (const href of [
+      'https://oresund.live/station/hyllie',
+      'https://oresund.live/sv/station/hyllie',
+      'https://oresund.live/da/station/hyllie',
+    ]) {
+      expect(station).toContain(`href="${href}"`);
+    }
+    expect(station).toContain('<link rel="alternate" hreflang="sv" href="https://oresund.live/sv/station/hyllie" />');
+    expect(station).toContain('<link rel="alternate" hreflang="da" href="https://oresund.live/da/station/hyllie" />');
+    expect(station).toContain('<link rel="alternate" hreflang="x-default" href="https://oresund.live/station/hyllie" />');
+    // Canonical follows the language prefix.
+    expect(station).toContain('<link rel="canonical" href="https://oresund.live/station/hyllie" />');
+    expect(renderStationPage(stationStats, stationStatsSlugList(), live, 'sv')).toContain(
+      '<link rel="canonical" href="https://oresund.live/sv/station/hyllie" />',
+    );
+    // Line and history pages stay single-URL: en + a self-referencing x-default.
+    const line = renderLinePage('804', lineStats, []);
+    expect(line).toContain('<link rel="alternate" hreflang="en" href="https://oresund.live/line/804" />');
+    expect(line).not.toContain('hreflang="sv"');
+  });
+
+  it('localizes the shell chrome (footer) with the page', () => {
+    const sv = renderStationPage(stationStats, stationStatsSlugList(), live, 'sv');
+    expect(sv).toContain('Live-tavlan');
+    expect(sv).toContain('<a href="/sv/">Live-tavlan</a>');
+    expect(sv).toContain('Data från Trafiklab.se');
+  });
+
+  it('serves /sv/station/{slug} and /da/station/{slug} from the collector (live + stats + stations)', async () => {
+    stubFetch({
+      '/api/transit/stations': { stations: stationStatsSlugList() },
+      '/api/transit/station/hyllie': stationStats,
+      '/api/transit/live': live,
+    });
+    const sv = await handleArchiveRequest('/sv/station/hyllie');
+    expect(sv?.status).toBe(200);
+    const svHtml = await sv?.text();
+    expect(svHtml).toContain('<html lang="sv">');
+    expect(svHtml).toContain('<link rel="canonical" href="https://oresund.live/sv/station/hyllie" />');
+    expect(svHtml).toContain('status-band');
+    const da = await handleArchiveRequest('/da/station/hyllie');
+    expect((await da?.text())?.includes('<html lang="da"')).toBe(true);
+    // The unprefixed route stays English.
+    const en = await handleArchiveRequest('/station/hyllie');
+    expect(await en?.text()).toContain('<html lang="en">');
+  });
+
+  it('keeps a collector /live outage from failing the station page', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/api/transit/live')) throw new Error('down');
+        if (url.includes('/api/transit/stations')) return jsonResponse({ stations: stationStatsSlugList() });
+        if (url.includes('/api/transit/station/hyllie')) return jsonResponse(stationStats);
+        throw new Error(`no stub for ${url}`);
+      }),
+    );
+    const res = await handleArchiveRequest('/station/hyllie');
+    expect(res?.status).toBe(200);
+    const html = await res?.text();
+    expect(html).not.toContain('<p class="status-band');
+    expect(html).toContain('Daily on-time performance');
+  });
+
+  it('answers 404 for a localized non-station archive path (no sv/da twins exist)', async () => {
+    stubFetch({ '/api/transit/history': history });
+    expect(await handleArchiveRequest('/sv/history/30')).toBeNull();
+    expect(await handleArchiveRequest('/da/line/804')).toBeNull();
+    // The English routes are untouched.
+    expect((await handleArchiveRequest('/history/30'))?.status).toBe(200);
+  });
+});
+
+describe('station page TrainStation entity (audit3 M12)', () => {
+  it('describes the page as a place: TrainStation with the stop id, place and verified geo', () => {
+    const station = findNode(renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en'), 'TrainStation');
+    expect(station).toBeDefined();
+    // Anchored on the page URL so the Dataset node can reference it.
+    expect(station!['@id']).toBe('https://oresund.live/station/hyllie#station');
+    expect(station!['url']).toBe('https://oresund.live/station/hyllie');
+    expect(station!['name']).toBe('Malmö Hyllie');
+    // The Trafiklab/GTFS stop id — the identifier the collector stores, and
+    // the same value llms.txt publishes for this station.
+    expect(station!['identifier']).toBe('740001586');
+    expect(station!['containedInPlace']).toEqual({ '@type': 'Place', name: 'Malmö, Sweden' });
+    expect(station!['geo']).toEqual({ '@type': 'GeoCoordinates', latitude: 55.5627, longitude: 12.9758 });
+  });
+
+  it('cross-references the entity from the Dataset node via about', () => {
+    const ds = findNode(renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en'), 'Dataset');
+    expect(ds!['about']).toEqual({ '@id': 'https://oresund.live/station/hyllie#station' });
+  });
+
+  it('keeps the entity on the localized variants (place facts stay stable, URL follows the lang)', () => {
+    for (const lang of ['sv', 'da'] as const) {
+      const station = findNode(renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, lang), 'TrainStation');
+      expect(station!['@id']).toBe(`https://oresund.live/${lang}/station/hyllie#station`);
+      // Coordinates are a fact about the station, not of the translation.
+      expect(station!['geo']).toEqual({ '@type': 'GeoCoordinates', latitude: 55.5627, longitude: 12.9758 });
+    }
+  });
+
+  it('never renders coordinates for a slug the static table does not know', () => {
+    const unknown: ArchiveStationStats = { ...stationStats, slug: 'new-stop', stop_id: '999' };
+    const station = findNode(renderStationPage(unknown, stationStatsSlugList(), liveSnapshot, 'en'), 'TrainStation');
+    expect(station!['geo']).toBeUndefined();
+    expect(station!['containedInPlace']).toBeUndefined();
+    // The stop id still comes from the collector payload — the page still
+    // identifies the place it measures.
+    expect(station!['identifier']).toBe('999');
+  });
+});
+
+describe('archive page head: RSS autodiscovery + og:locale (audit3 M7/M10)', () => {
+  it('links the feed via rel=alternate on every archive page family', () => {
+    for (const html of [
+      renderHistoryIndex(),
+      renderStationIndex(stationStatsSlugList()),
+      renderLinePage('804', lineStats, []),
+      renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en'),
+    ]) {
+      expect(
+        html,
+        html.slice(0, 80),
+      ).toContain('<link rel="alternate" type="application/rss+xml" title="Øresund.live disruptions" href="/feed.xml" />');
+    }
+  });
+
+  it('announces og:locale on every page, with alternates only where localized twins exist', () => {
+    const station = renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en');
+    expect(station).toContain('<meta property="og:locale" content="en_GB" />');
+    // The station routes have sv/da twins, so they advertise them.
+    expect(station).toContain('<meta property="og:locale:alternate" content="sv_SE" />');
+    expect(station).toContain('<meta property="og:locale:alternate" content="da_DK" />');
+
+    const sv = renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'sv');
+    expect(sv).toContain('<meta property="og:locale" content="sv_SE" />');
+    expect(sv).toContain('<meta property="og:locale:alternate" content="en_GB" />');
+
+    // Single-URL archive pages announce their language but no twins — there
+    // is no /sv/line/804 for an alternate to point at.
+    const line = renderLinePage('804', lineStats, []);
+    expect(line).toContain('<meta property="og:locale" content="en_GB" />');
+    expect(line).not.toContain('og:locale:alternate');
   });
 });

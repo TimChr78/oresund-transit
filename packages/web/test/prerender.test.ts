@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
+import { renderStationPicker } from '../src/components/StationPicker';
+import { renderHomeAbout } from '../src/components/HomeAbout';
 import { META, hreflangCluster } from '../src/lib/seo';
 import { COLLECTOR_BASE } from '../src/lib/config';
 import { renderPrerenderedPage, renderLocalizedHome, renderHomeWithSummary, type HomeSummary } from '../src/lib/prerender';
@@ -22,6 +24,8 @@ import { renderPrerenderedPage, renderLocalizedHome, renderHomeWithSummary, type
  * could serve a dead /src/main.ts or unstyled page).
  */
 const shell = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+/** The shell document, as the tests above name it (pre-transform). */
+const indexShell = shell;
 const prerenderScript = readFileSync(new URL('../scripts/prerender.ts', import.meta.url), 'utf8');
 
 /** Extract the `content` of a `<meta name|property="…">` tag, multiline-tolerant. */
@@ -507,5 +511,124 @@ describe('home shell build-time corridor status summary', () => {
     expect(configSrc).toContain("process.env.COLLECTOR_BASE");
     // …and the prerender script imports it instead of restating the URL.
     expect(prerenderScript).toMatch(/import\s*\{[^}]*COLLECTOR_BASE[^}]*\}\s*from\s*['"]\.\.\/src\/lib\/config['"]/);
+  });
+});
+
+describe('station picker in the home shells (audit3 C1)', () => {
+  it('ships the station nav in the crawler-visible static shell, matching the component output', () => {
+    expect(indexShell).toContain('<nav class="station-nav" aria-label="Monitored stations">');
+    for (const slug of ['hyllie', 'malmo-c', 'kastrup', 'kobenhavn-h']) {
+      expect(indexShell).toContain(`href="/station/${slug}"`);
+    }
+    // The shell's hand-written markup must equal what the board renders for
+    // en — otherwise boot() swaps one nav for a different-looking one.
+    expect(indexShell).toContain(renderStationPicker('en'));
+  });
+
+  it('names all four monitored stations in the static scope label', () => {
+    expect(indexShell).toContain(
+      '<span class="board-label">Malmö Hyllie · Malmö C · Københavns Lufthavn (Kastrup) · København H</span>',
+    );
+  });
+
+  it('localizes the picker + label (and their routes) on the sv/da home variants', () => {
+    for (const lang of ['sv', 'da'] as Lang[]) {
+      const html = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/'));
+      expect(html, lang).toContain(renderStationPicker(lang));
+      expect(html, lang).toContain(`href="/${lang}/station/hyllie"`);
+      expect(html, lang).not.toContain('<nav class="station-nav" aria-label="Monitored stations">');
+    }
+  });
+});
+
+describe('homepage about block (audit3 C2)', () => {
+  /** The shell used to ship 96 visible words in total — one H1 plus the
+   * build-time status sentences. The about block is the evergreen body copy
+   * that gives the page something to rank on. */
+  const wordCount = (html: string): number =>
+    html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ').length;
+
+  it('ships the about block in the crawler-visible shell, matching the component output', () => {
+    expect(indexShell).toContain('<section class="home-about">');
+    // Lockstep with the component (same contract as the station picker):
+    // the shell markup IS what renderHomeAbout('en') emits.
+    expect(indexShell).toContain(renderHomeAbout('en'));
+  });
+
+  it('sits inside #static-shell, after the lead H1, with real substance', () => {
+    const shellBlock = /<div id="static-shell"[^>]*>[\s\S]*<\/div>\s*<footer/.exec(indexShell)?.[0] ?? '';
+    expect(shellBlock.indexOf('<h1 class="lead"')).toBeGreaterThan(-1);
+    expect(shellBlock.indexOf('<section class="home-about">')).toBeGreaterThan(shellBlock.indexOf('</h1>'));
+    expect(wordCount(renderHomeAbout('en'))).toBeGreaterThanOrEqual(150);
+    expect(wordCount(renderHomeAbout('en'))).toBeLessThanOrEqual(250);
+  });
+
+  it('links the methodology page and the station pages from the copy', () => {
+    const block = renderHomeAbout('en');
+    expect(block).toContain('href="/methodology"');
+    for (const slug of ['hyllie', 'malmo-c', 'kastrup', 'kobenhavn-h']) {
+      expect(block).toContain(`href="/station/${slug}"`);
+    }
+    // …and the archive hubs, in content rather than only the footer.
+    expect(block).toContain('href="/station"');
+    expect(block).toContain('href="/line"');
+    expect(block).toContain('href="/history/30"');
+  });
+
+  it('uses no nested <div>, so the static-page strip regex and boot() keep working', () => {
+    expect(renderHomeAbout('en')).not.toContain('<div');
+  });
+
+  it('localizes the block (and its station routes) on the sv/da home variants', () => {
+    for (const lang of ['sv', 'da'] as Lang[]) {
+      const html = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/'));
+      expect(html, lang).toContain(renderHomeAbout(lang));
+      expect(html, lang).toContain(`href="/${lang}/methodology"`);
+      // No verbatim English prose left behind, and the English routes are gone.
+      expect(html, lang).not.toContain('compared with the timetable and stored');
+      expect(html, lang).not.toContain('href="/station/hyllie"');
+    }
+    // The en home keeps the shell block verbatim.
+    expect(renderLocalizedHome(shell, 'en', META.dashboard.en, hreflangCluster('/'))).toContain(renderHomeAbout('en'));
+  });
+
+  it('is stripped from the static pages with the rest of the dashboard fallback', () => {
+    for (const html of [
+      renderPrerenderedPage(shell, renderMethodologyPage('en', getDict('en')), 'en', META.methodology.en),
+      renderPrerenderedPage(shell, renderPrivacyPage('en', getDict('en')), 'en', META.privacy.en),
+    ]) {
+      expect(html).not.toContain('home-about');
+      expect(html).not.toContain('Train punctuality across the Øresund');
+    }
+  });
+});
+
+describe('og:locale + og:locale:alternate (audit3 M10)', () => {
+  it('announces the page language on every variant of every static page family', () => {
+    const locales = { en: 'en_GB', sv: 'sv_SE', da: 'da_DK' } as const;
+    for (const lang of ['en', 'sv', 'da'] as Lang[]) {
+      const home = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/'));
+      expect(home, `home/${lang}`).toContain(`<meta property="og:locale" content="${locales[lang]}" />`);
+      for (const page of ['methodology', 'privacy'] as const) {
+        const html = renderPrerenderedPage(
+          shell,
+          page === 'methodology' ? renderMethodologyPage(lang, getDict(lang)) : renderPrivacyPage(lang, getDict(lang)),
+          lang,
+          META[page][lang],
+          hreflangCluster(`/${page}`),
+        );
+        expect(html, `${page}/${lang}`).toContain(`<meta property="og:locale" content="${locales[lang]}" />`);
+        // …plus the other two languages as alternates.
+        for (const other of (['en', 'sv', 'da'] as Lang[]).filter((l) => l !== lang)) {
+          expect(html, `${page}/${lang}`).toContain(
+            `<meta property="og:locale:alternate" content="${locales[other]}" />`,
+          );
+        }
+      }
+    }
   });
 });

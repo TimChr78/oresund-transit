@@ -41,18 +41,24 @@ export const da: Dict = {
   th_time: 'Tid',
   th_line: 'Linje',
   th_type: 'Type',
-  th_severity: 'Alvorlighed',
   th_delay: 'Forsinkelse',
   th_direction: 'Retning',
   th_reason: 'Årsag',
+  // Tabelhoveder på stationssiderne (audit3 C1/H2)
+  th_date: 'Dato',
+  th_status: 'Status',
+  th_train: 'Tog',
+  th_on_time_pct: 'Til tiden %',
+  th_canceled: 'Aflyste',
   // Disruption types
   type_delay: 'Forsinkelse',
   type_cancellation: 'Aflyst',
   type_alert: 'Advarsel',
-  // Severities
-  sev_minor: 'Mindre',
-  sev_moderate: 'Moderat',
-  sev_major: 'Alvorlig',
+  // Delay bands (audit3 H1) — badge text in the DELAY column
+  delay_band_on_time: 'Til tiden',
+  delay_band_minor: '5–15 min',
+  delay_band_moderate: '15–30 min',
+  delay_band_major: '30+ min',
   // Causes
   cause_staffing: 'Mangel på personale',
   cause_person_on_tracks: 'Person på sporet',
@@ -197,6 +203,27 @@ export const da: Dict = {
   meth_def_by_hour: 'Andel af forstyrrelserne pr. time — sidste 30 dage.',
   meth_def_peak: 'Andel af forstyrrelserne i myldretiden (07–09 og 16–18) sammenlignet med resten af dagen.',
   station_archive_title: '{name} — rettidighed — Øresund.live',
+  // Stationssider (audit3 C1) — siden lokaliseres på alle tre sprog.
+  station_h1: '{name} — rettidighedsarkiv',
+  station_sub: 'Observerede afgange de seneste {days} dage ({from}–{to}).',
+  station_desc:
+    'Rettidighedshistorik for {name} over Øresund — {n} afgange, {pct}% til tiden de seneste {days} dage.',
+  station_desc_empty:
+    'Rettidighedshistorik for {name} over Øresund — ingen afgange registreret endnu; data begynder at samle, så snart den live overvågning starter.',
+  station_daily_heading: 'Rettidighed dag for dag',
+  station_other_heading: 'Andre stationer',
+  station_live_heading: 'Lige nu',
+  station_live_intro:
+    'Statusbåndet gælder hele Øresundskorridoren; afgangene nedenfor er observeret på {name}.',
+  station_departures_heading: 'Senest observerede afgange',
+  // Samme tonefall som meth_lag_body: erklær forsinkelsen i stedet for at lade
+  // som om tabellen var en forudsigende afgangstavle.
+  station_observed_note:
+    'Dette er observerede afgange, ikke en forudsigende afgangstavle — samleren henter data fra Trafiklab hvert 5. minut og læser de seneste planlagte afgange tilbage, så de nyeste rækker kan ligge op til 15 minutter efter virkeligheden.',
+  station_col_destination: 'Destination',
+  nav_stations: 'Stationer',
+  nav_board: 'Live-tavlen',
+  station_nav_label: 'Overvågede stationer',
   // Footer
   footer_attribution: 'Data fra Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligge ~10–15 min. efter officielle apps; aflyste afgange kan blive overset.',
@@ -237,4 +264,32 @@ export const da: Dict = {
   station_kobenhavn_h: 'København H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup Lufthavn',
+
+  // Forside-tekstblok (audit3 C2) — permanent, crawlbar tekst i skallet uden
+  // JS. Kun beskrivende: hvad der måles, hvordan et tal defineres og hvor
+  // data kommer fra. {link} i about_method udskiftes med /methodology-ankret
+  // efter escaping (se HomeAbout.ts); {stations} er de oversatte
+  // stationsnavne i korridorens rækkefølge.
+  about_title: 'Togpunktualitet over Øresund, station for station',
+  about_corridor:
+    'Øresund.live følger grænseoverskridende Øresundståg på korridoren mellem Malmø og København. Hver planlagt afgang, der passerer en af de fire overvågede stationer — {stations} — sammenholdes med køreplanen og gemmes, så hver stationsside kan vise, hvordan stoppestedet faktisk klarede sig.',
+  about_method:
+    'En afgang tæller som til tiden, når den kører ud mindre end fire minutter forsinket — den RT3-grænse for punktualitet, som Skånetrafiken bruger. Større afvigelser registreres som forsinkelser eller aflysninger, og operatørens beskeder grupperes i årsager som signalfejl, køretøjsfejl eller mangel på personale. Siden {link} definerer hvert tal på tavlen.',
+  about_source:
+    'Data kommer fra Trafiklab (Skånetrafiken) realtidsafgange, hentes hvert femte minut og publiceres under en CC-BY 4.0-licens. Liveovervågningen begyndte i august 2026, så arkiverne er stadig korte — og tavlen viser observerede afgange, ikke en forudsigelse af det næste tog.',
+
+  // Arkivlinks (audit3 C3) — ét sæt labels + beskrivelser, delt af tavlen
+  // (App.ts), forside-tekstblokken (HomeAbout.ts) og metodiksidens liste over
+  // relaterede sider.
+  arch_link_station: 'Stationsarkiver',
+  arch_link_line: 'Linjearkiver',
+  arch_link_history: 'Forstyrrelleshistorik, seneste 30 dage',
+  arch_link_station_desc: 'Andel til tiden, aflysninger og gennemsnitlig forsinkelse ved hvert overvåget stoppested.',
+  arch_link_line_desc: 'Forstyrrelser pr. toglinje over de seneste 30 dage.',
+  arch_link_history_desc: 'Aflysninger, forsinkelser og forstyrrelser dag for dag over Øresund.',
+  board_archives_heading: 'Historik & arkiver',
+  board_archives_intro: 'Tavlen viser i dag. Arkiverne gemmer den lange historik — pr. station, pr. linje og dag for dag.',
+  meth_related_title: 'Relaterede sider',
+  meth_related_intro:
+    'De samme definitioner i praksis: punktualitetsarkivet for hvert overvåget stoppested og forstyrrelleshistorikken bag graferne.',
 };
