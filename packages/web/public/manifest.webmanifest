@@ -1,7 +1,7 @@
 {
   "name": "Øresund.live — live train status across the Sound",
   "short_name": "Øresund.live",
-  "description": "Live train status for Øresundståg departures between Hyllie and København H — delays, cancellations and alerts, updated every 5 minutes from Trafiklab.",
+  "description": "Live Øresundståg train status for Malmö Hyllie, Malmö C, Kastrup and København H — delays, cancellations and alerts, updated every 5 min (Trafiklab).",
   "id": "/",
   "start_url": "/",
   "scope": "/",
