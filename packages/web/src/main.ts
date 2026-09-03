@@ -1,9 +1,18 @@
 import './styles.css';
-import { ApiError, fetchDelayStats, fetchDisruptions, fetchHistory, fetchLiveStatus, fetchPunctuality } from './api';
+import {
+  ApiError,
+  fetchDelayStats,
+  fetchDisruptions,
+  fetchHistory,
+  fetchLiveStatus,
+  fetchPunctuality,
+  fetchStation,
+} from './api';
 import { detectLang, getDict, saveLang, translate, type Dict, type Key, type Lang } from './i18n';
 import { renderApp, type ConsentState } from './components/App';
 import { renderMethodologyPage } from './components/MethodologyPage';
 import { renderPrivacyPage } from './components/PrivacyPage';
+import { parseStationScope, type StationScope } from './components/StationPicker';
 import { langFromPath, routePath } from './lib/route';
 import type { Disruption } from '@oresund/shared';
 import { createInitialState, reducer, type Action, type AppState, type DisruptionsMode } from './state';
@@ -16,7 +25,8 @@ import { delayStatsRange, type DayRange, type Direction } from './lib/stats';
  *  - on load: live + stats + history(7d) + disruptions in parallel, rendered
  *    progressively (banner first);
  *  - every 120s: live + disruptions only;
- *  - history + stats on day-range change only.
+ *  - history + stats on day-range change only;
+ *  - the station scope's departures on scope change and on the same 120s cycle.
  * 503 from /api/transit/live = no snapshot yet -> empty state, not an error.
  */
 
@@ -43,6 +53,27 @@ function saveConsent(value: 'accepted' | 'declined'): void {
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * The station scope a shared link opens at (backlog A1): `?station=hyllie`.
+ * Anything unrecognised — including no param at all — is the whole corridor.
+ */
+function stationFromQuery(): StationScope {
+  return parseStationScope(new URLSearchParams(globalThis.location.search).get('station'));
+}
+
+/**
+ * Reflect the station scope back into the URL so a switched board is
+ * shareable/reloadable. `replaceState`, not push: picking a station is a view
+ * of the same page, not a navigation, and the back button should leave the
+ * site rather than walk back through every station the visitor clicked.
+ */
+function writeStationQuery(scope: StationScope): void {
+  const url = new URL(globalThis.location.href);
+  if (scope === 'all') url.searchParams.delete('station');
+  else url.searchParams.set('station', scope);
+  globalThis.history?.replaceState(null, '', url);
 }
 
 /**
@@ -110,6 +141,12 @@ export function boot(): void {
   document.documentElement.lang = lang;
   let consent: ConsentState = readConsent();
   let state: AppState = createInitialState();
+
+  // A shared ?station= link opens the board already scoped to that stop; the
+  // reducer then clears it on the first fetch so no corridor rows flash up
+  // under the station's name.
+  const queried = stationFromQuery();
+  if (queried !== 'all') state = reducer(state, { type: 'SET_STATION', station: queried });
 
   const render = (): void => {
     root.innerHTML = renderApp(state, lang, consent);
@@ -195,6 +232,23 @@ export function boot(): void {
     }
   };
 
+  /**
+   * The picked stop's own departures (backlog A1). The corridor disruption
+   * feed cannot be filtered by station — `Disruption` carries no `stop_id` —
+   * so a scope pulls the one per-stop feed the collector exposes instead.
+   * Slugs are read from state at dispatch time, so a reply for a stop the
+   * visitor already left lands in a reducer that drops it.
+   */
+  const refreshStation = async (): Promise<void> => {
+    if (state.station === 'all') return;
+    try {
+      const station = await fetchStation(state.station);
+      dispatch({ type: 'STATION_OK', station });
+    } catch (err) {
+      dispatch({ type: 'STATION_ERROR', message: messageOf(err) });
+    }
+  };
+
   // Initial load — everything in parallel, sections render as they land.
   void refreshLive();
   void refreshStats();
@@ -202,13 +256,16 @@ export function boot(): void {
   void refreshHeatmapHistory();
   void refreshPunctuality();
   void refreshDisruptions();
+  void refreshStation();
 
   // Refresh cycle: live + disruptions + heatmap baseline (keeps the
-  // "last 30 days" window current on long-lived tabs).
+  // "last 30 days" window current on long-lived tabs), plus the scoped
+  // station's departures so they do not go stale on a long-lived tab.
   setInterval(() => {
     void refreshLive();
     void refreshDisruptions();
     void refreshHeatmapHistory();
+    void refreshStation();
   }, REFRESH_MS);
 
   // One delegated listener for every data-action button on the board.
@@ -220,6 +277,19 @@ export function boot(): void {
     const value = btn.dataset.value ?? '';
 
     switch (action) {
+      case 'set-station': {
+        // The picker entries are real links (that is the no-JS fallback and
+        // what middle-click/open-in-tab still uses), so a JS click has to be
+        // stopped from navigating before the scope is switched in place.
+        event.preventDefault();
+        dispatch({ type: 'SET_STATION', station: parseStationScope(value) });
+        writeStationQuery(state.station);
+        void refreshStation();
+        break;
+      }
+      case 'retry-station':
+        void refreshStation();
+        break;
       case 'set-direction':
         dispatch({ type: 'SET_DIRECTION', direction: value as Direction });
         break;

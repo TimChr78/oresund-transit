@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDelaySeconds, formatExactDelay, formatPct, formatTime, normalizeTs } from '../src/i18n/format';
+import { actualTime, formatDate, formatDelaySeconds, formatExactDelay, formatPct, formatTime, normalizeTs } from '../src/i18n/format';
 
 describe('formatDate', () => {
   it('formats SV/EN dates as YYYY-MM-DD', () => {
@@ -121,5 +121,40 @@ describe('formatExactDelay', () => {
   it('renders an em dash for a missing delay', () => {
     expect(formatExactDelay(null, 'en')).toBe('—');
     expect(formatExactDelay(undefined, 'sv')).toBe('—');
+  });
+});
+
+describe('actualTime (backlog B1 — the expected departure)', () => {
+  it('adds the measured delay to the scheduled slot', () => {
+    expect(actualTime('2026-08-06T21:59:00', 300, 'en')).toBe('22:04');
+    expect(actualTime('2026-08-06T21:59:00', 300, 'sv')).toBe('22:04');
+    expect(actualTime('2026-08-06T21:59:00', 300, 'da')).toBe('22.04');
+  });
+
+  it('rounds the delay to whole minutes so the pair agrees with the "+N min" label', () => {
+    // 650 s is 10 min 50 s: "+11 min" is what the row says, so 22:10 is what
+    // the slot should say — not a truncated 22:09.
+    expect(actualTime('2026-08-06T21:59:00', 650, 'en')).toBe('22:10');
+  });
+
+  it('accepts the space-separated form the API also emits', () => {
+    expect(actualTime('2026-08-06 21:59:00', 60, 'en')).toBe('22:00');
+  });
+
+  it('wraps past midnight', () => {
+    expect(actualTime('2026-08-06T23:55:00', 900, 'en')).toBe('00:10');
+    expect(actualTime('2026-08-06T23:58:00', 240, 'en')).toBe('00:02');
+  });
+
+  it('returns empty when either half of the pair is missing', () => {
+    expect(actualTime(null, 300, 'en')).toBe('');
+    expect(actualTime(undefined, 300, 'en')).toBe('');
+    expect(actualTime('2026-08-06T21:59:00', null, 'en')).toBe('');
+    expect(actualTime('2026-08-06T21:59:00', undefined, 'en')).toBe('');
+  });
+
+  it('returns empty for a value that carries no clock time', () => {
+    expect(actualTime('2026-08-06', 300, 'en')).toBe('');
+    expect(actualTime('not-a-time', 300, 'en')).toBe('');
   });
 });

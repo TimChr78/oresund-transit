@@ -149,6 +149,15 @@ body::after {
   color: var(--green);
   text-decoration: underline;
 }
+/* The scope the board is showing (backlog A1) — the same current-page
+   treatment a nav gives the page you are on: full-brightness text, underlined.
+   Hover stays green, so "the one I am on" and "the one I am pointing at" never
+   look alike. Ships on the static shell too, where All is the current page. */
+.station-nav a[aria-current] {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .station-nav .sep {
   color: var(--faint);
 }
@@ -548,6 +557,59 @@ body::after {
 .mode-toggle:hover {
   color: var(--text);
   background: var(--surface);
+}
+
+/* --------------------------------------------------- row detail (backlog B1) */
+
+/* Scheduled-vs-expected time pair: the timetable slot stays the primary value,
+   the delay-implied expectation follows it, muted and in mono so the two
+   columns of digits line up down the table. */
+.time-sched {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.time-actual {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  margin-left: 5px;
+  white-space: nowrap;
+}
+/* The affected stretch, a second line under the line number. Only rows the
+   operator gave one carry it, so the cell must grow rather than the column. */
+.route-section {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+  margin-top: 1px;
+  white-space: normal;
+  max-width: 180px;
+}
+
+/* --------------------------------------- station scope on the board (backlog A1) */
+
+/* The window label and the onward link framing the scoped departures table —
+   the same job .meta does on the static station pages, in board type. */
+.scope-meta {
+  font-size: 11px;
+  color: var(--faint);
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+.scope-link {
+  font-size: 12px;
+  margin: 10px 0 0;
+}
+.scope-link a {
+  color: var(--dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.scope-link a:hover {
+  color: var(--text);
 }
 
 /* ---------------------------------------------------------------- badges */

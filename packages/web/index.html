@@ -102,11 +102,14 @@
         <div class="brand">Øresund <span class="brand-sub">live</span></div>
         <span class="board-label">Malmö Hyllie · Malmö C · Københavns Lufthavn (Kastrup) · København H</span>
       </header>
-      <!-- Station picker (audit3 C1): the four monitored stations as real
-           links, shipped in the crawler/no-JS payload. Kept in lockstep with
-           components/StationPicker.ts (test/app.test.ts asserts the en output
-           matches this markup); prerender swaps in the sv/da names + routes. -->
-      <nav class="station-nav" aria-label="Monitored stations"><a href="/station/hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h">København H</a></nav>
+      <!-- Station picker (audit3 C1 nav, backlog A1 live scope): "All" plus the
+           four monitored stations as real links, shipped in the crawler/no-JS
+           payload. On the board main.ts intercepts the click and switches the
+           scope in place; without JS the hrefs still resolve to real pages.
+           Kept in lockstep with components/StationPicker.ts
+           (test/prerender.test.ts asserts the shell matches the en output);
+           prerender swaps in the sv/da names + routes. -->
+      <nav class="station-nav" aria-label="Monitored stations"><a href="/" aria-current="true" data-action="set-station" data-value="all">All</a><span class="sep" aria-hidden="true">·</span><a href="/station/hyllie" data-action="set-station" data-value="hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c" data-action="set-station" data-value="malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup" data-action="set-station" data-value="kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h" data-action="set-station" data-value="kobenhavn-h">København H</a></nav>
       <h1 class="lead">Live Øresundståg / train departures Hyllie ↔ København H — delays, cancellations, alerts every 5 min (Trafiklab).</h1>
       <section class="home-about">
       <h2>Train punctuality across the Øresund, station by station</h2>

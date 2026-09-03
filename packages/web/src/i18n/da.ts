@@ -54,6 +54,9 @@ export const da: Dict = {
   type_delay: 'Forsinkelse',
   type_cancellation: 'Aflyst',
   type_alert: 'Advarsel',
+  // Detalje på forstyrrelsesrækken (B1)
+  time_pair_title: 'Planlagt {sched} · forventet {actual} ({delay})',
+  route_section_hint: 'Berørt strækning',
   // Delay bands (audit3 H1) — badge text in the DELAY column
   delay_band_on_time: 'Til tiden',
   delay_band_minor: '5–15 min',
@@ -143,6 +146,7 @@ export const da: Dict = {
   disruptions_back_to_today: 'Tilbage til i dag',
   disruptions_today_sep: 'I dag',
   disruptions_none_archive: 'Ingen forstyrrelser i det seneste arkiv.',
+  disruptions_none_today_dir: 'Ingen forstyrrelser i denne retning i dag.',
   section_history: 'Historik',
   // Consent banner
   consent_title: 'Cookies og privatliv',
@@ -212,6 +216,12 @@ export const da: Dict = {
     'Rettidighedshistorik for {name} over Øresund — ingen afgange registreret endnu; data begynder at samle, så snart den live overvågning starter.',
   station_daily_heading: 'Rettidighed dag for dag',
   station_other_heading: 'Andre stationer',
+  // Stationsval på tavlen (A1)
+  station_scope_heading: 'Seneste afgange på {name}',
+  station_scope_intro:
+    'Afgange observeret på {name}. Statusbåndet, KPI-kortene og historikken dækker alle fire overvågede stationer.',
+  station_scope_empty: 'Ingen afgange observeret på {name} endnu.',
+  station_scope_archive_link: 'Punktualitetsarkiv for {name}',
   station_live_heading: 'Lige nu',
   station_live_intro:
     'Statusbåndet gælder hele Øresundskorridoren; afgangene nedenfor er observeret på {name}.',
