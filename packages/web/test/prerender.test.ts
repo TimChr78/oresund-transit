@@ -5,6 +5,8 @@ import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
 import { renderStationPicker } from '../src/components/StationPicker';
 import { renderHomeAbout } from '../src/components/HomeAbout';
+import { renderApp } from '../src/components/App';
+import { createInitialState } from '../src/state';
 import { META, hreflangCluster } from '../src/lib/seo';
 import { COLLECTOR_BASE } from '../src/lib/config';
 import { renderPrerenderedPage, renderLocalizedHome, renderHomeWithSummary, type HomeSummary } from '../src/lib/prerender';
@@ -332,18 +334,43 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
   });
 });
 
-describe("boot() fallback removal (CodeRabbit: main.ts 87)", () => {
-  it("boot() source removes #static-shell before route branching", async () => {
-    const src = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-    // static-shell is dropped at the top of boot() before any route handler
-    expect(src).toMatch(/document\.getElementById\(["']static-shell["']\)\?\.remove\(\)/);
-    // and the removal sits before the route = routePath(...) line
-    const removeIdx = src.search(/document\.getElementById\(["\x27]static-shell["\x27]\)\?\.remove\(\)/);
+describe("boot() and #static-shell (audit4 N-H5)", () => {
+  const boot = (): string => readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+
+  it("drops the shell on the static routes, where its dashboard copy would leak", () => {
+    const src = boot();
+    // The removal must sit inside the privacy/methodology branches, after the
+    // route is resolved — not at the top of boot(), where it would take the
+    // homepage's about block with it.
     const routeIdx = src.indexOf("routePath(window.location.pathname)");
-    expect(removeIdx).toBeGreaterThan(-1);
+    const firstRemove = src.search(/document\.getElementById\(["']static-shell["']\)\?\.remove\(\)/);
     expect(routeIdx).toBeGreaterThan(-1);
-    expect(removeIdx).toBeLessThan(routeIdx);
-    // prerender pipeline already asserts static pages strip it, dashboards keep it in shell — this covers the client boot path
+    expect(firstRemove).toBeGreaterThan(-1);
+    expect(firstRemove).toBeGreaterThan(routeIdx);
+    // Twice — once per static route branch.
+    expect(src.match(/document\.getElementById\(["']static-shell["']\)\?\.remove\(\)/g)).toHaveLength(2);
+  });
+
+  it("keeps the prerendered about block on the dashboard instead of wiping it", () => {
+    const src = boot();
+    // N-H5: boot() used to delete #static-shell wholesale before rendering,
+    // discarding the ~305 words of evergreen copy the crawler had just read.
+    // The dashboard path must call the preserver, and must not remove the
+    // shell anywhere else.
+    expect(src).toContain("mountHomeAbout()");
+    const preserveIdx = src.indexOf("mountHomeAbout()");
+    expect(preserveIdx).toBeGreaterThan(-1);
+    // The board render follows the preserve call, so the copy survives boot.
+    const boardRender = src.indexOf("reconcile(root,");
+    expect(boardRender).toBeGreaterThan(preserveIdx);
+  });
+
+  it("mounts the interactive board into #app and leaves the about section outside it", () => {
+    // The whole point of N-H5: the static node is never re-rendered client-side.
+    // renderApp() must not emit a home-about section, or the block would exist
+    // twice — once as the preserved prerender, once from the dictionary.
+    expect(renderApp(createInitialState(), 'en', null)).not.toContain('home-about');
+    expect(shell).toContain('<section class="home-about">');
     expect(shell).toContain('id="static-shell"');
   });
 });

@@ -303,4 +303,11 @@ export const en: Dict = {
   meth_related_title: 'Related pages',
   meth_related_intro:
     'The same definitions applied: the punctuality record of each monitored station, and the disruption history behind the charts.',
+
+  // Collector-outage fallback (audit4 N-H4)
+  err502_title: 'Temporarily unavailable',
+  err502_body:
+    'The data source did not answer, so this page could not be assembled. It is usually back within a few minutes — please try again shortly.',
+  err502_retry: 'Reload the page',
+  err502_home: 'Go to the live board',
 };

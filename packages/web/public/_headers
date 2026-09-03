@@ -1,9 +1,23 @@
 # Security headers (Cloudflare Pages).
 # Applies to every static response served from dist/ (HTML pages, fonts,
 # og-card.png, llms.txt, robots.txt…). Copied verbatim by Vite from public/.
+#
+# audit4 N-H1 — script-src and connect-src also allow the Umami origin. The
+# board has carried the Umami tag since audit2 (cookieless visit counting,
+# documented on /privacy), but `script-src 'self'` blocked it from the day the
+# header landed: the browser refused to run script.js, so every number in the
+# analytics dashboard has been zero. connect-src is needed too — Umami posts
+# its beacon to /api/send on its own origin, which would otherwise fall through
+# to default-src and be blocked as well. The host is pinned rather than the
+# path so a chunked script load still passes; nothing else is relaxed.
+# Comments stay ABOVE the rule on purpose: the _headers parser wants the
+# indented header list to follow the path line immediately.
+#
+# test/security-headers.test.ts pins this CSP string and asserts the Functions'
+# in-code copy of the set never drifts from it.
 /*
   Strict-Transport-Security: max-age=31536000
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://analytics.martechsignal.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://analytics.martechsignal.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

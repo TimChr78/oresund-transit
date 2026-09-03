@@ -30,7 +30,16 @@
   --surface-2: #14161e;
   --text: #f5f7fa;
   --dim: #9aa3b2;
-  --faint: #636b7b;
+  /* The faintest TEXT tier (audit4 N-H8). #636b7b sat at 3.14:1 on --surface
+     and 3.65:1 on --bg — under the 4.5:1 WCAG AA floor for the small sizes it
+     is used at (hints, table headers, footnotes, many ≤12px). #838b9c is the
+     faintest step that clears 4.5:1 on the *lightest* surface the token is
+     read against (--surface, 4.91:1; --surface-2 5.28:1; --bg 5.72:1), since
+     contrast against a dark theme degrades as the background lightens. The
+     hierarchy is unchanged: faint still reads one step fainter than --dim
+     (6.61:1) and far below --text (15.67:1). Do not darken this back without
+     re-checking the smallest size it is used at. */
+  --faint: #838b9c;
   --border: rgba(255, 255, 255, 0.07);
   --green: #10b981;
   --amber: #f59e0b;

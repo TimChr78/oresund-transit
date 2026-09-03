@@ -29,7 +29,7 @@ function statusBadge(d: Departure, lang: Lang): string {
 function departureRow(d: Departure, lang: Lang): string {
   const time = formatTime(d.sched_time ?? '', lang) || '—';
   return `
-  <tr>
+  <tr data-key="${esc(d.dep_key)}">
     <td class="num">${esc(time)}</td>
     <td class="line">${esc(d.line ?? '—')}</td>
     <td class="num">${d.technical_number ? `#${esc(d.technical_number)}` : '—'}</td>

@@ -304,4 +304,11 @@ export const da: Dict = {
   meth_related_title: 'Relaterede sider',
   meth_related_intro:
     'De samme definitioner i praksis: punktualitetsarkivet for hvert overvåget stoppested og forstyrrelleshistorikken bag graferne.',
+
+  // Collector-outage fallback (audit4 N-H4)
+  err502_title: 'Midlertidigt utilgængelig',
+  err502_body:
+    'Datakilden svarede ikke, så siden kunne ikke bygges. Den er normalt tilbage inden for et par minutter — prøv igen om lidt.',
+  err502_retry: 'Indlæs siden igen',
+  err502_home: 'Til afgangstavlen',
 };

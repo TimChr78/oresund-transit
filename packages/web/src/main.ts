@@ -13,7 +13,10 @@ import { renderApp, type ConsentState } from './components/App';
 import { renderMethodologyPage } from './components/MethodologyPage';
 import { renderPrivacyPage } from './components/PrivacyPage';
 import { parseStationScope, type StationScope } from './components/StationPicker';
+import { renderHomeAbout } from './components/HomeAbout';
 import { langFromPath, routePath } from './lib/route';
+import { reconcile } from './lib/dom';
+import { scopedHeadUrl } from './lib/seo';
 import type { Disruption } from '@oresund/shared';
 import { createInitialState, reducer, type Action, type AppState, type DisruptionsMode } from './state';
 import { delayStatsRange, type DayRange, type Direction } from './lib/stats';
@@ -76,6 +79,40 @@ function writeStationQuery(scope: StationScope): void {
   globalThis.history?.replaceState(null, '', url);
 }
 
+/** Drop any query string from an absolute href, keeping the rest verbatim. */
+function withoutQuery(url: string): string {
+  return url.split('?')[0] ?? url;
+}
+
+/**
+ * Head metadata for a station-scoped board (audit4 N-H6).
+ *
+ * `?station=` is a client-side view: the server has no such URL, so the shell
+ * ships the homepage's canonical and hreflang cluster whatever the query says.
+ * Left alone, a board scoped to Hyllie told search engines it WAS the corridor
+ * homepage while linking a cluster of URLs that carry no station at all.
+ *
+ * Every href moves to the `?station=<slug>` form (see scopedHeadUrl for why
+ * not the /station/<slug> archive path) and og:url follows the canonical. The
+ * shell's own values are captured once, while the head still describes the
+ * corridor, so `all` can put them back exactly.
+ */
+function stationSeoUpdater(): (scope: StationScope) => void {
+  const canonical = document.head?.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  const ogUrl = document.head?.querySelector<HTMLMetaElement>('meta[property="og:url"]');
+  const alternates = Array.from(
+    document.head?.querySelectorAll<HTMLLinkElement>('link[rel="alternate"][hreflang]') ?? [],
+  ).map((el) => ({ el, base: withoutQuery(el.getAttribute('href') ?? '') }));
+  const canonicalBase = withoutQuery(canonical?.getAttribute('href') ?? '');
+  const ogBase = withoutQuery(ogUrl?.getAttribute('content') ?? '');
+
+  return (scope) => {
+    canonical?.setAttribute('href', scopedHeadUrl(canonicalBase, scope));
+    ogUrl?.setAttribute('content', scopedHeadUrl(ogBase, scope));
+    for (const { el, base } of alternates) el.setAttribute('href', scopedHeadUrl(base, scope));
+  };
+}
+
 /**
  * Static-page boot (privacy / methodology): static render + language switcher
  * only. No data fetching, no consent banner. `forcedLang` is present on the
@@ -115,27 +152,71 @@ function bootMethodology(root: HTMLElement, forcedLang?: Lang | null): void {
   bootStaticPage(root, { titleKey: 'meth_title', render: renderMethodologyPage }, forcedLang);
 }
 
+/**
+ * The shell's prerendered about block (audit4 N-H5).
+ *
+ * #static-shell ships the homepage's crawlable copy: the lead H1, the station
+ * picker and ~305 words on what the board measures and where the data comes
+ * from. boot() used to delete the whole block before rendering, so a JS
+ * visitor threw every one of those words away the moment the board mounted —
+ * the server's HTML and the client's page shared no content at all, and the
+ * homepage a person saw was not the homepage a crawler indexed.
+ *
+ * Now only the chrome the board re-renders for itself (topbar, station nav,
+ * lead H1, the build-time status sentence) is dropped; the about section is
+ * left exactly as prerendered and stays in place below the board.
+ *
+ * Called with no argument on boot — the static node is already correct for the
+ * page variant, so it is never re-rendered client-side on load or on a refresh.
+ * Called with a language on an explicit switch, when the section is swapped for
+ * the output of the SAME pure renderer the prerenderer used (renderHomeAbout),
+ * so the prerendered copy and the switched copy cannot drift apart.
+ */
+function mountHomeAbout(lang?: Lang): void {
+  const shell = document.getElementById('static-shell');
+  const current = shell?.querySelector('section.home-about');
+  if (!shell || !current) return;
+
+  // Everything else in the shell is board chrome. Keeping it would duplicate
+  // the topbar, the station picker and the lead H1 the board renders — three
+  // of each on the page.
+  for (const child of Array.from(shell.children)) {
+    if (child !== current) child.remove();
+  }
+
+  if (!lang) return;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = renderHomeAbout(lang);
+  const next = tpl.content.firstElementChild;
+  if (next) current.replaceWith(next);
+}
+
 export function boot(): void {
   const root = document.getElementById('app');
   if (!root) return;
 
-  // Drop the no-JS/crawler fallback block (static H1 + SEO lead) shipped in
-  // the shell — boot renders into #app regardless of route below.
-  document.getElementById('static-shell')?.remove();
-
   // /privacy and /methodology render their static pages instead of the
   // dashboard. No data fetching, no consent banner — just the shell, footer
   // and lang switcher. Localized /sv/* and /da/* paths force their language.
+  // Their prerendered HTML has no shell at all (the content is injected into
+  // #app at build time), so this removal only bites in dev, where the
+  // unbuilt shell is still present and its dashboard copy must not leak onto
+  // a static route.
   const pathLang = langFromPath(window.location.pathname);
   const route = routePath(window.location.pathname);
   if (route === 'privacy') {
+    document.getElementById('static-shell')?.remove();
     bootPrivacy(root, pathLang);
     return;
   }
   if (route === 'methodology') {
+    document.getElementById('static-shell')?.remove();
     bootMethodology(root, pathLang);
     return;
   }
+
+  // Keep the prerendered about copy (audit4 N-H5) before the board mounts.
+  mountHomeAbout();
 
   let lang: Lang = pathLang ?? detectLang();
   document.documentElement.lang = lang;
@@ -148,8 +229,16 @@ export function boot(): void {
   const queried = stationFromQuery();
   if (queried !== 'all') state = reducer(state, { type: 'SET_STATION', station: queried });
 
+  // Captured before the first scope is applied, so the head still describes
+  // the corridor and 'all' can restore it verbatim.
+  const applyStationSeo = stationSeoUpdater();
+  if (state.station !== 'all') applyStationSeo(state.station);
+
   const render = (): void => {
-    root.innerHTML = renderApp(state, lang, consent);
+    // Reconciled rather than assigned (audit4 N-H7): a 120-second refresh
+    // changes a handful of cells, not the board, and the nodes it does not
+    // touch keep their place, their selection and their scroll offset.
+    reconcile(root, renderApp(state, lang, consent));
   };
   render();
 
@@ -292,6 +381,7 @@ export function boot(): void {
         event.preventDefault();
         dispatch({ type: 'SET_STATION', station: parseStationScope(value) });
         writeStationQuery(state.station);
+        applyStationSeo(state.station);
         void refreshStation();
         break;
       }
@@ -313,6 +403,9 @@ export function boot(): void {
         lang = value as Lang;
         document.documentElement.lang = lang;
         saveLang(lang);
+        // The about block is the one part of the page the board does not own,
+        // so it is swapped here rather than inside render() (audit4 N-H5).
+        mountHomeAbout(lang);
         render();
         break;
       case 'consent-accept':

@@ -88,3 +88,47 @@ describe('styles.css — de-right-align pass', () => {
     expect(css).toMatch(/\.route-section \{[^}]*display:\s*block/);
   });
 });
+
+describe('styles.css — faint text token (audit4 N-H8)', () => {
+  const surface = '#1a1d27';
+  const surface2 = '#14161e';
+  const bg = '#0a0c10';
+
+  /** WCAG relative luminance and contrast ratio. */
+  const lum = (hex: string): number => {
+    const n = hex.replace('#', '');
+    const ch = (i: number): number => {
+      const c = parseInt(n.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * ch(0) + 0.7152 * ch(2) + 0.0722 * ch(4);
+  };
+  const ratio = (a: string, b: string): number => {
+    const [hi, lo] = [Math.max(lum(a), lum(b)), Math.min(lum(a), lum(b))];
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  const faint = (/^  --faint: (#[0-9a-f]{6});/m.exec(css) ?? [])[1];
+  const dim = (/^  --dim: (#[0-9a-f]{6});/m.exec(css) ?? [])[1];
+  const text = (/^  --text: (#[0-9a-f]{6});/m.exec(css) ?? [])[1];
+
+  it('declares a faint token to test at all', () => {
+    expect(faint).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it('clears WCAG AA (4.5:1) against the lightest surface it is read on', () => {
+    // --faint is used at hint and header sizes (0.72rem+), well under the
+    // 18pt/14pt-bold threshold, so 4.5:1 is the bar — not the 3:1 large-text one.
+    expect(ratio(faint!, surface)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(faint!, surface2)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(faint!, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('stays the faintest text tier, one clear step under --dim', () => {
+    // Hierarchy, not just compliance: faint must still read fainter than the
+    // secondary tier, which itself reads fainter than body text.
+    expect(lum(faint!)).toBeLessThan(lum(dim!));
+    expect(lum(dim!)).toBeLessThan(lum(text!));
+    expect(ratio(faint!, surface) / ratio(dim!, surface)).toBeLessThan(0.9);
+  });
+});

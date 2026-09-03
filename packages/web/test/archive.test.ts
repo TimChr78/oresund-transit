@@ -673,10 +673,27 @@ describe('handleArchiveRequest dispatch', () => {
     expect(html).toContain('Observed up to 21:59 on 2026-08-06');
   });
 
-  it('returns 502 on collector failure', async () => {
+  it('answers a collector failure with the branded localized page (audit4 N-H4)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
     const res = await handleArchiveRequest('/history/30');
     expect(res?.status).toBe(502);
+    expect(res?.headers.get('content-type')).toContain('text/html');
+    expect(res?.headers.get('cache-control')).toBe('no-store');
+    const body = await res?.text();
+    expect(body).toContain('Temporarily unavailable');
+    expect(body).toContain('href="/history/30"'); // the retry hint
+    expect(body).toContain('href="/"'); // the way home
+  });
+
+  it('localizes the 502 from the URL prefix, not just Accept-Language', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
+    // /sv/station/hyllie is a Swedish page, so its error page is Swedish even
+    // though the client asked for Danish. The unprefixed route negotiates.
+    const prefixed = await handleArchiveRequest('/sv/station/hyllie', undefined, 'da-DK,da;q=0.9');
+    expect(await prefixed?.text()).toContain('Tillfälligt otillgänglig');
+
+    const negotiated = await handleArchiveRequest('/station/hyllie', undefined, 'da-DK,da;q=0.9');
+    expect(await negotiated?.text()).toContain('Midlertidigt utilgængelig');
   });
 
   it('returns null for a non-archive path', async () => {
