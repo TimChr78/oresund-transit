@@ -30,6 +30,42 @@ export function normalizeTs(ts: string): string {
   return m ? `${m[1]}T${m[2]}` : '';
 }
 
+/** A complete naive local stamp, the exact shape the collector writes as_of / sched_time. */
+const LOCAL_STAMP_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
+
+/** Days in a month, leap years included (proleptic Gregorian, string math — no Date). */
+function daysInMonth(year: number, month: number): number {
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  return [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 0;
+}
+
+/**
+ * True for a COMPLETE naive local timestamp — "2026-08-06T21:59:27", every
+ * component present and in range. External payloads (the separately deployed
+ * collector) reach the page as `as_of`, where formatDate/formatTime pass the
+ * digits straight through, so a truncated "2026-08-06T21:59" or an impossible
+ * "2026-99-99T12:00:00" would otherwise render as a plausible-looking stamp —
+ * the same trap actualTime() guards against for delay arithmetic. Callers drop
+ * the stamp when this says false; a page without a stamp is better than one
+ * with an invented time.
+ */
+export function isValidLocalTimestamp(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const m = LOCAL_STAMP_RE.exec(value);
+  if (!m) return false;
+  // The pattern pins every component to 4/2 digits, so a match always carries
+  // all six groups; Number() turns a hypothetical gap into NaN, which every
+  // range check below rejects.
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  const second = Number(m[6]);
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59) return false;
+  return day >= 1 && day <= daysInMonth(year, month);
+}
+
 /** Render an HH:MM time per locale (DA uses a dot separator). Empty when unparseable. */
 export function formatTime(value: string, lang: Lang): string {
   const normalized = normalizeTs(value) || value;

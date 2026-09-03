@@ -13,6 +13,7 @@
  * stubbed global fetch.
  */
 import { type Lang } from '../i18n';
+import { isValidLocalTimestamp } from '../i18n/format';
 import type { LiveStatus } from '@oresund/shared';
 import { acceptLang, serviceUnavailableResponse, SECURITY_HEADERS, withSecurityHeaders } from './http-errors';
 import {
@@ -94,12 +95,22 @@ function parseHistory(json: unknown): ArchiveHistory {
   return b as ArchiveHistory;
 }
 
+/** A W3C date, the only shape a sitemap <lastmod> may carry. */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 function parseLines(json: unknown): ArchiveLine[] {
   const b = json as { lines?: unknown } | null;
   if (!b || !Array.isArray(b.lines)) throw new TypeError('invalid lines shape');
-  return (b.lines as { line?: unknown; disruptions?: unknown }[])
+  return (b.lines as { line?: unknown; disruptions?: unknown; last_seen?: unknown }[])
     .filter((l) => l && typeof l.line === 'string' && typeof l.disruptions === 'number')
-    .map((l) => ({ line: l.line as string, disruptions: l.disruptions as number }));
+    .map((l) => ({
+      line: l.line as string,
+      disruptions: l.disruptions as number,
+      // N-M3: the line's own last-data date, when the collector reports one.
+      // Anything that is not a plain date is dropped, so the sitemap can never
+      // emit a <lastmod> that is not a date.
+      ...(typeof l.last_seen === 'string' && DATE_RE.test(l.last_seen) ? { last_seen: l.last_seen } : {}),
+    }));
 }
 
 function parseLine(json: unknown): ArchiveLineStats {
@@ -116,6 +127,10 @@ function parseLine(json: unknown): ArchiveLineStats {
   ) {
     throw new TypeError('invalid line shape');
   }
+  // N-M1: the cross-link list is optional (the collector deploys
+  // independently), so a payload without it just renders no section — but one
+  // that is malformed must not reach the renderer as a broken entry.
+  if (b.stops !== undefined) b.stops = parseStations({ stations: b.stops });
   return b as ArchiveLineStats;
 }
 
@@ -141,11 +156,24 @@ function parseStation(json: unknown): ArchiveStationStats {
   ) {
     throw new TypeError('invalid station shape');
   }
+  // The collector is an external boundary and renders before anyone sees the
+  // value, so an as_of that is not a complete local stamp is dropped here too:
+  // formatDate/formatTime pass the digits through, and "observed up to
+  // 00:00 on 2026-99-99" is worse than no stamp at all (CodeRabbit PR48).
+  if (b.as_of !== undefined && !isValidLocalTimestamp(b.as_of)) delete b.as_of;
+  // N-M1: the line cross-links are optional, and a malformed list is dropped
+  // rather than rendered as link text.
+  if (b.lines !== undefined && !isArrayOfStrings(b.lines)) delete b.lines;
   return b as ArchiveStationStats;
 }
 
 function isDays(value: number): value is ArchiveDays {
   return (DAY_RANGES as readonly number[]).includes(value);
+}
+
+/** True for a list whose every entry is a string (the optional N-M1 link lists). */
+function isArrayOfStrings(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
 /**

@@ -15,7 +15,7 @@ import type { Disruption, Departure, LiveStatus } from '@oresund/shared';
 import { getDict, translate, type Key, type Lang } from '../i18n';
 import { formatExactDelay, formatDate, formatTime } from '../i18n/format';
 import { bannerModel } from '../components/StatusBanner';
-import { stationNameKey } from '../components/StationPicker';
+import { stationNameKey, stationTitleName } from '../components/StationPicker';
 import { BAND_BADGE_CLASS, delayBand, type DelayBand } from './stats';
 import { esc } from './html';
 import { hreflangCluster, localizedPath, localizedUrl, ogLocaleTags, OG_LOCALE, trainStationJsonLd } from './seo';
@@ -30,6 +30,14 @@ export type ArchiveDays = (typeof DAY_RANGES)[number];
 export interface ArchiveLine {
   line: string;
   disruptions: number;
+  /**
+   * The last calendar day the line actually recorded a disruption (audit4
+   * N-M3) — the sitemap's <lastmod> for the line's archive page. Absent or
+   * null for a line the collector has never seen (the canonical set is unioned
+   * in so its pages are crawlable), which is exactly the page that must NOT
+   * claim a fresh daily lastmod.
+   */
+  last_seen?: string | null;
 }
 
 /**
@@ -69,7 +77,14 @@ export function unionCanonicalLines(lines: ArchiveLine[]): ArchiveLine[] {
   const seen = new Set<string>();
   for (const line of CANONICAL_LINES) {
     const existing = lines.find((l) => l.line === line);
-    result.push({ line, disruptions: existing?.disruptions ?? 0 });
+    result.push({
+      line,
+      disruptions: existing?.disruptions ?? 0,
+      // The union must not invent a last-seen date for a line the collector
+      // has never observed: leaving it unset is what tells the sitemap the
+      // page has no data to be fresh about (audit4 N-M3).
+      ...(existing?.last_seen ? { last_seen: existing.last_seen } : {}),
+    });
     seen.add(line);
   }
   for (const l of lines) {
@@ -113,6 +128,13 @@ export interface ArchiveLineStats {
   daily: ArchiveHistory['daily'];
   by_cause: { cause: string; count: number }[];
   recent: Disruption[];
+  /**
+   * The monitored stops the line was observed at inside the window (audit4
+   * N-M1) — what the page cross-links to the station archives. Optional — the
+   * collector deploys independently of the site, so an older payload carries
+   * none and the section is simply left out.
+   */
+  stops?: ArchiveStation[];
 }
 
 /** The collector /api/transit/station/{slug} shape. */
@@ -146,6 +168,12 @@ export interface ArchiveStationStats {
    * older worker carries no stamp and the line is simply dropped.
    */
   as_of?: string;
+  /**
+   * The lines observed at this stop inside the window (audit4 N-M1) — the
+   * counterpart of `ArchiveLineStats.stops`, cross-linking the station page to
+   * the per-line archives. Optional, same reason.
+   */
+  lines?: string[];
 }
 
 interface ShellOpts {
@@ -297,10 +325,10 @@ ${hreflang}
     </style>
   </head>
   <body>
-    <header><a class="brand" href="/">Øresund.live</a></header>
+    <header><a class="brand" href="${localizedPath('/', lang)}">Øresund.live</a></header>
     <main>${body}</main>
     <footer>
-      <p>${esc(translate('archive_attribution', lang))} · <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a> · <a href="/methodology">${esc(translate('nav_methodology', lang))}</a> · <a href="/privacy">${esc(translate('nav_privacy', lang))}</a></p>
+      <p>${esc(translate('archive_attribution', lang))} · <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a> · <a href="${localizedPath('/methodology', lang)}">${esc(translate('nav_methodology', lang))}</a> · <a href="${localizedPath('/privacy', lang)}">${esc(translate('nav_privacy', lang))}</a></p>
     </footer>
   </body>
 </html>
@@ -598,6 +626,7 @@ ${
 ${(stats.recent.length ? stats.recent : []).map(disruptionListItem).join('\n') || '      <li class="meta">None recorded in this range.</li>'}
     </ul>`
   }
+${lineStationsSection(stats.stops, 'en')}
     <h2>Other lines</h2>
     <ul class="plain">
 ${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate('line_archive_href', 'en', { line: l.line }))}</a></li>`).join('\n')}
@@ -653,6 +682,60 @@ function disruptionListItem(d: Disruption): string {
 function stationName(station: { slug: string; stop_name: string }, lang: Lang = 'en'): string {
   const key = stationNameKey(station.slug);
   return key in getDict(lang) ? translate(key, lang) : station.stop_name;
+}
+
+/**
+ * One <a>, tagged with the language of the page it leads to when that differs
+ * from the page linking out (audit4 N-M4). Only the station family localizes —
+ * /line/*, /history/* and the archive hubs are English-only — so a localized
+ * station page links them unprefixed, and without `hreflang`/`lang` the
+ * crawler would read a Swedish page pointing at a URL that looks like a
+ * Swedish twin of an English one. Same attribute pair the home shell's footer
+ * uses for its SV/DA links.
+ */
+function linkTo(href: string, label: string, pageLang: Lang, targetLang: Lang = 'en'): string {
+  const attrs = targetLang === pageLang ? '' : ` lang="${targetLang}" hreflang="${targetLang}"`;
+  return `<a href="${esc(href)}"${attrs}>${esc(label)}</a>`;
+}
+
+/**
+ * "Lines serving this station" (audit4 N-M1): the lines the collector observed
+ * at the stop inside the window, each linking its own line archive — the
+ * station page's side of the station↔line cross-link pair, in crawler-visible
+ * HTML. `lines` comes from the collector payload and is optional (the
+ * collector deploys independently of the site), so a page without it renders
+ * no section rather than an empty one.
+ */
+function stationLinesSection(lines: string[] | undefined, lang: Lang): string {
+  if (!lines || lines.length === 0) return '';
+  const items = lines
+    .map((line) =>
+      `      <li>${linkTo(`/line/${encodeURIComponent(line)}`, translate('line_archive_href', lang, { line }), lang)}</li>`,
+    )
+    .join('\n');
+  return `    <h2>${esc(translate('station_lines_heading', lang))}</h2>
+    <ul class="plain">
+${items}
+    </ul>`;
+}
+
+/**
+ * "Stations on this line" (audit4 N-M1): the monitored stops the line was
+ * observed at, linking their station pages — the line page's side of the same
+ * pair. Optional payload, same convention as stationLinesSection.
+ */
+function lineStationsSection(stops: ArchiveStation[] | undefined, lang: Lang): string {
+  if (!stops || stops.length === 0) return '';
+  const items = stops
+    .map(
+      (s) =>
+        `      <li>${linkTo(localizedPath(`/station/${encodeURIComponent(s.slug)}`, lang), stationName(s, lang), lang)}</li>`,
+    )
+    .join('\n');
+  return `    <h2>${esc(translate('line_stations_heading', lang))}</h2>
+    <ul class="plain">
+${items}
+    </ul>`;
 }
 
 /** /station — index of the per-station archives. */
@@ -741,7 +824,7 @@ export function renderStationPage(
   // The hub link stays on the unprefixed /station — the hub itself is not
   // localized, unlike the per-station pages this page links to below.
   const body = `
-    <p class="crumb"><a href="/">Øresund.live</a> › <a href="/station">${esc(translate('nav_stations', lang))}</a> › ${esc(name)}</p>
+    <p class="crumb"><a href="${localizedPath('/', lang)}">Øresund.live</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
     <h1>${esc(translate('station_h1', lang, { name }))}</h1>
     <p class="sub">${esc(translate('station_sub', lang, { days: stats.days, from: fmtDate(stats.date_from), to: fmtDate(stats.date_to) }))} ${esc(translate('archive_attribution', lang))}.</p>
     ${renderStationLive(stats, live ?? null, lang)}
@@ -776,6 +859,7 @@ ${
           : ''
       }`
   }
+${stationLinesSection(stats.lines, lang)}
     <h2>${esc(translate('station_other_heading', lang))}</h2>
     <ul class="plain">
 ${allStations
@@ -786,12 +870,9 @@ ${allStations
   )
   .join('\n')}
     </ul>`;
-  // SERP-safe short name for <title> only: strip parenthetical qualifiers
-  // ('Københavns Lufthavn (Kastrup)' -> 'Københavns Lufthavn') so even the
-  // longest stop name stays ≤ 60 chars after the i18n template. H1/body keep
-  // the official display name.
-  const titleName = name.replace(
-    /\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ').trim() || name;
+  // SERP-safe short name for <title> only (stationTitleName): H1/body keep the
+  // official display name.
+  const titleName = stationTitleName(name);
   // M6: the slug is URL-encoded everywhere else the station URL is emitted
   // (index cards, sibling links, /line pages, the sitemap), so the canonical —
   // and the JSON-LD URLs that mirror it — must be encoded the same way.

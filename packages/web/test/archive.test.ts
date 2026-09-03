@@ -673,6 +673,20 @@ describe('handleArchiveRequest dispatch', () => {
     expect(html).toContain('Observed up to 21:59 on 2026-08-06');
   });
 
+  it('drops an as_of the collector mangled instead of rendering it (CodeRabbit PR48)', async () => {
+    // formatDate passes digit runs straight through, so an out-of-range stamp
+    // would reach the page as "Observed up to 00:00 on 2026-99-99".
+    stubFetch({
+      '/api/transit/stations': { stations: stationStatsSlugList() },
+      '/api/transit/station/hyllie': { ...stationStats, as_of: '2026-99-99T00:00:00' },
+    });
+    const html = await (await handleArchiveRequest('/station/hyllie'))?.text();
+    expect(html).not.toContain('Observed up to');
+    expect(html).not.toContain('2026-99-99');
+    // The rest of the payload still renders.
+    expect(html).toContain('Malmö Hyllie — punctuality archive');
+  });
+
   it('answers a collector failure with the branded localized page (audit4 N-H4)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
     const res = await handleArchiveRequest('/history/30');
@@ -900,7 +914,7 @@ describe('station live section + localized routes (audit3 C1/H2)', () => {
     stubFetch({
       '/api/transit/stations': { stations: stationStatsSlugList() },
       '/api/transit/station/hyllie': stationStats,
-      '/api/transit/live': live,
+      '/api/transit/live': liveSnapshot,
     });
     const sv = await handleArchiveRequest('/sv/station/hyllie');
     expect(sv?.status).toBe(200);
@@ -1012,5 +1026,164 @@ describe('archive page head: RSS autodiscovery + og:locale (audit3 M7/M10)', () 
     const line = renderLinePage('804', lineStats, []);
     expect(line).toContain('<meta property="og:locale" content="en_GB" />');
     expect(line).not.toContain('og:locale:alternate');
+  });
+});
+
+describe('station ↔ line cross-links (audit4 N-M1)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stubFetch(routes: Record<string, unknown>): void {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const ok = Object.keys(routes).find((k) => url.includes(k.toLowerCase()));
+        if (ok) return jsonResponse(routes[ok]);
+        throw new Error(`no stub for ${url}`);
+      }),
+    );
+  }
+
+  it('the station page links the per-line archives the collector observed at the stop', () => {
+    const html = renderStationPage({ ...stationStats, lines: ['803', '804'] }, stationStatsSlugList());
+    expect(html).toContain('<h2>Lines serving this station</h2>');
+    expect(html).toContain('<li><a href="/line/803">Line 803 delays &amp; history</a></li>');
+    expect(html).toContain('<li><a href="/line/804">Line 804 delays &amp; history</a></li>');
+  });
+
+  it('the line page links the station pages the collector observed the line at', () => {
+    const html = renderLinePage('804', { ...lineStats, stops: stationStatsSlugList() }, []);
+    expect(html).toContain('<h2>Stations on this line</h2>');
+    expect(html).toContain('<li><a href="/station/hyllie">Malmö Hyllie</a></li>');
+    expect(html).toContain('<li><a href="/station/kobenhavn-h">København H</a></li>');
+  });
+
+  it('trilingual heading: SV and DA station pages name the section in their own language', () => {
+    const lines = ['804'];
+    expect(renderStationPage({ ...stationStats, lines }, stationStatsSlugList(), null, 'sv')).toContain(
+      '<h2>Linjer som trafikerar stationen</h2>',
+    );
+    expect(renderStationPage({ ...stationStats, lines }, stationStatsSlugList(), null, 'da')).toContain(
+      '<h2>Linjer, der betjener stationen</h2>',
+    );
+  });
+
+  it('localized station pages mark the English-only line archives as English', () => {
+    // /line/* ships no sv/da twins, so the link says so instead of reading as a
+    // Swedish page pointing at a Swedish URL that does not exist.
+    const html = renderStationPage({ ...stationStats, lines: ['804'] }, stationStatsSlugList(), null, 'sv');
+    expect(html).toContain('<a href="/line/804" lang="en" hreflang="en">Linje 804');
+    // The English page needs no annotation of its own links.
+    const en = renderStationPage({ ...stationStats, lines: ['804'] }, stationStatsSlugList());
+    expect(en).toContain('<a href="/line/804">Line 804');
+    expect(en).not.toContain('hreflang="en" lang="en"');
+  });
+
+  it('omits the section when the payload carries no list (older collector, empty stop)', () => {
+    // Spread-omitted, not `lines: undefined` — the field is optional, and
+    // exactOptionalPropertyTypes keeps that honest at the call site too.
+    expect(renderStationPage({ ...stationStats, lines: [] }, stationStatsSlugList())).not.toContain(
+      'Lines serving this station',
+    );
+    const noLines: ArchiveStationStats = { ...stationStats };
+    delete noLines.lines;
+    expect(renderStationPage(noLines, stationStatsSlugList())).not.toContain('Lines serving this station');
+    expect(renderLinePage('804', { ...lineStats, stops: [] }, [])).not.toContain('Stations on this line');
+    const noStops: ArchiveLineStats = { ...lineStats };
+    delete noStops.stops;
+    expect(renderLinePage('804', noStops, [])).not.toContain('Stations on this line');
+  });
+
+  it('drops a malformed cross-link list at the parse boundary', async () => {
+    stubFetch({
+      '/api/transit/stations': { stations: stationStatsSlugList() },
+      '/api/transit/station/hyllie': { ...stationStats, lines: [{ line: '804' }, 42] },
+      '/api/transit/live': liveSnapshot,
+    });
+    const html = await (await handleArchiveRequest('/station/hyllie'))?.text();
+    expect(html).not.toContain('Lines serving this station');
+    // …while a well-formed list survives the same boundary.
+    stubFetch({
+      '/api/transit/stations': { stations: stationStatsSlugList() },
+      '/api/transit/station/hyllie': { ...stationStats, lines: ['804'] },
+      '/api/transit/live': liveSnapshot,
+    });
+    const ok = await (await handleArchiveRequest('/station/hyllie'))?.text();
+    expect(ok).toContain('<h2>Lines serving this station</h2>');
+  });
+
+  it('the served line page carries the station links through the guarded parser', async () => {
+    stubFetch({
+      '/api/transit/lines': { lines: [{ line: '804', disruptions: 4 }] },
+      '/api/transit/line/804': { ...lineStats, stops: stationStatsSlugList() },
+    });
+    const html = await (await handleArchiveRequest('/line/804'))?.text();
+    expect(html).toContain('<h2>Stations on this line</h2>');
+    expect(html).toContain('href="/station/kastrup"');
+  });
+});
+
+
+describe('localized station pages link their own language (audit4 N-M4)', () => {
+  const LANGS = ['en', 'sv', 'da'] as const;
+  const prefixOf = (lang: string): string => (lang === 'en' ? '' : `/${lang}`);
+
+  /** Every internal <a> on the page, as [href, attributes]. */
+  function anchors(html: string): [string, string][] {
+    return [...html.matchAll(/<a href="([^"]*)"([^>]*)>/g)].map((m) => [m[1]!, m[2]!]);
+  }
+
+  it('all 12 station pages announce the full en/sv/da/x-default cluster, self-consistently', () => {
+    for (const slug of stationStatsSlugList().map((s) => s.slug)) {
+      for (const lang of LANGS) {
+        const html = renderStationPage({ ...stationStats, slug }, stationStatsSlugList(), liveSnapshot, lang);
+        const head = html.slice(0, html.indexOf('</head>'));
+        const base = `/station/${slug}`;
+        const self = `https://oresund.live${prefixOf(lang)}${base}`;
+        expect(head, `${lang} ${slug} canonical`).toContain(`<link rel="canonical" href="${self}" />`);
+        for (const l of LANGS) {
+          expect(head, `${lang} ${slug} -> ${l}`).toContain(
+            `<link rel="alternate" hreflang="${l}" href="https://oresund.live${prefixOf(l)}${base}" />`,
+          );
+        }
+        expect(head, `${lang} ${slug} x-default`).toContain(
+          `<link rel="alternate" hreflang="x-default" href="https://oresund.live${base}" />`,
+        );
+      }
+    }
+  });
+
+  it('all 12 station pages link same-language counterparts, annotating the English-only ones', () => {
+    for (const slug of stationStatsSlugList().map((s) => s.slug)) {
+      for (const lang of LANGS) {
+        const prefix = prefixOf(lang);
+        const html = renderStationPage({ ...stationStats, slug }, stationStatsSlugList(), liveSnapshot, lang);
+        for (const [href, attrs] of anchors(html)) {
+          if (href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto:')) continue;
+          const isLocalizedTwins = href === `${prefix}/` || href.startsWith(`${prefix}/station/`) || href === '/line/804';
+          if (href.startsWith(`${prefix}/`) || (lang === 'en' && href.startsWith('/'))) {
+            // Same language as the page: no annotation needed.
+            expect(attrs, `${lang} ${slug} -> ${href}`).not.toContain('hreflang');
+          } else {
+            // English-only target linked from a localized page: say so.
+            expect(attrs, `${lang} ${slug} -> ${href}`).toContain('hreflang="en"');
+            expect(attrs, `${lang} ${slug} -> ${href}`).toContain('lang="en"');
+            expect(isLocalizedTwins).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
+  it('a localized station page keeps its localized board, methodology and privacy links', () => {
+    const html = renderStationPage({ ...stationStats, lines: ['804'] }, stationStatsSlugList(), liveSnapshot, 'sv');
+    expect(html).toContain('<a class="brand" href="/sv/">Øresund.live</a>');
+    expect(html).toContain('<a href="/sv/">Live-tavlan</a>');
+    expect(html).toContain('<a href="/sv/methodology">');
+    expect(html).toContain('<a href="/sv/privacy">');
+    // The English page keeps the unprefixed forms.
+    const en = renderStationPage({ ...stationStats, lines: ['804'] }, stationStatsSlugList(), liveSnapshot, 'en');
+    expect(en).toContain('<a class="brand" href="/">Øresund.live</a>');
+    expect(en).toContain('<a href="/methodology">');
+    expect(en).toContain('<a href="/privacy">');
   });
 });

@@ -38,6 +38,28 @@
 /** Parse an HTML fragment into its detached top-level elements. */
 export type ParseHtml = (html: string) => Element[];
 
+/**
+ * True for a plain primary click — the only click main.ts may take over.
+ *
+ * The station picker's entries are real links to real pages, so every other
+ * gesture keeps the browser's own meaning (audit4 N-M8): cmd/ctrl-click opens a
+ * new tab, shift-click a new window, alt-click downloads, and a non-primary
+ * button (middle-click) is the same shortcut again. Intercepting those too used
+ * to leave a cmd-click doing nothing at all — the worst of both worlds, a link
+ * that neither navigated nor switched the board.
+ */
+export function isPlainPrimaryClick(event: {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}): boolean {
+  return (
+    event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
+  );
+}
+
 function templateParse(html: string): Element[] {
   const tpl = document.createElement('template');
   tpl.innerHTML = html;

@@ -282,4 +282,41 @@ describe('fetchStation (backlog A1)', () => {
     configureFetch(fetchMock);
     await expect(fetchStation('hyllie')).rejects.toThrow(TypeError);
   });
+
+  // as_of is rendered verbatim under the departures heading, so a stamp the
+  // collector mangled must be dropped rather than shown as an observed time.
+  it('keeps a complete local as_of stamp', async () => {
+    const fetchMock = vi
+      .fn<FetchLike>()
+      .mockResolvedValue(jsonResponse({ ...PAYLOAD, as_of: '2026-09-03T21:59:27' }));
+    configureFetch(fetchMock);
+    expect((await fetchStation('hyllie')).as_of).toBe('2026-09-03T21:59:27');
+  });
+
+  it.each([
+    ['a truncated stamp', '2026-09-03T21:59'],
+    ['a space-separated stamp', '2026-09-03 21:59:27'],
+    ['an out-of-range month', '2026-99-03T21:59:27'],
+    ['an out-of-range day', '2026-09-99T21:59:27'],
+    ['a day the month has no room for', '2026-02-30T21:59:27'],
+    ['an out-of-range hour', '2026-09-03T99:59:27'],
+    ['an out-of-range minute', '2026-09-03T21:99:27'],
+    ['plain garbage', 'not-a-timestamp'],
+  ])('drops the as_of stamp when it is %s', async (_label, asOf) => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ ...PAYLOAD, as_of: asOf }));
+    configureFetch(fetchMock);
+    const result = await fetchStation('hyllie');
+    expect(result.as_of).toBeUndefined();
+    // The punctuality window itself still renders — only the stamp is dropped.
+    expect(result.on_time_pct).toBe(79.2);
+  });
+
+  it('treats a Feb 29 stamp in a leap year as a real date and in a common year as garbage', async () => {
+    const leap = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ ...PAYLOAD, as_of: '2028-02-29T06:00:00' }));
+    configureFetch(leap);
+    expect((await fetchStation('hyllie')).as_of).toBe('2028-02-29T06:00:00');
+    const common = vi.fn<FetchLike>().mockResolvedValue(jsonResponse({ ...PAYLOAD, as_of: '2026-02-29T06:00:00' }));
+    configureFetch(common);
+    expect((await fetchStation('hyllie')).as_of).toBeUndefined();
+  });
 });

@@ -16,7 +16,19 @@ const COLLECTOR_BASE = 'https://oresund-transit-collector.tchristensen78.workers
 
 function parseLines(json) {
   const b = json ?? {};
-  return Array.isArray(b.lines) ? b.lines.filter((l) => l && typeof l.line === 'string') : [];
+  // audit4 N-M3: keep the per-line disruption count and its last-data date, so
+  // a line the collector has never observed can omit <lastmod> instead of
+  // claiming a daily-fresh page. last_seen must be a plain date — anything else
+  // is dropped rather than emitted as a <lastmod> the protocol rejects.
+  return Array.isArray(b.lines)
+    ? b.lines
+        .filter((l) => l && typeof l.line === 'string' && typeof l.disruptions === 'number')
+        .map((l) => ({
+          line: l.line,
+          disruptions: l.disruptions,
+          last_seen: typeof l.last_seen === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(l.last_seen) ? l.last_seen : null,
+        }))
+    : [];
 }
 
 function parseStations(json) {

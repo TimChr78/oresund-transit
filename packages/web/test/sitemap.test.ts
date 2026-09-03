@@ -133,14 +133,20 @@ describe('buildSitemap', () => {
     }
   });
 
-  it('every URL carries a W3C <lastmod>, dated by the family that actually moves it (audit3 H4)', () => {
-    const xml = buildSitemap([{ line: '7085', disruptions: 3 }], [
-      { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
-    ], LASTMOD);
+  it('every URL with data carries a W3C <lastmod>, dated by the family that actually moves it (audit3 H4)', () => {
+    const xml = buildSitemap(
+      [{ line: '7085', disruptions: 3, last_seen: '2026-08-28' }],
+      [{ slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' }],
+      LASTMOD,
+    );
     const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
     expect(entries.length).toBeGreaterThan(0);
-    // <lastmod> precedes <changefreq> — the order the sitemap XSD defines.
-    for (const entry of entries) {
+    // <lastmod> precedes <changefreq> — the order the sitemap XSD defines — and
+    // stays at day precision. Only the never-observed canonical lines carry no
+    // date at all (asserted in its own test below).
+    const dated = entries.filter((e) => e.includes('<lastmod>'));
+    expect(dated.length).toBeGreaterThan(0);
+    for (const entry of dated) {
       expect(entry, entry).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod><changefreq>/);
       expect(entry, entry).not.toMatch(/<lastmod>[^<]*T[^<]*<\/lastmod>/);
     }
@@ -150,10 +156,41 @@ describe('buildSitemap', () => {
       expect(block, url).toContain('<lastmod>2026-09-01</lastmod>');
     }
     // The archive set changes with the data.
-    for (const url of ['https://oresund.live/history/7', 'https://oresund.live/line/7085', 'https://oresund.live/station/hyllie']) {
+    for (const url of ['https://oresund.live/history/7', 'https://oresund.live/line', 'https://oresund.live/station/hyllie']) {
       const block = entries.find((e) => e.includes(`<loc>${url}</loc>`));
       expect(block, url).toContain('<lastmod>2026-09-02</lastmod>');
     }
+    // A discovered line is dated from its OWN data, not the corpus window.
+    expect(entries.find((e) => e.includes('<loc>https://oresund.live/line/7085</loc>'))).toContain(
+      '<lastmod>2026-08-28</lastmod>',
+    );
+  });
+
+  it('omits <lastmod> from a line that has never recorded a disruption (audit4 N-M3)', () => {
+    // The canonical union keeps those pages crawlable, but a page whose content
+    // is "no disruptions recorded" must not tell Google it changes daily —
+    // that claim is unverifiable, and unverifiable dates get ignored.
+    const xml = buildSitemap([], [], LASTMOD);
+    const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
+    for (const line of CANONICAL_LINES) {
+      const block = entries.find((e) => e.includes(`<loc>https://oresund.live/line/${encodeURIComponent(line)}</loc>`));
+      expect(block, line).toBeDefined();
+      expect(block, line).not.toContain('<lastmod>');
+      // …while the /line index that lists them still carries one.
+    }
+    expect(entries.find((e) => e.includes('<loc>https://oresund.live/line</loc>'))).toContain(
+      '<lastmod>2026-09-02</lastmod>',
+    );
+  });
+
+  it('keeps a lastmod for a discovered line an older collector reports without a date', () => {
+    // Deploying the site ahead of the collector must not strip the date from
+    // the pages that DO have data; the data-window end is the fallback.
+    const xml = buildSitemap([{ line: '7085', disruptions: 3 }], [], LASTMOD);
+    const block = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!).find((e) =>
+      e.includes('<loc>https://oresund.live/line/7085</loc>'),
+    );
+    expect(block).toContain('<lastmod>2026-09-02</lastmod>');
   });
 });
 

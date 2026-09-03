@@ -208,6 +208,7 @@ export const en: Dict = {
   // Archive page titles — template must keep the rendered <title> ≤ 60 chars
   // even for the longest monitored stop name ("Københavns Lufthavn (Kastrup)").
   station_archive_title: '{name} — punctuality — Øresund.live',
+  station_board_title: '{name} — live train status — Øresund.live',
   // Station pages (audit3 C1) — the per-station page is fully localized.
   station_h1: '{name} — punctuality archive',
   station_sub: 'Observed departures over the last {days} days ({from}–{to}).',
@@ -217,6 +218,9 @@ export const en: Dict = {
     'Punctuality history for {name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.',
   station_daily_heading: 'Daily on-time performance',
   station_other_heading: 'Other stations',
+  // Station ↔ line cross-links (audit4 N-M1)
+  station_lines_heading: 'Lines serving this station',
+  line_stations_heading: 'Stations on this line',
   // Station scope on the live board (A1)
   station_scope_heading: 'Latest departures at {name}',
   station_scope_intro:

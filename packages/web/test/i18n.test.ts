@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Dict, Key, Lang } from '../src/i18n/keys';
 import { da } from '../src/i18n/da';
 import { en } from '../src/i18n/en';
 import { langFromLocale, statusKeyFor, translate } from '../src/i18n/index';
 import { sv } from '../src/i18n/sv';
+import { STATION_SLUGS, stationNameKey, stationTitleName } from '../src/components/StationPicker';
 
 const ALL_LANGS: Lang[] = ['sv', 'da', 'en'];
 const DICTS: Record<Lang, Dict> = { sv, da, en };
@@ -249,5 +251,40 @@ describe('station-page keys (audit3 C1/M4)', () => {
       'Punctuality history for Malmö Hyllie on the Øresund crossing — 99 departures, 92.9% on time over the last 30 days.',
     );
     expect(translate('station_desc', 'sv', { name: 'Hyllie', n: 10, pct: 90, days: 7 })).toContain('10 avgångar, 90% i tid');
+  });
+});
+
+describe('station-scoped board title (audit4 N-M5)', () => {
+  it('names the picked stop in all three languages', () => {
+    expect(translate('station_board_title', 'en', { name: 'Malmö C' })).toBe(
+      'Malmö C — live train status — Øresund.live',
+    );
+    expect(translate('station_board_title', 'sv', { name: 'Malmö C' })).toBe(
+      'Malmö C — live tågstatus — Øresund.live',
+    );
+    expect(translate('station_board_title', 'da', { name: 'København H' })).toBe(
+      'København H — live togstatus — Øresund.live',
+    );
+  });
+
+  it('interpolates every monitored stop name without leaving a placeholder behind', () => {
+    for (const slug of STATION_SLUGS) {
+      for (const lang of ALL_LANGS) {
+        // The board uses the SERP-safe short name, as the archive titles do.
+        const name = stationTitleName(translate(stationNameKey(slug), lang));
+        const title = translate('station_board_title', lang, { name });
+        expect(title, `${lang} ${slug}`).not.toContain('{name}');
+        expect(title.length, `${lang} ${slug} → ${title}`).toBeLessThanOrEqual(60);
+      }
+    }
+  });
+
+  it('the board applies it on render and restores the shell title on All', () => {
+    // boot() owns document.title (a side effect the pure renderer cannot do),
+    // and captures the shell's own title first so /sv/ and /da/ restore theirs.
+    const src = readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8');
+    expect(src).toContain('function stationTitleUpdater');
+    expect(src.indexOf('const shellTitle = document.title')).toBeGreaterThan(-1);
+    expect(src).toContain('applyStationTitle(state.station, lang)');
   });
 });

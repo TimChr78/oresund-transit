@@ -720,7 +720,7 @@ describe('handleFetch — /api/transit/punctuality', () => {
 
 describe('handleFetch — archive: lines / line', () => {
   const DISTINCT_SQL =
-    'SELECT line, COUNT(*) AS count FROM disruptions WHERE line IS NOT NULL GROUP BY line ORDER BY count DESC LIMIT ?';
+    'SELECT line, COUNT(*) AS count, MAX(date(timestamp)) AS last_seen FROM disruptions WHERE line IS NOT NULL GROUP BY line ORDER BY count DESC LIMIT ?';
   const DAILY_SQL =
     'SELECT date(timestamp) AS date, type, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM disruptions WHERE line = ? AND timestamp >= ? AND timestamp < ? GROUP BY date(timestamp), type';
   const CAUSE_SQL =
@@ -730,18 +730,20 @@ describe('handleFetch — archive: lines / line', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('GET /api/transit/lines lists distinct lines with counts', async () => {
+  it('GET /api/transit/lines lists distinct lines with counts and their last day with data', async () => {
     const db = new FakeD1();
     db.stubAll(DISTINCT_SQL, [
-      { line: '804', count: 40 },
-      { line: '803', count: 15 },
+      { line: '804', count: 40, last_seen: '2026-08-06' },
+      { line: '803', count: 15, last_seen: null },
     ]);
     const res = await handleFetch(new Request('https://oresund.live/api/transit/lines'), env(db));
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
       lines: [
-        { line: '804', disruptions: 40 },
-        { line: '803', disruptions: 15 },
+        // audit4 N-M3: last_seen is the date the line's archive page is really
+        // fresh to; null when the line has no recorded disruption at all.
+        { line: '804', disruptions: 40, last_seen: '2026-08-06' },
+        { line: '803', disruptions: 15, last_seen: null },
       ],
     });
   });
@@ -760,6 +762,12 @@ describe('handleFetch — archive: lines / line', () => {
     db.stubAll(RECENT_SQL, [
       { id: 9, timestamp: '2026-08-06T12:00:00', line: '804', type: 'delay' },
     ]);
+    db.stubAll(
+      'SELECT DISTINCT stop_id FROM departures WHERE line = ? AND sched_time >= ? AND sched_time < ? ORDER BY stop_id',
+      // An id that is not one of the monitored stops (a historical/partial
+      // ingest) is dropped by the mapping, not served as a dead link.
+      [{ stop_id: '740001586' }, { stop_id: '860000626' }, { stop_id: '999999999' }],
+    );
 
     const res = await handleFetch(new Request('https://oresund.live/api/transit/line/804?days=7'), env(db));
     expect(res.status).toBe(200);
@@ -771,6 +779,7 @@ describe('handleFetch — archive: lines / line', () => {
       daily: { date: string; count: number; cancellations: number; delays: number; alerts: number; avg_delay: number | null }[];
       by_cause: { cause: string; count: number }[];
       recent: { id: number; line: string; type: string }[];
+      stops: { slug: string; stop_id: string; stop_name: string }[];
     };
     expect(body.line).toBe('804');
     expect(body.days).toBe(7);
@@ -782,9 +791,24 @@ describe('handleFetch — archive: lines / line', () => {
       { cause: 'unknown', count: 1 },
     ]);
     expect(body.recent).toEqual([{ id: 9, timestamp: '2026-08-06T12:00:00', line: '804', type: 'delay' }]);
+    // audit4 N-M1: the monitored stops the line was observed at, as the
+    // archive page's station cross-links — unknown stop ids dropped.
+    expect(body.stops).toEqual([
+      { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
+      { slug: 'kobenhavn-h', stop_id: '860000626', stop_name: 'København H' },
+    ]);
     // line filtered with the range bound
     expect(db.lastBindsFor('WHERE line = ? AND timestamp >= ?')).toEqual(['804', '2026-07-31', '2026-08-07']);
     expect(db.lastBindsFor('WHERE line = ? ORDER BY timestamp DESC')).toEqual(['804', 20]);
+    expect(db.lastBindsFor('DISTINCT stop_id')).toEqual(['804', '2026-07-31', '2026-08-07']);
+  });
+
+  it('GET /api/transit/line/804 serves no stops list when nothing was observed (empty archive)', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/line/804?days=7'), env(db));
+    const body = (await res.json()) as { stops: string[] };
+    expect(body.stops).toEqual([]);
   });
 
   it('GET /api/transit/line/ rejects an empty line', async () => {
@@ -827,6 +851,10 @@ describe('handleFetch — archive: stations / station', () => {
     db.stubAll(RECENT_SQL, [
       { id: 3, stop_id: '740001586', stop_name: 'Malmö Hyllie', line: '804', sched_time: '2026-08-06T13:59:00' },
     ]);
+    db.stubAll(
+      'SELECT DISTINCT line FROM departures WHERE stop_id = ? AND line IS NOT NULL AND sched_time >= ? AND sched_time < ? ORDER BY line',
+      [{ line: '803' }, { line: '804' }],
+    );
 
     const res = await handleFetch(new Request('https://oresund.live/api/transit/station/hyllie?days=7'), env(db));
     expect(res.status).toBe(200);
@@ -840,6 +868,7 @@ describe('handleFetch — archive: stations / station', () => {
       daily: unknown[];
       as_of: string;
       recent: { id: number; line: string }[];
+      lines: string[];
     };
     expect(body.slug).toBe('hyllie');
     expect(body.stop_name).toBe('Malmö Hyllie');
@@ -857,6 +886,18 @@ describe('handleFetch — archive: stations / station', () => {
     // response's clock: (stop_id, as_of, limit).
     expect(db.lastBindsFor('AND sched_time <= ?')).toEqual(['740001586', '2026-08-06T14:00:00', 20]);
     expect(body.as_of >= '2026-08-06T13:59:00').toBe(true);
+    // audit4 N-M1: the lines observed at the stop, for the station page's
+    // cross-links to the line archives, bounded by the same window.
+    expect(body.lines).toEqual(['803', '804']);
+    expect(db.lastBindsFor('DISTINCT line')).toEqual(['740001586', '2026-07-31', '2026-08-07']);
+  });
+
+  it('GET /api/transit/station/hyllie lists no lines when the stop has no departures yet', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/station/hyllie?days=7'), env(db));
+    const body = (await res.json()) as { lines: string[] };
+    expect(body.lines).toEqual([]);
   });
 
   it('GET /api/transit/station/hyllie never serves future slots as observed (audit4 N-C1)', async () => {

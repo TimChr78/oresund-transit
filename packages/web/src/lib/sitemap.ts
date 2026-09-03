@@ -80,11 +80,12 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], l
   const deployed = w3cDate(lastmod.deployed);
   const data = w3cDate(lastmod.data);
 
-  // <lastmod> precedes <changefreq> — the order the sitemap XSD defines.
-  const add = (url: string, changefreq: string, alternates?: string): void => {
-    locs.push(
-      `  <url><loc>${url}</loc><lastmod>${data}</lastmod><changefreq>${changefreq}</changefreq>${alternates ? `\n${alternates}` : ''}</url>`,
-    );
+  // <lastmod> precedes <changefreq> — the order the sitemap XSD defines. A null
+  // lastmod omits the element entirely: <lastmod></lastmod> is worse than none,
+  // because Google reads an empty/false date as "never changes".
+  const add = (url: string, changefreq: string, alternates?: string, lastmodDate: string | null = data): void => {
+    const lastmodTag = lastmodDate ? `<lastmod>${lastmodDate}</lastmod>` : '';
+    locs.push(`  <url><loc>${url}</loc>${lastmodTag}<changefreq>${changefreq}</changefreq>${alternates ? `\n${alternates}` : ''}</url>`);
   };
 
   // Static pages: one <url> per language, each carrying the full hreflang
@@ -110,7 +111,15 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], l
   add(`${SITE_URL}/line`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/line`));
   for (const l of allLines) {
     const url = `${SITE_URL}/line/${encodeURIComponent(l.line)}`;
-    add(url, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(url));
+    // audit4 N-M3: a line page is only as fresh as the line's own data. The
+    // last day that actually recorded a disruption is the honest <lastmod>;
+    // a line the collector has never seen (the canonical union) has no data at
+    // all, so its URL publishes no lastmod instead of today's — that page is
+    // static boilerplate, and a daily-fresh claim on it is unverifiable. An
+    // older collector that reports counts but no date falls back to the
+    // data-window end for the lines it did discover.
+    const lineLastmod = l.last_seen ?? (l.disruptions > 0 ? data : null);
+    add(url, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(url), lineLastmod ? w3cDate(lineLastmod) : null);
   }
 
   add(`${SITE_URL}/station`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/station`));

@@ -48,7 +48,11 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
     <main class="privacy">
       <h1 class="privacy-title">${esc(dict.meth_title)}</h1>
       <p class="privacy-lead">${esc(dict.meth_intro)}</p>
-      <h3 class="meth-h">${esc(dict.meth_defs_title)}</h3>
+      <!-- Section headings are h2 (audit4 N-M12): they follow the page's h1
+           directly, and skipping to h3 broke the document outline for a screen
+           reader navigating by heading. .meth-h carries the visual style, so
+           the page renders identically. -->
+      <h2 class="meth-h">${esc(dict.meth_defs_title)}</h2>
       <div class="table-wrap meth-table-wrap">
         <table class="meth-table">
           <thead>
@@ -60,15 +64,15 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <h3 class="meth-h">${esc(dict.meth_thresholds_title)}</h3>
+      <h2 class="meth-h">${esc(dict.meth_thresholds_title)}</h2>
       <p>${esc(dict.meth_thresholds_body)}</p>
-      <h3 class="meth-h">${esc(dict.meth_scope_title)}</h3>
+      <h2 class="meth-h">${esc(dict.meth_scope_title)}</h2>
       <p>${esc(dict.meth_scope_body)}</p>
-      <h3 class="meth-h">${esc(dict.meth_source_title)}</h3>
+      <h2 class="meth-h">${esc(dict.meth_source_title)}</h2>
       <p>${esc(dict.meth_source_body)}</p>
-      <h3 class="meth-h">${esc(dict.meth_lag_title)}</h3>
+      <h2 class="meth-h">${esc(dict.meth_lag_title)}</h2>
       <p>${esc(dict.meth_lag_body)}</p>
-      <h3 class="meth-h">${esc(dict.meth_related_title)}</h3>
+      <h2 class="meth-h">${esc(dict.meth_related_title)}</h2>
       <p>${esc(dict.meth_related_intro)}</p>
       ${renderRelatedPages(lang, 'archive-links')}
     </main>

@@ -61,6 +61,18 @@ describe('prerendered static pages', () => {
     expect(html).toContain('data-action="set-lang"');
   });
 
+  it('leaves exactly one <footer> landmark per document (audit4 N-M2)', () => {
+    // The injected page ends in its own footer (attribution + lang switcher),
+    // so the shell's static site-footer must go with the #static-shell strip —
+    // HTML allows one <footer> landmark per document.
+    const methodology = renderPrerenderedPage(shell, renderMethodologyPage('en', getDict('en')), 'en', META.methodology.en);
+    expect(methodology).not.toContain('<footer class="site-footer">');
+    expect(methodology.match(/<footer/g)).toHaveLength(1);
+    const privacy = renderPrerenderedPage(shell, renderPrivacyPage('sv', getDict('sv')), 'sv', META.privacy.sv);
+    expect(privacy).not.toContain('<footer class="site-footer">');
+    expect(privacy.match(/<footer/g)).toHaveLength(1);
+  });
+
   it('drops the dashboard-only noscript: static pages render fine without JS', () => {
     const body = renderMethodologyPage('en', getDict('en'));
     const html = renderPrerenderedPage(shell, body, 'en', META.methodology.en);
@@ -349,6 +361,14 @@ describe("boot() and #static-shell (audit4 N-H5)", () => {
     expect(firstRemove).toBeGreaterThan(routeIdx);
     // Twice — once per static route branch.
     expect(src.match(/document\.getElementById\(["']static-shell["']\)\?\.remove\(\)/g)).toHaveLength(2);
+  });
+
+  it("drops the shell footer the board re-renders, so the document keeps one <footer> (audit4 N-M2)", () => {
+    const src = boot();
+    expect(src).toContain("document.querySelector('footer.site-footer')?.remove()");
+    // …and the board renders its own, so no-JS is not the loser: index.html
+    // still ships the static footer this removes.
+    expect(readFileSync(new URL("../index.html", import.meta.url), "utf8")).toContain('<footer class="site-footer">');
   });
 
   it("keeps the prerendered about block on the dashboard instead of wiping it", () => {

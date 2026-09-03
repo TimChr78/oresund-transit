@@ -53,6 +53,29 @@ export function parseStationScope(value: string | null | undefined): StationScop
 }
 
 /**
+ * The scope a board URL asks for: the `?station=` value of a query string
+ * (leading '?' optional), validated against the monitored slugs. Anything
+ * unexpected — a hand-edited link, a slug from before a stop was renamed, no
+ * param at all — is the whole corridor (audit4 N-M10). Reading it anywhere else
+ * would let a bogus value reach SET_STATION, which puts the station section
+ * into its loading state and then waits for a stop no endpoint serves: the
+ * board would sit in "Loading…" forever.
+ */
+export function stationScopeFromSearch(search: string | null | undefined): StationScope {
+  return parseStationScope(new URLSearchParams(search ?? '').get('station'));
+}
+
+/**
+ * SERP-safe short form of a station name — for <title> only; the H1 and the
+ * body keep the official name. Strips the parenthetical qualifier that pushes
+ * the longest stop past ~60 characters once a title template wraps it:
+ * 'Københavns Lufthavn (Kastrup)' → 'Københavns Lufthavn'.
+ */
+export function stationTitleName(name: string): string {
+  return name.replace(/\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ').trim() || name;
+}
+
+/**
  * The board's scope label (audit3 C1 step 6): four stops are monitored, so the
  * label names all four instead of under-reporting the corridor as
  * "Hyllie ↔ København H". A picked station replaces the list with its name.

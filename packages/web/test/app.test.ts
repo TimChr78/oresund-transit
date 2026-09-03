@@ -335,3 +335,10 @@ describe('renderApp — station picker + board scope (audit3 C1, backlog A1)', (
     expect(html).not.toContain('data-action="retry-disruptions"');
   });
 });
+
+describe('renderApp — landmarks', () => {
+  it('renders exactly one <footer> (audit4 N-M2: the shell ships a second one that boot() drops)', () => {
+    expect(renderApp(createInitialState(), 'en', 'declined').match(/<footer/g)).toHaveLength(1);
+    expect(renderApp(createInitialState(), 'sv', null).match(/<footer/g)).toHaveLength(1);
+  });
+});

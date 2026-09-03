@@ -31,9 +31,11 @@ import {
   queryDistinctLines,
   queryHistory,
   queryLineHistory,
+  queryLineStops,
   queryPunctuality,
   queryRecentDepartures,
   queryRecentDisruptions,
+  queryStationLines,
   queryStationPunctuality,
   readLiveStatus,
   upsertDeparture,
@@ -102,6 +104,22 @@ const STATIONS: StationInfo[] = MONITORED_STOPS.map((s) => ({
   stop_id: s.id,
   stop_name: s.name,
 }));
+
+/**
+ * The monitored stops a list of departure stop ids belongs to, in order.
+ * Line histories only ever carry observed stop ids, so this is what the line
+ * archive can build a station page URL for — an id that is not one of the four
+ * monitored stops (a partial or historical ingest) is dropped rather than
+ * served as a dead link.
+ */
+function monitoredStops(stopIds: string[]): StationInfo[] {
+  const stops: StationInfo[] = [];
+  for (const stopId of stopIds) {
+    const stop = STATIONS.find((s) => s.stop_id === stopId);
+    if (stop) stops.push(stop);
+  }
+  return stops;
+}
 
 /** Operating hours / timestamps are "local" = Europe/Stockholm (monitor local). */
 const LOCAL_TZ = 'Europe/Stockholm';
@@ -450,7 +468,14 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
   if (url.pathname.startsWith('/api/transit/line/')) {
     const line = decodeURIComponent(url.pathname.slice('/api/transit/line/'.length));
     if (!line) return json({ error: 'line is required' }, 400);
-    return json(await queryLineHistory(env.DB, line, parseDays(url)));
+    const days = parseDays(url);
+    // N-M1: the monitored stops the line was actually observed at, so the
+    // line archive can cross-link the station pages it shares data with.
+    const [stats, stopIds] = await Promise.all([
+      queryLineHistory(env.DB, line, days),
+      queryLineStops(env.DB, line, days),
+    ]);
+    return json({ ...stats, stops: monitoredStops(stopIds) });
   }
 
   if (url.pathname.startsWith('/api/transit/station/')) {
@@ -462,14 +487,20 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
     // sched_time <= bound on the recent rows, and the as_of stamp all read the
     // same instant, so the page cannot pair rows with a timestamp they predate.
     const now = new Date();
-    const punctuality = await queryStationPunctuality(env.DB, stop.stop_id, days, now);
-    const recent = await queryRecentDepartures(env.DB, stop.stop_id, 20, now);
+    // N-M1: the lines observed at this stop, for the station page's
+    // cross-links back to the per-line archives.
+    const [punctuality, recent, lines] = await Promise.all([
+      queryStationPunctuality(env.DB, stop.stop_id, days, now),
+      queryRecentDepartures(env.DB, stop.stop_id, 20, now),
+      queryStationLines(env.DB, stop.stop_id, days, now),
+    ]);
     return json({
       ...punctuality,
       slug: stop.slug,
       stop_name: stop.stop_name,
       as_of: recent.as_of,
       recent: recent.rows,
+      lines,
     });
   }
 

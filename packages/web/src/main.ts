@@ -12,10 +12,16 @@ import { detectLang, getDict, saveLang, translate, type Dict, type Key, type Lan
 import { renderApp, type ConsentState } from './components/App';
 import { renderMethodologyPage } from './components/MethodologyPage';
 import { renderPrivacyPage } from './components/PrivacyPage';
-import { parseStationScope, type StationScope } from './components/StationPicker';
+import {
+  parseStationScope,
+  stationNameKey,
+  stationScopeFromSearch,
+  stationTitleName,
+  type StationScope,
+} from './components/StationPicker';
 import { renderHomeAbout } from './components/HomeAbout';
 import { langFromPath, routePath } from './lib/route';
-import { reconcile } from './lib/dom';
+import { reconcile, isPlainPrimaryClick } from './lib/dom';
 import { scopedHeadUrl } from './lib/seo';
 import type { Disruption } from '@oresund/shared';
 import { createInitialState, reducer, type Action, type AppState, type DisruptionsMode } from './state';
@@ -60,10 +66,11 @@ function messageOf(err: unknown): string {
 
 /**
  * The station scope a shared link opens at (backlog A1): `?station=hyllie`.
- * Anything unrecognised — including no param at all — is the whole corridor.
+ * Anything unrecognised — including no param at all — is the whole corridor
+ * (stationScopeFromSearch; audit4 N-M10).
  */
 function stationFromQuery(): StationScope {
-  return parseStationScope(new URLSearchParams(globalThis.location.search).get('station'));
+  return stationScopeFromSearch(globalThis.location.search);
 }
 
 /**
@@ -110,6 +117,31 @@ function stationSeoUpdater(): (scope: StationScope) => void {
     canonical?.setAttribute('href', scopedHeadUrl(canonicalBase, scope));
     ogUrl?.setAttribute('content', scopedHeadUrl(ogBase, scope));
     for (const { el, base } of alternates) el.setAttribute('href', scopedHeadUrl(base, scope));
+  };
+}
+
+/**
+ * The document title of a station-scoped board (audit4 N-M5).
+ *
+ * `?station=` changed the visible board — its heading, its KPI cards, its
+ * departures table — but the tab kept saying "live train status across the
+ * Sound", so a visitor with a board per stop could not tell them apart, and
+ * history/breadcrumbs all read the same. The scoped title names the stop; 'all'
+ * puts the shell's own title back verbatim, so the localized /sv/ and /da/
+ * homes (which ship a translated title) are not overwritten with English.
+ */
+function stationTitleUpdater(): (scope: StationScope, lang: Lang) => void {
+  const shellTitle = document.title;
+  return (scope, lang) => {
+    if (scope === 'all') {
+      document.title = shellTitle;
+      return;
+    }
+    // The SERP-safe short name (StationPicker.stationTitleName) keeps the
+    // longest stop's title inside ~60 characters; the board heading above it
+    // still uses the official name.
+    const name = stationTitleName(translate(stationNameKey(scope), lang));
+    document.title = translate('station_board_title', lang, { name });
   };
 }
 
@@ -195,6 +227,12 @@ export function boot(): void {
   const root = document.getElementById('app');
   if (!root) return;
 
+  // Every route re-renders its own footer (the board's and the static pages'
+  // carry the lang switcher), so the shell's static footer — the no-JS
+  // fallback, still in the served HTML for crawlers and JS-disabled clients —
+  // would leave the document with two <footer> landmarks (audit4 N-M2).
+  document.querySelector('footer.site-footer')?.remove();
+
   // /privacy and /methodology render their static pages instead of the
   // dashboard. No data fetching, no consent banner — just the shell, footer
   // and lang switcher. Localized /sv/* and /da/* paths force their language.
@@ -233,12 +271,17 @@ export function boot(): void {
   // the corridor and 'all' can restore it verbatim.
   const applyStationSeo = stationSeoUpdater();
   if (state.station !== 'all') applyStationSeo(state.station);
+  const applyStationTitle = stationTitleUpdater();
 
   const render = (): void => {
     // Reconciled rather than assigned (audit4 N-H7): a 120-second refresh
     // changes a handful of cells, not the board, and the nodes it does not
     // touch keep their place, their selection and their scroll offset.
     reconcile(root, renderApp(state, lang, consent));
+    // document.title follows the scope (audit4 N-M5): it is a document side
+    // effect, so it lives here next to the DOM write rather than in the pure
+    // renderer, and it re-runs on a language switch like the board does.
+    applyStationTitle(state.station, lang);
   };
   render();
 
@@ -247,35 +290,54 @@ export function boot(): void {
     render();
   };
 
+  /**
+   * Request identity for every board fetch (audit4 N-M11 — the pattern the
+   * station scope already had, applied to all of them). Each request takes the
+   * next id and registers it on START; a reply is applied only while its id is
+   * the current one. Overlap is routine here: the 120-second interval fires
+   * while a slow reply is pending, the range/mode toggles and the retry
+   * buttons start new requests outright, and a reply for a range or mode the
+   * visitor has already left must not overwrite what is on screen.
+   */
+  let requestSeq = 0;
+  const nextRequestId = (): number => ++requestSeq;
+
   const refreshLive = async (): Promise<void> => {
+    const id = nextRequestId();
+    dispatch({ type: 'LIVE_START', id });
     try {
       const live = await fetchLiveStatus();
-      dispatch({ type: 'LIVE_OK', live, at: Date.now() });
+      dispatch({ type: 'LIVE_OK', id, live, at: Date.now() });
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) {
-        dispatch({ type: 'LIVE_NO_DATA', at: Date.now() });
+        dispatch({ type: 'LIVE_NO_DATA', id, at: Date.now() });
       } else {
-        dispatch({ type: 'LIVE_ERROR', message: messageOf(err) });
+        dispatch({ type: 'LIVE_ERROR', id, message: messageOf(err) });
       }
     }
   };
 
   const refreshStats = async (): Promise<void> => {
+    const id = nextRequestId();
+    dispatch({ type: 'STATS_START', id });
     try {
       const { from, to } = delayStatsRange();
       const stats = await fetchDelayStats(from, to);
-      dispatch({ type: 'STATS_OK', stats });
+      dispatch({ type: 'STATS_OK', id, stats });
     } catch (err) {
-      dispatch({ type: 'STATS_ERROR', message: messageOf(err) });
+      dispatch({ type: 'STATS_ERROR', id, message: messageOf(err) });
     }
   };
 
   const refreshHistory = async (): Promise<void> => {
+    const id = nextRequestId();
+    const days = state.dayRange;
+    dispatch({ type: 'HISTORY_START', id });
     try {
-      const history = await fetchHistory(state.dayRange);
-      dispatch({ type: 'HISTORY_OK', history });
+      const history = await fetchHistory(days);
+      dispatch({ type: 'HISTORY_OK', id, history });
     } catch (err) {
-      dispatch({ type: 'HISTORY_ERROR', message: messageOf(err) });
+      dispatch({ type: 'HISTORY_ERROR', id, message: messageOf(err) });
     }
   };
 
@@ -284,27 +346,35 @@ export function boot(): void {
    * heatmap keeps a stable window no matter which range toggle is active.
    */
   const refreshHeatmapHistory = async (): Promise<void> => {
+    const id = nextRequestId();
+    dispatch({ type: 'HEATMAP_HISTORY_START', id });
     try {
       const heatmapHistory = await fetchHistory(30);
-      dispatch({ type: 'HEATMAP_HISTORY_OK', history: heatmapHistory });
+      dispatch({ type: 'HEATMAP_HISTORY_OK', id, history: heatmapHistory });
     } catch (err) {
-      dispatch({ type: 'HEATMAP_HISTORY_ERROR', message: messageOf(err) });
+      dispatch({ type: 'HEATMAP_HISTORY_ERROR', id, message: messageOf(err) });
     }
   };
 
   const refreshPunctuality = async (): Promise<void> => {
+    const id = nextRequestId();
+    const days = state.dayRange;
+    dispatch({ type: 'PUNCTUALITY_START', id });
     try {
-      const punctuality = await fetchPunctuality(state.dayRange);
-      dispatch({ type: 'PUNCTUALITY_OK', punctuality });
+      const punctuality = await fetchPunctuality(days);
+      dispatch({ type: 'PUNCTUALITY_OK', id, punctuality });
     } catch (err) {
-      dispatch({ type: 'PUNCTUALITY_ERROR', message: messageOf(err) });
+      dispatch({ type: 'PUNCTUALITY_ERROR', id, message: messageOf(err) });
     }
   };
 
   const refreshDisruptions = async (): Promise<void> => {
+    const id = nextRequestId();
+    const mode = state.disruptionsMode;
+    dispatch({ type: 'DISRUPTIONS_START', id });
     try {
       let disruptions: Disruption[];
-      if (state.disruptionsMode === 'archive') {
+      if (mode === 'archive') {
         // Archive: no date bounds — the API returns the most recent rows
         // across all history (capped at 200 by the worker).
         disruptions = await fetchDisruptions(200);
@@ -315,9 +385,9 @@ export function boot(): void {
         const { from, to } = delayStatsRange();
         disruptions = await fetchDisruptions(50, from, to);
       }
-      dispatch({ type: 'DISRUPTIONS_OK', disruptions });
+      dispatch({ type: 'DISRUPTIONS_OK', id, disruptions });
     } catch (err) {
-      dispatch({ type: 'DISRUPTIONS_ERROR', message: messageOf(err) });
+      dispatch({ type: 'DISRUPTIONS_ERROR', id, message: messageOf(err) });
     }
   };
 
@@ -326,16 +396,11 @@ export function boot(): void {
    * feed cannot be filtered by station — `Disruption` carries no `stop_id` —
    * so a scope pulls the one per-stop feed the collector exposes instead.
    * Slugs are read from state at dispatch time, so a reply for a stop the
-   * visitor already left lands in a reducer that drops it. Every fetch also
-   * carries an id: the refresh interval, the picker and the retry action can
-   * all start a second request while the first is still pending, and only the
-   * one the board is still waiting for may land.
+   * visitor already left lands in a reducer that drops it.
    */
-  let stationRequestSeq = 0;
-
   const refreshStation = async (): Promise<void> => {
     if (state.station === 'all') return;
-    const id = ++stationRequestSeq;
+    const id = nextRequestId();
     const scope = state.station;
     dispatch({ type: 'STATION_START', id, scope });
     try {
@@ -377,7 +442,12 @@ export function boot(): void {
       case 'set-station': {
         // The picker entries are real links (that is the no-JS fallback and
         // what middle-click/open-in-tab still uses), so a JS click has to be
-        // stopped from navigating before the scope is switched in place.
+        // stopped from navigating before the scope is switched in place — but
+        // only a plain primary click. A modified click keeps the browser's own
+        // meaning (audit4 N-M8): cmd/ctrl-click opens the station page in a new
+        // tab, shift-click in a new window, alt-click downloads it. Breaking
+        // those left a cmd-click doing nothing at all.
+        if (!isPlainPrimaryClick(event)) break;
         event.preventDefault();
         dispatch({ type: 'SET_STATION', station: parseStationScope(value) });
         writeStationQuery(state.station);

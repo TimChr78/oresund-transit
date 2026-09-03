@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { actualTime, formatDate, formatDelaySeconds, formatExactDelay, formatPct, formatTime, normalizeTs } from '../src/i18n/format';
+import {
+  actualTime,
+  formatDate,
+  formatDelaySeconds,
+  formatExactDelay,
+  formatPct,
+  formatTime,
+  isValidLocalTimestamp,
+  normalizeTs,
+} from '../src/i18n/format';
 
 describe('formatDate', () => {
   it('formats SV/EN dates as YYYY-MM-DD', () => {
@@ -172,5 +181,43 @@ describe('actualTime (backlog B1 — the expected departure)', () => {
   it('still accepts the boundary values a timetable can legitimately carry', () => {
     expect(actualTime('2026-08-06T23:59:59', 0, 'en')).toBe('23:59');
     expect(actualTime('2026-08-06T00:00:00', 60, 'en')).toBe('00:01');
+  });
+});
+
+describe('isValidLocalTimestamp (the as_of guard)', () => {
+  it('accepts a complete, in-range local stamp', () => {
+    expect(isValidLocalTimestamp('2026-08-06T21:59:27')).toBe(true);
+    expect(isValidLocalTimestamp('2026-01-01T00:00:00')).toBe(true);
+    expect(isValidLocalTimestamp('2024-02-29T23:59:59')).toBe(true); // leap day
+  });
+
+  it('rejects anything that is not a complete stamp', () => {
+    expect(isValidLocalTimestamp('2026-08-06T21:59')).toBe(false); // no seconds
+    expect(isValidLocalTimestamp('2026-08-06 21:59:27')).toBe(false); // space form
+    expect(isValidLocalTimestamp('2026-08-06')).toBe(false); // date only
+    expect(isValidLocalTimestamp('21:59:27')).toBe(false); // time only
+    expect(isValidLocalTimestamp('not-a-timestamp')).toBe(false);
+    expect(isValidLocalTimestamp('')).toBe(false);
+    expect(isValidLocalTimestamp(undefined)).toBe(false);
+    expect(isValidLocalTimestamp(null)).toBe(false);
+    expect(isValidLocalTimestamp(1234)).toBe(false);
+  });
+
+  it('rejects out-of-range components (the digit-only match would pass them)', () => {
+    expect(isValidLocalTimestamp('2026-99-06T21:59:27')).toBe(false); // month
+    expect(isValidLocalTimestamp('2026-00-06T21:59:27')).toBe(false);
+    expect(isValidLocalTimestamp('2026-08-99T21:59:27')).toBe(false); // day
+    expect(isValidLocalTimestamp('2026-08-00T21:59:27')).toBe(false);
+    expect(isValidLocalTimestamp('2026-08-06T99:59:27')).toBe(false); // hour
+    expect(isValidLocalTimestamp('2026-08-06T21:99:27')).toBe(false); // minute
+    expect(isValidLocalTimestamp('2026-08-06T21:59:99')).toBe(false); // second
+  });
+
+  it('rejects a day the named month has no room for', () => {
+    expect(isValidLocalTimestamp('2026-02-30T12:00:00')).toBe(false); // common-year Feb
+    expect(isValidLocalTimestamp('2026-02-29T12:00:00')).toBe(false); // 2026 is not a leap year
+    expect(isValidLocalTimestamp('2026-04-31T12:00:00')).toBe(false); // 30-day month
+    expect(isValidLocalTimestamp('2100-02-29T12:00:00')).toBe(false); // century, not a leap year
+    expect(isValidLocalTimestamp('2000-02-29T12:00:00')).toBe(true); // 400-year leap
   });
 });
