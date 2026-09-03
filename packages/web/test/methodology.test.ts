@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderMethodologyPage } from '../src/components/MethodologyPage';
+import { renderApp } from '../src/components/App';
+import { createInitialState } from '../src/state';
 import { getDict, type Lang } from '../src/i18n';
 
 const LANGS: Lang[] = ['sv', 'da', 'en'];
@@ -30,7 +32,7 @@ describe('renderMethodologyPage', () => {
     for (const lang of LANGS) {
       const html = renderMethodologyPage(lang, getDict(lang));
       expect(html, lang).toContain(expectations[lang]);
-      expect(html, lang).toContain('href="/"');
+      expect(html, lang).toContain(`href="${lang === 'en' ? '/' : `/${lang}/`}"`);
     }
   });
 
@@ -115,5 +117,32 @@ describe('methodology heading order (audit4 N-M12)', () => {
     const html = renderMethodologyPage('en', getDict('en'));
     expect(html).toContain('<h2 class="meth-h">KPI definitions</h2>');
     expect(html).not.toContain('<h3');
+  });
+});
+
+describe('methodology analytics disclosure (audit4 N-M16)', () => {
+  it('documents the cookieless measurement instead of showing a consent banner', () => {
+    for (const lang of LANGS) {
+      const dict = getDict(lang);
+      const html = renderMethodologyPage(lang, dict);
+      expect(html, lang).toContain(dict.meth_tracking_title);
+      expect(html, lang).toContain('Umami');
+      // The three facts the finding turned on: no cookies, no personal data,
+      // nothing stored beyond the language choice.
+      expect(html, lang).toContain(dict.meth_tracking_body);
+      expect(html, lang).toContain('localStorage');
+      // …with the fuller statement one click away.
+      expect(html, lang).toContain(
+        `href="/${lang === 'en' ? '' : `${lang}/`}privacy"`,
+      );
+    }
+  });
+
+  it('is the only consent-ish copy on the site — no banner, no dialog, no accept/decline', () => {
+    // Nothing anywhere on the board may ask for consent again without this
+    // test forcing the decision to be made deliberately.
+    expect(renderApp(createInitialState(), 'en')).not.toMatch(/role="dialog"/i);
+    expect(renderApp(createInitialState(), 'en')).not.toMatch(/consent/i);
+    expect(renderApp(createInitialState(), 'en')).not.toMatch(/cookie/i);
   });
 });

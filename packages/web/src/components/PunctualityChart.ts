@@ -1,12 +1,45 @@
 import type { PunctualityResponse } from '../api';
-import { translate, type Lang } from '../i18n';
+import { translate, type Key, type Lang } from '../i18n';
 import { punctualitySeries, svgY } from '../lib/stats';
+import { renderSrTable } from '../lib/sr-table';
+import { formatDate, formatDelaySeconds, formatPct } from '../i18n/format';
 import { esc } from '../lib/html';
 
 /** Day-of-month tick label ("06") for the x-axis. */
 function dayLabel(date: string): string {
   return /^\d{4}-\d{2}-(\d{2})$/.exec(date)?.[1] ?? date;
 }
+
+/** Caption for the chart's visually-hidden data table (N-M15). */
+function srCaption(lang: Lang): string {
+  return `${translate('hist_punctuality', lang)}: ${translate('sr_data_table', lang)}`;
+}
+
+/**
+ * One row per day in the source window, including the days the line skips.
+ * A day with no departures shows an em dash for every measured column, so the
+ * table agrees with the break in the line and with the "data since" note
+ * instead of implying the day was punctual.
+ */
+function punctualityRows(punctuality: PunctualityResponse, lang: Lang): string[][] {
+  return punctuality.daily.map((d) => [
+    formatDate(d.date, lang) || d.date,
+    d.total > 0 ? formatPct(d.on_time_pct, lang) : '—',
+    d.total > 0 ? String(d.on_time) : '—',
+    d.total > 0 ? String(d.delayed) : '—',
+    d.total > 0 ? String(d.canceled) : '—',
+    formatDelaySeconds(d.avg_delay_seconds, lang),
+  ]);
+}
+
+const PUNCT_HEADERS: Key[] = [
+  'th_date',
+  'th_on_time_pct',
+  'stat_on_time',
+  'stat_delayed',
+  'stat_canceled',
+  'stat_avg_delay',
+];
 
 const W = 560;
 const H = 140;
@@ -91,18 +124,25 @@ export function renderPunctualityChart(punctuality: PunctualityResponse, lang: L
     <p class="chart-hint">${esc(translate('hist_punctuality_hint', lang))}</p>
     <div class="punct-chart">
       <div class="punct-ylabels" aria-hidden="true">${yLabels}</div>
-      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(translate('hist_punctuality', lang))}">
+      <!-- Decorative for assistive tech (N-M15): the % values live in the data
+           table below, and the dots' <title> tooltips still fire on hover. -->
+      <svg viewBox="0 0 ${W} ${H}" aria-hidden="true">
         ${grid}
         ${areas}
         ${lines}
         ${dots}
       </svg>
       ${note}
-      <div class="punct-ticks">${ticks}</div>
+      <div class="punct-ticks" aria-hidden="true">${ticks}</div>
     </div>
     <div class="legend">
       <span class="legend-item"><span class="legend-dot dot-punct"></span>${translate('stat_on_time', lang)}</span>
       ${latest ? `<span class="legend-item punct-latest">${latest.on_time_pct}%</span>` : ''}
     </div>
+    ${renderSrTable({
+      caption: srCaption(lang),
+      headers: PUNCT_HEADERS.map((key) => translate(key, lang)),
+      rows: punctualityRows(punctuality, lang),
+    })}
   </div>`;
 }

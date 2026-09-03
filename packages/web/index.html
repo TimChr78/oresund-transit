@@ -115,7 +115,7 @@
            Kept in lockstep with components/StationPicker.ts
            (test/prerender.test.ts asserts the shell matches the en output);
            prerender swaps in the sv/da names + routes. -->
-      <nav class="station-nav" aria-label="Monitored stations"><a href="/" aria-current="true" data-action="set-station" data-value="all">All</a><span class="sep" aria-hidden="true">·</span><a href="/station/hyllie" data-action="set-station" data-value="hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c" data-action="set-station" data-value="malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup" data-action="set-station" data-value="kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h" data-action="set-station" data-value="kobenhavn-h">København H</a></nav>
+      <nav class="station-nav" aria-label="Monitored stations"><a href="/" aria-current="page" data-action="set-station" data-value="all">All</a><span class="sep" aria-hidden="true">·</span><a href="/station/hyllie" data-action="set-station" data-value="hyllie">Malmö Hyllie</a><span class="sep" aria-hidden="true">·</span><a href="/station/malmo-c" data-action="set-station" data-value="malmo-c">Malmö C</a><span class="sep" aria-hidden="true">·</span><a href="/station/kastrup" data-action="set-station" data-value="kastrup">Københavns Lufthavn (Kastrup)</a><span class="sep" aria-hidden="true">·</span><a href="/station/kobenhavn-h" data-action="set-station" data-value="kobenhavn-h">København H</a></nav>
       <h1 class="lead">Live train departures: Hyllie, Malmö C, Kastrup, København H</h1>
       <section class="home-about">
       <h2>Train punctuality across the Øresund, station by station</h2>
@@ -138,7 +138,7 @@
     </div>
     <footer class="site-footer">
       <nav aria-label="Site sections">
-        <a href="/history">Disruption history</a>
+        <a href="/history/30">Disruption history</a>
         <span class="sep" aria-hidden="true">·</span>
         <a href="/line">Line archives</a>
         <span class="sep" aria-hidden="true">·</span>

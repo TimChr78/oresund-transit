@@ -92,7 +92,9 @@ export function stationScopeLabel(lang: Lang, scope: StationScope = 'all'): stri
  */
 export function renderStationPicker(lang: Lang, scope: StationScope = 'all'): string {
   const item = (value: StationScope, href: string, label: string): string => {
-    const current = scope === value ? ' aria-current="true"' : '';
+    // aria-current="page", not "true": on a link the token names the current
+    // page, which is what screen readers and browsers key on (audit4 LOW).
+    const current = scope === value ? ' aria-current="page"' : '';
     return `<a href="${esc(href)}"${current} data-action="set-station" data-value="${value}">${esc(label)}</a>`;
   };
   const all = item('all', localizedPath('/', lang), translate('tab_all', lang));

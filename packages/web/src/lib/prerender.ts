@@ -159,6 +159,17 @@ function applySeo(html: string, lang: Lang, meta: PageMeta, hreflang?: string): 
   // M10: og:locale + og:locale:alternate — every page family is served in
   // three languages, so Facebook/LinkedIn can tell /sv/ from / (audit3 M2).
   html = html.replace('</head>', `${ogLocaleTags(lang)}\n  </head>`);
+  // The shell's JSON-LD carries an English `description` on both the WebSite
+  // and the Organization node, and nothing above rewrites it — so a /sv/ page
+  // with a Swedish title and meta description still published English
+  // sentences inside `lang="sv"` structured data. Rather than add a third
+  // language's worth of description strings to keep in sync, drop the member
+  // on the non-English variants: `name`/`url`/`sameAs`/`contactPoint` are the
+  // facts the graph exists for, and the archive family's siteIdentity already
+  // ships without a description (audit4 LOW).
+  if (lang !== 'en') {
+    html = html.replace(/\s*"description": "[^"]*",/g, '');
+  }
   if (hreflang) {
     html = html.replace('</head>', `${hreflang}\n  </head>`);
   }

@@ -389,7 +389,7 @@ describe("boot() and #static-shell (audit4 N-H5)", () => {
     // The whole point of N-H5: the static node is never re-rendered client-side.
     // renderApp() must not emit a home-about section, or the block would exist
     // twice — once as the preserved prerender, once from the dictionary.
-    expect(renderApp(createInitialState(), 'en', null)).not.toContain('home-about');
+    expect(renderApp(createInitialState(), 'en')).not.toContain('home-about');
     expect(shell).toContain('<section class="home-about">');
     expect(shell).toContain('id="static-shell"');
   });

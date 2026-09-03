@@ -9,7 +9,8 @@
  *
  * Pure function — no I/O — so it is trivially testable.
  */
-import type { Lang } from '../i18n';
+import { translate, type Lang } from '../i18n';
+import { stationNameKey } from '../components/StationPicker';
 import { SITE_URL, DAY_RANGES, unionCanonicalLines, CANONICAL_LINES, type ArchiveLine, type ArchiveStation } from './archive';
 import { META, localizedPath } from './seo';
 
@@ -228,10 +229,12 @@ export function buildLlmsTxt(): string {
   const lines = CANONICAL_LINES.map((l) => `- [Line ${l}](/line/${encodeURIComponent(l)})`).join('\n');
   const stations = STATIC_STATIONS.flatMap((s) =>
     (['en', 'sv', 'da'] as const).map((lang) => {
-      const desc = LLMS_STATION_DESC[lang]
-        .replace('{name}', s.stop_name)
-        .replace('{id}', s.stop_id);
-      return `- [${s.stop_name} — ${LLMS_LANG_LABEL[lang]}](${localizedPath(`/station/${encodeURIComponent(s.slug)}`, lang)}): ${desc}`;
+      // The name comes from the dictionary, not the collector's stop_name: the
+      // link text has to match the H1 of the page it points at (the rule
+      // ArchiveLinks states), and stop_name is the English literal.
+      const name = translate(stationNameKey(s.slug), lang);
+      const desc = LLMS_STATION_DESC[lang].replace('{name}', name).replace('{id}', s.stop_id);
+      return `- [${name} — ${LLMS_LANG_LABEL[lang]}](${localizedPath(`/station/${encodeURIComponent(s.slug)}`, lang)}): ${desc}`;
     }),
   ).join('\n');
   const windows = DAY_RANGES.map((d) => `- [Last ${d} days](/history/${d})`).join('\n');
@@ -256,7 +259,7 @@ ${stations}
 
 ## History windows
 
-- [Disruption history](/history): daily disruption totals
+- [Disruption history](/history/30): daily disruption totals
 ${windows}
 
 ## Methodology

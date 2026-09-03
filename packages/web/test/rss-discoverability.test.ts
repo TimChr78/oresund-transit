@@ -44,7 +44,7 @@ describe('RSS feed discoverability', () => {
   });
 
   it('the full app shell includes the footer RSS link', () => {
-    const html = renderApp(createInitialState(), 'en', 'declined');
+    const html = renderApp(createInitialState(), 'en');
     expect(html).toContain('href="/feed.xml"');
   });
 

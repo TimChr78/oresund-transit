@@ -246,7 +246,7 @@ describe('renderDisruptionsTable — delay band badges (audit3 H1)', () => {
 
   it('drops the severity column (6 columns, date separators span them all)', () => {
     const html = renderDisruptionsTable([disruption()], 'en', 'archive');
-    expect(html).toContain('<th>Time</th><th>Line</th><th>Type</th><th>Delay</th><th>Direction</th><th>Reason</th>');
+    expect(html).toContain('<th scope="col">Time</th><th scope="col">Line</th><th scope="col">Type</th><th scope="col">Delay</th><th scope="col">Direction</th><th scope="col">Reason</th>');
     expect(html).toContain('colspan="6"');
     expect(html).not.toContain('colspan="7"');
     expect(html).not.toContain('<th>Severity</th>');
@@ -350,7 +350,7 @@ describe('train technical_number (audit3 H2)', () => {
     const html = renderDisruptionsTable([base], 'en');
     expect(html).toContain('<td class="line">804<span class="train-no">#1132</span></td>');
     // No eighth column: the table stays phone-sized.
-    expect(html).toMatch(/<th>Line<\/th><th>Type<\/th>/);
+    expect(html).toMatch(/<th scope="col">Line<\/th><th scope="col">Type<\/th>/);
   });
 
   it('omits the token when a row has no train number', () => {

@@ -15,7 +15,7 @@ describe('renderPrivacyPage', () => {
       const html = renderPrivacyPage(lang, getDict(lang));
       expect(html, lang).toContain(expectations[lang].title);
       expect(html, lang).toContain(expectations[lang].back);
-      expect(html, lang).toContain('href="/"');
+      expect(html, lang).toContain(`href="${lang === 'en' ? '/' : `/${lang}/`}"`);
     }
   });
 

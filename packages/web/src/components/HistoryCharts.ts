@@ -1,7 +1,6 @@
 import type { HistoryResponse, PunctualityResponse } from '../api';
 import { translate, type Key, type Lang } from '../i18n';
 import { causeLabel } from '../lib/causes';
-import { formatDelaySeconds, formatPct } from '../i18n/format';
 import {
   barHeightPct,
   byWeekday,
@@ -18,6 +17,8 @@ import {
 } from '../lib/stats';
 import { renderPunctualityChart } from './PunctualityChart';
 import { renderInsightCards } from './InsightCards';
+import { renderSrTable } from '../lib/sr-table';
+import { formatDate, formatDelaySeconds, formatPct } from '../i18n/format';
 import { esc } from '../lib/html';
 
 /** Static line → route label map (Øresundståg cross-border services). */
@@ -34,6 +35,11 @@ const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 /** Muted one-liner under a chart title defining what the chart shows. */
 function chartHint(key: Key, lang: Lang): string {
   return `<p class="chart-hint">${esc(translate(key, lang))}</p>`;
+}
+
+/** Caption for a chart's visually-hidden data table (N-M15). */
+function srCaption(titleKey: Key, lang: Lang): string {
+  return `${translate(titleKey, lang)}: ${translate('sr_data_table', lang)}`;
 }
 
 function legend(lang: Lang): string {
@@ -236,7 +242,7 @@ export function renderHistoryCharts(
     <header class="section-head">
       <h2 class="section-title">${translate('section_history', lang)}</h2>
       <span class="total-chip">${translate('hist_total', lang, { n: history.total_disruptions })}</span>
-      <div class="day-toggle" role="group" aria-label="range">${toggles}</div>
+      <div class="day-toggle" role="group" aria-label="${esc(translate('filter_range', lang))}">${toggles}</div>
     </header>
 
     ${renderInsightCards(history, lang)}
@@ -244,7 +250,9 @@ export function renderHistoryCharts(
     <div class="chart">
       <h3 class="chart-title">${translate('hist_daily', lang)}</h3>
       ${chartHint('hist_daily_hint', lang)}
-      <div class="bars">
+      <!-- The plot is geometry only (N-M15): every value it draws is in the
+           data table below it, so the bars carry nothing a screen reader needs. -->
+      <div class="bars" aria-hidden="true">
         ${axis}
         <div class="bar-plot">
           <div class="plot-band">
@@ -256,6 +264,23 @@ export function renderHistoryCharts(
         </div>
       </div>
       ${legend(lang)}
+      ${renderSrTable({
+        caption: srCaption('hist_daily', lang),
+        headers: [
+          translate('th_date', lang),
+          translate('type_cancellation', lang),
+          translate('type_delay', lang),
+          translate('type_alert', lang),
+          translate('th_total', lang),
+        ],
+        rows: history.daily.map((d) => [
+          formatDate(d.date, lang) || d.date,
+          String(d.cancellations),
+          String(d.delays),
+          String(d.alerts),
+          String(d.count),
+        ]),
+      })}
     </div>
 
     ${punctuality ? renderPunctualityChart(punctuality, lang) : ''}
@@ -284,14 +309,32 @@ export function renderHistoryCharts(
     <div class="chart">
       <h3 class="chart-title">${translate('hist_by_hour', lang)}</h3>
       ${chartHint('hist_by_hour_hint', lang)}
-      <div class="heatmap">${cells}</div>
-      <div class="heat-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
+      <!-- Cells are colour-only (their values live in a title attribute no
+           screen reader announces), so the grid is decorative and the table
+           below carries the numbers (N-M15). -->
+      <div class="heatmap" aria-hidden="true">${cells}</div>
+      <div class="heat-ticks" aria-hidden="true"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
       ${heatmapHistory ? `<div class="heat-caption">${translate('heat_caption', lang)}</div>` : ''}
       <div class="heat-legend" aria-hidden="true">
         <span class="heat-swatch heat-low"></span><span class="heat-label">${translate('heat_low', lang)}</span>
         <span class="heat-scale"></span>
         <span class="heat-swatch heat-high"></span><span class="heat-label">${translate('heat_high', lang)}</span>
       </div>
+      ${renderSrTable({
+        caption: srCaption('hist_by_hour', lang),
+        // Exactly the two numbers the cells encode: the share of the window's
+        // disruptions and the count behind it (meth_def_by_hour).
+        headers: [
+          translate('th_hour', lang),
+          translate('th_share', lang),
+          translate('th_count', lang),
+        ],
+        rows: buckets.map((count, hour) => [
+          `${String(hour).padStart(2, '0')}:00`,
+          formatPct(shares[hour] ?? 0, lang),
+          String(count),
+        ]),
+      })}
     </div>
   </section>`;
 }

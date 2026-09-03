@@ -48,7 +48,13 @@ export const en: Dict = {
   th_status: 'Status',
   th_train: 'Train',
   th_on_time_pct: 'On time %',
-  th_canceled: 'Cancelled',
+  // Chart data tables (audit4 N-M15)
+  th_total: 'Total',
+  th_hour: 'Hour',
+  th_share: 'Share',
+  th_count: 'Count',
+  sr_data_table: 'data table',
+  th_canceled: 'Canceled',
   // Disruption types
   type_delay: 'Delay',
   type_cancellation: 'Cancellation',
@@ -145,13 +151,10 @@ export const en: Dict = {
   disruptions_back_to_today: 'Back to today',
   disruptions_today_sep: 'Today',
   disruptions_none_archive: 'No disruptions logged in the recent archive.',
+  disruptions_caption_today: 'Disruptions today',
+  disruptions_caption_archive: 'Disruptions on record',
   disruptions_none_today_dir: 'No disruptions in this direction today.',
   section_history: 'History',
-  // Consent banner
-  consent_title: 'Cookies & privacy',
-  consent_body: 'We use cookies only to remember your language choice. No ads, no tracking.',
-  consent_accept: 'Accept',
-  consent_decline: 'Decline',
   // Empty / loading / error states
   empty_no_data: 'No departures yet — waiting for the first scheduled run.',
   empty_loading: 'Loading…',
@@ -189,6 +192,10 @@ export const en: Dict = {
   meth_lag_title: 'Data lag',
   meth_lag_body:
     'Trafiklab data can lag the official Skånetrafiken app by about 10–15 minutes on cancellations.',
+  meth_tracking_title: 'Analytics and consent',
+  meth_tracking_body:
+    'Visitor numbers are counted with Umami: a cookieless, anonymised counter that stores no personal data and does not follow you between sites. The only thing this site keeps in your browser is your language choice, saved in localStorage. Because the measurement is neutral statistics with no identifier, it asks for no consent and shows no cookie banner.',
+
   nav_methodology: 'Methodology',
   meth_def_on_time: 'Share of today’s cross-border departures with a delay under 240 seconds (4 minutes).',
   meth_def_delayed:
@@ -241,6 +248,8 @@ export const en: Dict = {
   nav_stations: 'Stations',
   nav_board: 'Live board',
   station_nav_label: 'Monitored stations',
+  filter_direction: 'Filter disruptions by direction',
+  filter_range: 'History range',
   // Footer
   footer_attribution: 'Data from Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data can lag official apps by ~10–15 min; cancellations may be missed.',

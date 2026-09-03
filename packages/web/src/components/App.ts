@@ -3,7 +3,6 @@ import { translate, type Lang } from '../i18n';
 import { esc } from '../lib/html';
 import { filterByDirection, sortNewestFirst } from '../lib/stats';
 import { renderArchiveHubLinks } from './ArchiveLinks';
-import { renderConsentBanner } from './ConsentBanner';
 import { renderDirectionTabs } from './DirectionTabs';
 import { renderDisruptionsHero } from './DisruptionsHero';
 import { renderDisruptionsTable } from './DisruptionsTable';
@@ -13,8 +12,6 @@ import { renderStationDepartures } from './StationDepartures';
 import { renderStationPicker, stationNameKey, stationScopeLabel } from './StationPicker';
 import { renderStatCards } from './StatCards';
 import { renderStatusBanner } from './StatusBanner';
-
-export type ConsentState = 'accepted' | 'declined' | null;
 
 /** Per-section loading / error / empty placeholder (kept static, no motion). */
 function placeholder(kind: 'loading' | 'error' | 'empty', lang: Lang, retryAction?: string): string {
@@ -32,8 +29,12 @@ function placeholder(kind: 'loading' | 'error' | 'empty', lang: Lang, retryActio
 /**
  * Pure render of the whole board. Sections render independently: one failing
  * endpoint shows its own error/empty state while the rest stays live.
+ *
+ * No consent banner (audit4 N-M16): the one measurement on this site is
+ * cookieless, anonymised Umami (see the methodology page's analytics section),
+ * so there is nothing to opt into and no dialog to dismiss.
  */
-export function renderApp(state: AppState, lang: Lang, consent: ConsentState): string {
+export function renderApp(state: AppState, lang: Lang): string {
   // Banner first — the signature element.
   let banner: string;
   if (state.live) {
@@ -160,7 +161,6 @@ export function renderApp(state: AppState, lang: Lang, consent: ConsentState): s
         ${renderArchiveHubLinks(lang, 'archive-links')}
       </section>
     </main>
-    ${consent === null ? renderConsentBanner(lang) : ''}
     ${renderFooter(lang)}
   </div>`;
 }

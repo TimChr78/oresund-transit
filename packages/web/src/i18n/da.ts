@@ -49,6 +49,12 @@ export const da: Dict = {
   th_status: 'Status',
   th_train: 'Tog',
   th_on_time_pct: 'Til tiden %',
+  // Diagramdatatabeller (audit4 N-M15)
+  th_total: 'I alt',
+  th_hour: 'Time',
+  th_share: 'Andel',
+  th_count: 'Antal',
+  sr_data_table: 'datatabel',
   th_canceled: 'Aflyste',
   // Disruption types
   type_delay: 'Forsinkelse',
@@ -146,13 +152,11 @@ export const da: Dict = {
   disruptions_back_to_today: 'Tilbage til i dag',
   disruptions_today_sep: 'I dag',
   disruptions_none_archive: 'Ingen forstyrrelser i det seneste arkiv.',
+  disruptions_caption_today: 'Forstyrrelser i dag',
+  disruptions_caption_archive: 'Forstyrrelser i arkivet',
   disruptions_none_today_dir: 'Ingen forstyrrelser i denne retning i dag.',
   section_history: 'Historik',
   // Consent banner
-  consent_title: 'Cookies og privatliv',
-  consent_body: 'Vi bruger cookies kun til at huske dit sprogvalg. Ingen annoncer, ingen sporing.',
-  consent_accept: 'OK',
-  consent_decline: 'Afvis',
   // Empty / loading / error states
   empty_no_data: 'Ingen afgange endnu — første planlagte aflæsning afventes.',
   empty_loading: 'Indlæser…',
@@ -190,6 +194,10 @@ export const da: Dict = {
   meth_lag_title: 'Forsinkelse i data',
   meth_lag_body:
     'Trafiklab-data kan ligge ca. 10–15 minutter efter Skånetrafikens officielle app, når det gælder aflysninger.',
+  meth_tracking_title: 'Måling og samtykke',
+  meth_tracking_body:
+    'Besøgstallet håndteres af Umami: en cookiefri og anonymiseret tæller, der ikke gemmer persondata og ikke følger dig mellem nettsteder. Det eneste, der gemmes i din browser, er dit sprogvalg i localStorage. Fordi målingen er neutral statistik uden identifikator, beder den ikke om samtykke og viser ingen cookiebanner.',
+
   nav_methodology: 'Metode',
   meth_def_on_time: 'Andel af dagens grænseoverskridende afgange med under 240 sekunders (4 minutters) forsinkelse.',
   meth_def_delayed:
@@ -240,6 +248,8 @@ export const da: Dict = {
   nav_stations: 'Stationer',
   nav_board: 'Live-tavlen',
   station_nav_label: 'Overvågede stationer',
+  filter_direction: 'Filtrér forstyrrelser efter retning',
+  filter_range: 'Historikkens tidsinterval',
   // Footer
   footer_attribution: 'Data fra Trafiklab.se (CC-BY 4.0)',
   footer_disclaimer: 'Data kan ligge ~10–15 min. efter officielle apps; aflyste afgange kan blive overset.',

@@ -1,5 +1,6 @@
 import type { Dict, Lang } from '../i18n';
 import { esc } from '../lib/html';
+import { localizedPath } from '../lib/seo';
 import { renderFooter } from './Footer';
 
 /**
@@ -15,14 +16,14 @@ export function renderPrivacyPage(lang: Lang, dict: Dict): string {
   <div class="wrap privacy-wrap">
     <header class="topbar">
       <div class="brand">${esc(dict.brand_name)} <span class="brand-sub">${esc(dict.brand_sub)}</span></div>
-      <a class="privacy-back" href="/">${esc(dict.privacy_back)}</a>
+      <a class="privacy-back" href="${esc(localizedPath('/', lang))}">${esc(dict.privacy_back)}</a>
     </header>
     <main class="privacy">
       <h1 class="privacy-title">${esc(dict.privacy_title)}</h1>
       <p class="privacy-lead">${esc(dict.privacy_intro)}</p>
       <p>${esc(dict.privacy_analytics)}</p>
       <p class="privacy-source">${esc(dict.privacy_data_source)}
-        <a href="https://www.trafiklab.se" target="_blank" rel="noopener">Trafiklab.se</a>
+        <a href="https://www.trafiklab.se" target="_blank" rel="noopener noreferrer">Trafiklab.se</a>
       </p>
       <p>${esc(dict.privacy_ads)}</p>
       <p class="privacy-contact">${esc(dict.privacy_contact)}

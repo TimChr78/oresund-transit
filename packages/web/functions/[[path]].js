@@ -49,9 +49,9 @@ const NOT_FOUND_HTML = `<!doctype html>
       <a class="brand" href="/">Øresund.live</a>
       <h1>Page not found</h1>
       <p>The page you’re looking for doesn’t exist or has moved.</p>
-      <nav>
+      <nav aria-label="Site sections">
         <a href="/">Live board</a>
-        <a href="/history">Disruption history</a>
+        <a href="/history/30">Disruption history</a>
         <a href="/line">Line archives</a>
         <a href="/station">Station archives</a>
       </nav>

@@ -197,6 +197,10 @@ export function renderDisruptionsTable(
     'th_direction',
     'th_reason',
   ];
+  // The table has no visible heading of its own (the section title sits above
+  // the tabs), so the caption names it for a screen reader. It stays sr-only:
+  // a second visible "Disruptions" would duplicate the section heading.
+  const captionKey: Key = mode === 'archive' ? 'disruptions_caption_archive' : 'disruptions_caption_today';
   let prevDate = '';
   const bodyRows: string[] = [];
   for (const d of disruptions) {
@@ -212,8 +216,9 @@ export function renderDisruptionsTable(
   return `
   <div class="table-wrap" id="disruptions-table">
     <table class="board-table">
+      <caption class="sr-only">${esc(translate(captionKey, lang))}</caption>
       <thead>
-        <tr>${headers.map((h) => `<th>${translate(h, lang)}</th>`).join('')}</tr>
+        <tr>${headers.map((h) => `<th scope="col">${translate(h, lang)}</th>`).join('')}</tr>
       </thead>
       <tbody>${bodyRows.join('')}</tbody>
     </table>

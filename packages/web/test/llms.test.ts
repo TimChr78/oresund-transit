@@ -45,17 +45,23 @@ describe('llms.txt (M7)', () => {
    * right language variant without following four links.
    */
   it('enumerates every station URL in all three languages, each with a description', () => {
+    // The label is the localized display name — the string the linked page's
+    // own H1 uses, not the collector's English stop_name (audit4 LOW).
     const stations = [
-      { slug: 'hyllie', name: 'Malmö Hyllie', id: '740001586' },
-      { slug: 'malmo-c', name: 'Malmö C', id: '740000003' },
-      { slug: 'kastrup', name: 'Københavns Lufthavn (Kastrup)', id: '860000858' },
-      { slug: 'kobenhavn-h', name: 'København H', id: '860000626' },
+      { slug: 'hyllie', id: '740001586', names: { en: 'Malmö Hyllie', sv: 'Malmö Hyllie', da: 'Malmö Hyllie' } },
+      { slug: 'malmo-c', id: '740000003', names: { en: 'Malmö C', sv: 'Malmö C', da: 'Malmö C' } },
+      {
+        slug: 'kastrup',
+        id: '860000858',
+        names: { en: 'Københavns Lufthavn (Kastrup)', sv: 'Kastrup flygplats', da: 'Kastrup Lufthavn' },
+      },
+      { slug: 'kobenhavn-h', id: '860000626', names: { en: 'København H', sv: 'Köpenhamn H', da: 'København H' } },
     ];
     const prefixes = { en: '', sv: '/sv', da: '/da' } as const;
     const langLabel = { en: 'English', sv: 'svenska', da: 'dansk' } as const;
     for (const s of stations) {
       for (const lang of ['en', 'sv', 'da'] as const) {
-        const line = `- [${s.name} — ${langLabel[lang]}](${prefixes[lang]}/station/${s.slug}):`;
+        const line = `- [${s.names[lang]} — ${langLabel[lang]}](${prefixes[lang]}/station/${s.slug}):`;
         expect(txt, line).toContain(line);
       }
       // The description names the stop id — the same identifier the page's
@@ -77,7 +83,7 @@ describe('llms.txt (M7)', () => {
   });
 
   it('lists the history index and every day window, plus methodology and privacy', () => {
-    expect(txt).toContain('[Disruption history](/history)');
+    expect(txt).toContain('[Disruption history](/history/30)');
     for (const d of DAY_RANGES) {
       expect(txt).toContain(`[Last ${d} days](/history/${d})`);
     }
