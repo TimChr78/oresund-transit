@@ -64,9 +64,9 @@ function hreflangLinks(basePath: string): string {
 /**
  * The minimal xhtml:link alternate set for an archive URL. Most archive routes
  * exist as one URL per page (no sv/da twins — localized variants exist only
- * for the static pages and the station pages), so each announces itself via
- * en + a self-referencing x-default, same as the HTML <head> emission
- * (archive.pageShell's hreflangSelf).
+ * for the static pages, the station pages and the /history hub), so each
+ * announces itself via en + a self-referencing x-default, same as the HTML
+ * <head> emission (archive.pageShell's hreflangSelf).
  */
 function archiveAlternateLinks(url: string): string {
   return [
@@ -102,7 +102,16 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], l
   addStatic('/methodology', STATIC_CHANGEFREQ.page);
   addStatic('/privacy', STATIC_CHANGEFREQ.page);
 
-  // /history itself 301s to /history/30 (H5) - only canonical window URLs are indexable.
+  // The /history hub is, with the station pages, the one archive family with
+  // localized twins: en + sv + da, each URL carrying the full hreflang cluster
+  // so Google maps the three variants to each other.
+  for (const lang of LANGS) {
+    const url = lang === 'en' ? `${SITE_URL}/history` : `${SITE_URL}/${lang}/history`;
+    add(url, ARCHIVE_CHANGEFREQ, hreflangLinks('/history'));
+  }
+
+  // The /history/{days} windows stay single-URL (H5) — the hub is their index,
+  // so the windows list no localized variants of their own.
   for (const d of DAY_RANGES) {
     const url = `${SITE_URL}/history/${d}`;
     add(url, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(url));
@@ -259,7 +268,8 @@ ${stations}
 
 ## History windows
 
-- [Disruption history](/history/30): daily disruption totals
+- [Disruption history](/history): the whole corridor for the last 30 days — departures, on-time share and disruptions across all four monitored stations (also in [svenska](/sv/history) and [dansk](/da/history)).
+- [Disruption history, last 30 days](/history/30): daily disruption totals
 ${windows}
 
 ## Methodology

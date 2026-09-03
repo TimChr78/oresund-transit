@@ -82,8 +82,13 @@ describe('llms.txt (M7)', () => {
     }
   });
 
-  it('lists the history index and every day window, plus methodology and privacy', () => {
-    expect(txt).toContain('[Disruption history](/history/30)');
+  it('lists the history hub (all three languages) and every day window, plus methodology and privacy', () => {
+    expect(txt).toContain('[Disruption history](/history):');
+    // The hub localizes, so its twins are named right where the hub is —
+    // an LLM can pick the Swedish or Danish page without a second hop.
+    expect(txt).toContain('](/sv/history)');
+    expect(txt).toContain('](/da/history)');
+    expect(txt).toContain('[Disruption history, last 30 days](/history/30)');
     for (const d of DAY_RANGES) {
       expect(txt).toContain(`[Last ${d} days](/history/${d})`);
     }

@@ -22,8 +22,8 @@ describe('buildSitemap', () => {
     expect(locs).toContain('https://oresund.live/');
     expect(locs).toContain('https://oresund.live/methodology');
     expect(locs).toContain('https://oresund.live/privacy');
-    // /history 301s to /history/30 (H5) — only the canonical window is listed.
-    expect(locs).not.toContain('https://oresund.live/history');
+    // /history is a real page now (the aggregate hub), so it is listed.
+    expect(locs).toContain('https://oresund.live/history');
     expect(locs).toContain('https://oresund.live/line');
     expect(locs).toContain('https://oresund.live/station');
     for (const d of [7, 14, 30, 90]) expect(locs).toContain(`https://oresund.live/history/${d}`);
@@ -113,7 +113,8 @@ describe('buildSitemap', () => {
     }
 
     // Archive alternates point at the archive URL itself (no /sv/ /da/ twins).
-    // /history itself 301s to /history/30 (H5) so it is intentionally absent.
+    // The /history hub is not in this list — it has localized twins and is
+    // asserted with the full cluster in its own test below.
     const archiveUrls = [
       'https://oresund.live/history/7',
       'https://oresund.live/history/30',
@@ -213,12 +214,31 @@ describe('localized station URLs (audit3 C1)', () => {
     }
   });
 
-  it('leaves the single-URL archives (line, history, station hub) without localized twins', () => {
+  it('leaves the single-URL archives (line, history window, station hub) without localized twins', () => {
     const xml = buildSitemap([{ line: '804', disruptions: 2 }], [
       { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
     ], LASTMOD);
     expect(xml).not.toContain('<loc>https://oresund.live/sv/line/804</loc>');
     expect(xml).not.toContain('<loc>https://oresund.live/sv/history/7</loc>');
     expect(xml).not.toContain('<loc>https://oresund.live/sv/station</loc>');
+  });
+
+  it('emits the /history hub in en + sv + da, each carrying the full hreflang cluster (audit4)', () => {
+    const xml = buildSitemap([], [], LASTMOD);
+    for (const url of [
+      'https://oresund.live/history',
+      'https://oresund.live/sv/history',
+      'https://oresund.live/da/history',
+    ]) {
+      const entry = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!).find((e) => e.includes(`<loc>${url}</loc>`));
+      expect(entry, url).toBeDefined();
+      expect(entry!, url).toContain('<xhtml:link rel="alternate" hreflang="en" href="https://oresund.live/history" />');
+      expect(entry!, url).toContain('<xhtml:link rel="alternate" hreflang="sv" href="https://oresund.live/sv/history" />');
+      expect(entry!, url).toContain('<xhtml:link rel="alternate" hreflang="da" href="https://oresund.live/da/history" />');
+      expect(entry!, url).toContain('<xhtml:link rel="alternate" hreflang="x-default" href="https://oresund.live/history" />');
+      // The hub is data-driven, so its <lastmod> is the data-window end, like
+      // the windows and station pages it links.
+      expect(entry!, url).toContain('<lastmod>2026-09-02</lastmod>');
+    }
   });
 });

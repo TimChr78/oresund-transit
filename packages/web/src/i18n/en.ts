@@ -281,6 +281,17 @@ export const en: Dict = {
   line_no_disruptions_note: 'No disruptions recorded since monitoring began 2026-08-06.',
   station_no_data_note: 'No departures recorded since monitoring began 2026-08-06.',
 
+  // The /history hub — the aggregate archive page, served in en + sv + da.
+  hub_history_title: 'Disruption history — Øresund.live',
+  hub_history_h1: 'Disruption history',
+  hub_history_desc:
+    'Corridor-wide disruption history for the Øresund crossing — departures, on-time share and recorded disruptions at the four monitored stations.',
+  hub_history_sub: 'What the four monitored stations recorded together over the last {days} days, {from} to {to}.',
+  hub_history_intro:
+    'One page for the whole crossing: how many departures ran, how many left on time and how many disruptions were logged — with links into every station, line and window archive.',
+  hub_history_windows_heading: 'Choose a window',
+  stat_disruptions: 'Disruptions',
+
   // Station display names (audit3 M4) — keyed by the collector slug. The en
   // forms mirror the collector's stop_name verbatim (archive.ts falls back to
   // it for slugs the dictionaries do not know yet).

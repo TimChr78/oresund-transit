@@ -59,6 +59,8 @@ describe('security headers on Pages Function responses (audit4 N-C2, merged from
     '/api/transit/stations': { stations: [{ slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' }] },
     '/api/transit/station/hyllie': payload,
     '/api/transit/history': { days: 30, date_from: '2026-07-08', date_to: '2026-08-06', total_disruptions: 0, daily: [] },
+    // The /history hub reads the corridor punctuality rows as well.
+    '/api/transit/punctuality': { days: 30, date_from: '2026-07-08', date_to: '2026-08-06', daily: [] },
     '/api/transit/live': { status: 'green', timestamp: '2026-08-06T21:59:27', disruption_count: 0, service_shutdown: false },
   };
   const fetchOk: FetchLike = async (url) => {
@@ -68,13 +70,14 @@ describe('security headers on Pages Function responses (audit4 N-C2, merged from
   };
   const fetchDown: FetchLike = async () => { throw new Error('collector unreachable'); };
 
-  it('attaches the full set to a rendered page, the 301 and the branded 502', async () => {
+  it('attaches the full set to a rendered page, the history hub and the branded 502', async () => {
     const page = await handleArchiveRequest('/line', fetchOk);
     expect(page?.status).toBe(200);
-    const redirect = await handleArchiveRequest('/history', fetchOk);
+    const hub = await handleArchiveRequest('/history', fetchOk);
+    expect(hub?.status).toBe(200);
     const down = await handleArchiveRequest('/history/30', fetchDown);
     expect(down?.status).toBe(502);
-    for (const res of [page, redirect, down]) {
+    for (const res of [page, hub, down]) {
       expect(res).not.toBeNull();
       for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
         expect(res!.headers.get(name), `${name} on a ${res!.status}`).toBe(value);

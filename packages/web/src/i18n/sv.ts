@@ -283,6 +283,17 @@ export const sv: Dict = {
   line_no_disruptions_note: 'Inga störningar registrerade sedan övervakningen startade 2026-08-06.',
   station_no_data_note: 'Inga avgångar registrerade sedan övervakningen startade 2026-08-06.',
 
+  // The /history hub — the aggregate archive page, served in en + sv + da.
+  hub_history_title: 'Störningshistorik — Øresund.live',
+  hub_history_h1: 'Störningshistorik',
+  hub_history_desc:
+    'Störningshistorik för hela Öresundskorridoren — avgångar, andel i tid och registrerade störningar vid de fyra övervakade stationerna.',
+  hub_history_sub: 'Vad de fyra övervakade stationerna registrerade tillsammans de senaste {days} dagarna, {from} till {to}.',
+  hub_history_intro:
+    'En sida för hela Öresund: hur många avgångar som gick, hur många som gick i tid och hur många störningar som registrerades — med länkar till alla stations-, linje- och fönsterarkiv.',
+  hub_history_windows_heading: 'Välj fönster',
+  stat_disruptions: 'Störningar',
+
   // Stationsnamn (audit3 M4) — nycklas efter collector-slugen.
   station_hyllie: 'Malmö Hyllie',
   station_kobenhavn_h: 'Köpenhamn H',

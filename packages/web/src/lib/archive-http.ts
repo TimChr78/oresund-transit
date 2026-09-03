@@ -1,6 +1,7 @@
 /**
  * HTTP wiring for the archive routes — the shared dispatch used by the thin
- * Pages Functions in functions/{line,station,history}/[[path]].js.
+ * Pages Functions in functions/{line,station,history}/[[path]].js and their
+ * localized twins functions/{sv,da}/{station,history}/[[path]].js.
  *
  * It parses the request path, fetches the matching collector endpoint, and
  * returns a fully-rendered HTML Response (200). Data problems (collector
@@ -18,6 +19,7 @@ import type { LiveStatus } from '@oresund/shared';
 import { acceptLang, serviceUnavailableResponse, SECURITY_HEADERS, withSecurityHeaders } from './http-errors';
 import {
   DAY_RANGES,
+  renderHistoryHub,
   renderHistoryPage,
   renderLineIndex,
   renderLinePage,
@@ -27,6 +29,7 @@ import {
   type ArchiveHistory,
   type ArchiveLine,
   type ArchiveLineStats,
+  type ArchivePunctuality,
   type ArchiveStation,
   type ArchiveStationStats,
 } from './archive';
@@ -44,7 +47,7 @@ const HTML_HEADERS: Record<string, string> = {
  * The security header set public/_headers applies to static assets (audit4
  * N-C2). Cloudflare only reads `_headers` for files it serves from dist/ — a
  * Pages Function's Response is NOT covered by it. Defined once in
- * ./http-errors and re-exported here so the archive routes' 200/301/502 all
+ * ./http-errors and re-exported here so the archive routes' 200/502 all
  * carry it; test/security-headers.test.ts asserts it matches the file.
  */
 export { SECURITY_HEADERS };
@@ -111,6 +114,38 @@ function parseLines(json: unknown): ArchiveLine[] {
       // emit a <lastmod> that is not a date.
       ...(typeof l.last_seen === 'string' && DATE_RE.test(l.last_seen) ? { last_seen: l.last_seen } : {}),
     }));
+}
+
+/**
+ * The collector /api/transit/punctuality shape — the corridor-wide daily rows
+ * the /history hub sums into its headline numbers. Only the members the
+ * aggregation reads are validated; anything else passes through as parsed JSON.
+ */
+function parsePunctuality(json: unknown): ArchivePunctuality {
+  const b = json as Partial<ArchivePunctuality> | null;
+  if (
+    !b ||
+    typeof b.days !== 'number' ||
+    typeof b.date_from !== 'string' ||
+    typeof b.date_to !== 'string' ||
+    !Array.isArray(b.daily)
+  ) {
+    throw new TypeError('invalid punctuality shape');
+  }
+  // A row that is not a full punctuality day would poison the sums, so it is
+  // dropped rather than partially trusted — the hub then under-reports instead
+  // of reporting a number nothing measured.
+  b.daily = b.daily.filter(
+    (r) =>
+      r &&
+      typeof r === 'object' &&
+      typeof r.date === 'string' &&
+      Number.isFinite(r.total) &&
+      Number.isFinite(r.on_time) &&
+      Number.isFinite(r.delayed) &&
+      Number.isFinite(r.canceled),
+  );
+  return b as ArchivePunctuality;
 }
 
 function parseLine(json: unknown): ArchiveLineStats {
@@ -195,10 +230,11 @@ function parseLive(json: unknown): LiveStatus {
 }
 
 /**
- * The language prefix of a localized station route. Only the station family
- * localizes (audit3 C1) — /line/* and /history/* stay single-URL — so a
- * prefixed path that is not a station route is answered by the caller's 404
- * rather than silently rendering an English page.
+ * The language prefix of a localized archive route. Two families localize
+ * (audit3 C1): the station pages and the /history hub. /line/* and the
+ * /history/{days} windows stay single-URL, so a prefixed path that is not one
+ * of the two is answered by the caller's 404 rather than silently rendering an
+ * English page.
  */
 const LANG_PREFIX = /^\/(sv|da)(\/.+)$/;
 
@@ -210,7 +246,7 @@ function normalizePath(pathname: string): string {
 
 /**
  * Dispatch a request for `/line/*`, `/station/*` or `/history/*` — including
- * the localized station routes `/sv/station/*` and `/da/station/*`. Returns a
+ * the localized routes `/sv|da/station/*` and `/sv|da/history`. Returns a
  * Response for every matched path (data errors → 502), or null when the path
  * is not an archive route.
  *
@@ -226,7 +262,7 @@ export async function handleArchiveRequest(
   let p = normalizePath(pathname);
   const enc = encodeURIComponent;
 
-  // Localized station pages: strip the language prefix and render in that
+  // Localized archive pages: strip the language prefix and render in that
   // language. The canonical/hreflang/sibling links all follow the prefix, so
   // /sv/station/hyllie is a real Swedish page and not a translated clone of
   // the English one.
@@ -237,24 +273,27 @@ export async function handleArchiveRequest(
     pathLang = prefixed[1] as Lang;
     lang = pathLang;
     p = normalizePath(prefixed[2]!);
-    // Only the station family localizes (audit3 C1) — /line, /history and the
-    // hubs ship no localized twins, so a prefixed path to them is not a page.
-    if (!p.startsWith('/station/')) return null;
+    // Only the station pages and the /history hub localize (audit3 C1) —
+    // /line and the /history/{days} windows ship no localized twins, so a
+    // prefixed path to those is not a page.
+    if (!p.startsWith('/station/') && p !== '/history') return null;
   }
 
   try {
     // --- /history ---
-    // /history duplicates the window pages (H5): 301 to the default 30-day
-    // window so there is exactly one canonical history URL. Served by routing
-    // (the history Pages Function owns /history/*), before any fetch.
+    // The archive hub: the whole corridor's numbers for the default 30-day
+    // window, and the way into every window/station/line archive. A real page
+    // since audit4 (it used to 301 to /history/30, which left the trilingual
+    // hub renderer unreachable dead code). Two collector calls — the corridor
+    // punctuality rows and the disruption window — and nothing else: the
+    // station and line lists it links come from the static monitored set.
+    // Localized: /sv/history and /da/history render in their own language.
     if (p === '/history') {
-      return new Response(null, {
-        status: 301,
-        headers: withSecurityHeaders({
-          Location: '/history/30',
-          'Cache-Control': 'public, max-age=3600',
-        }),
-      });
+      const [punctuality, history] = await Promise.all([
+        fetchJson(`${COLLECTOR_BASE}/punctuality?days=30`, parsePunctuality, fetchImpl),
+        fetchJson(`${COLLECTOR_BASE}/history?days=30`, parseHistory, fetchImpl),
+      ]);
+      return html(renderHistoryHub(punctuality, history, lang));
     }
     const hist = /^\/history\/(7|14|30|90)$/.exec(p);
     if (hist) {
