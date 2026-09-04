@@ -396,7 +396,7 @@ ${hreflang}
     <header><a class="brand" href="${localizedPath('/', lang)}">Øresund.live</a></header>
     <main>${body}</main>
     <footer>
-      <p>${esc(translate('archive_attribution', lang))} · <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a> · <a href="${localizedPath('/methodology', lang)}">${esc(translate('nav_methodology', lang))}</a> · <a href="${localizedPath('/privacy', lang)}">${esc(translate('nav_privacy', lang))}</a></p>
+      <p>${esc(translate('archive_attribution', lang))} · <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a> · <a href="${localizedPath('/history', lang)}">${esc(translate('nav_history', lang))}</a> · <a href="${localizedPath('/methodology', lang)}">${esc(translate('nav_methodology', lang))}</a> · <a href="${localizedPath('/privacy', lang)}">${esc(translate('nav_privacy', lang))}</a></p>
     </footer>
   </body>
 </html>

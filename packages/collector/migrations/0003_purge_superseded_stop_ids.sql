@@ -1,0 +1,27 @@
+-- C1 (audit5): purge departures recorded against stop ids the site no longer
+-- monitors. Migration 0003. Date: 2026-09-04.
+--
+-- WHY: the stop-id correction windows (Kastrup 840004349 -> 860000858,
+-- Malmo C 740000001 -> 740000003) left rows in `departures` written against
+-- the OLD ids. 740000001 is Stockholm C, so those rows are Arlanda Express /
+-- Uppsala departures — not Oresund traffic at all. queryPunctuality aggregated
+-- the whole table, so the /history hub's headline departures read 6932 against
+-- the 6302 its four station archives actually sum to (+9.1% over 30 days,
+-- +46% over 90, because real data only starts 2026-08-06).
+--
+-- The read side is fixed separately: PUNCTUALITY_SQL (src/db.ts) now filters
+-- stop_id IN (MONITORED_STOP_IDS). This migration cleans the historical window
+-- itself, so the invariant holds for every reader of the table — line archives,
+-- the sitemap's <lastmod>, and anything added later — rather than only for the
+-- one query that happened to be audited.
+--
+-- DELETE, not tag: a tag would need a schema change plus a filter in every
+-- future query, which is exactly how this class of bug regressed. The rows are
+-- not corrections of the same trains, they are a different station's data, so
+-- they carry no archival value for this site. Recoverable only from a D1
+-- backup / time travel taken before this migration is applied.
+--
+-- The id list MUST match MONITORED_STOP_IDS in src/db.ts (asserted by
+-- db.test.ts, which reads this file). Apply with:
+--   npx wrangler d1 migrations apply oresund-transit --remote
+DELETE FROM departures WHERE stop_id NOT IN ('740001586', '860000626', '740000003', '860000858');

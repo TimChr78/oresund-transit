@@ -11,7 +11,7 @@
  * opens the URL in a browser gets an explanation instead of a bare line.
  */
 import { renderRssFeed } from '../src/lib/rss';
-import { acceptLang, serviceUnavailableResponse } from '../src/lib/http-errors';
+import { acceptLang, serviceUnavailableResponse, withSecurityHeaders } from '../src/lib/http-errors';
 
 const COLLECTOR_URL =
   'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit/disruptions?limit=50';
@@ -28,17 +28,20 @@ function unavailable(request) {
 
 export async function onRequest(context) {
   const { request } = context;
+  // Every response shape this Function emits carries the security set (audit5
+  // H5): only the collector-failure branches had it, so /feed.xml flipped
+  // between protected and unprotected with collector health.
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('Method not allowed', {
       status: 405,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD' },
+      headers: withSecurityHeaders({ 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD' }),
     });
   }
 
-  const headers = {
+  const headers = withSecurityHeaders({
     'Content-Type': 'application/rss+xml; charset=utf-8',
     'Cache-Control': 'public, max-age=300',
-  };
+  });
 
   let res;
   try {

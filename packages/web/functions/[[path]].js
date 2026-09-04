@@ -19,15 +19,21 @@
  * fallback), is an unknown path → a minimal branded 404 with `noindex` so it
  * never gets indexed or mistaken for the homepage. A 3xx from ASSETS (e.g. the
  * extension-less /index.html → / redirect) also passes through.
+ *
+ * The page localizes from the URL prefix: a /sv/… unknown path renders Swedish
+ * copy and links its own twins (/sv/, /sv/history). /line and /station have no
+ * localized twins, so those two anchors are annotated as English.
  */
 import { STATIC_PAGE_PATHS } from '../src/lib/static-pages';
+import { localizedPath } from '../src/lib/seo';
+import { notFoundResponse } from '../src/lib/http-errors';
 
 const SPA_PAGES = new Set(['/index.html', ...STATIC_PAGE_PATHS]);
 
 const NOT_FOUND_I18N = {
   en: { h1: 'Page not found', body: 'The page you\u2019re looking for doesn\u2019t exist or has moved.', nav: 'Site sections', home: 'Live board', history: 'Disruption history', lines: 'Line archives', stations: 'Station archives' },
   sv: { h1: 'Sidan hittades inte', body: 'Sidan du letar efter finns inte eller har flyttats.', nav: 'Webbplatsavdelningar', home: 'Livetavla', history: 'St\u00f6rningshistorik', lines: 'Linjearkiv', stations: 'Stationsarkiv' },
-  da: { h1: 'Side ikke fundet', body: 'Siden du leder efter findes ikke eller er flyttet.', nav: 'Sektioner p\u00e5 webstedet', home: 'Live-tavle', history: 'Forstyrrelleshistorik', lines: 'Linjearkiv', stations: 'Stationsarkiver' },
+  da: { h1: 'Side ikke fundet', body: 'Siden du leder efter findes ikke eller er flyttet.', nav: 'Sektioner p\u00e5 webstedet', home: 'Live-tavle', history: 'Forstyrrelseshistorik', lines: 'Linjearkiv', stations: 'Stationsarkiver' },
 };
 
 function notFoundHtml(pathname) {
@@ -55,14 +61,14 @@ function notFoundHtml(pathname) {
   </head>
   <body>
     <main>
-      <a class="brand" href="/">Øresund.live</a>
+      <a class="brand" href="${localizedPath('/', lang)}">Øresund.live</a>
       <h1>${t.h1}</h1>
-      <p>The page you’re looking for doesn’t exist or has moved.</p>
+      <p>${t.body}</p>
       <nav aria-label="${t.nav}">
-        <a href="/"> ${t.home}</a>
-        <a href="/history/30">${t.history}</a>
-        <a href="/line">${t.lines}</a>
-        <a href="/station">${t.stations}</a>
+        <a href="${localizedPath('/', lang)}">${t.home}</a>
+        <a href="${localizedPath('/history', lang)}">${t.history}</a>
+        <a href="/line" lang="en" hreflang="en">${t.lines}</a>
+        <a href="/station" lang="en" hreflang="en">${t.stations}</a>
       </nav>
     </main>
   </body>
@@ -81,7 +87,9 @@ export async function onRequest(context) {
   const contentType = (asset.headers.get('content-type') || '').toLowerCase();
   const isSpaFallback = asset.status === 404 || (contentType.includes('text/html') && !SPA_PAGES.has(pathname));
   if (isSpaFallback) {
-    return new Response(notFoundHtml(pathname), { status: 404, headers: NOT_FOUND_HEADERS });
+    // audit5 H5: this was the one HTML response in the tree with no CSP and no
+    // X-Frame-Options — framable and HSTS-free on the paths bots probe first.
+    return notFoundResponse(notFoundHtml(pathname), NOT_FOUND_HEADERS);
   }
   return asset;
 }

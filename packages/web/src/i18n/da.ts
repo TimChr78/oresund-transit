@@ -246,6 +246,7 @@ export const da: Dict = {
   station_col_destination: 'Destination',
   nav_stations: 'Stationer',
   nav_board: 'Live-tavlen',
+  nav_history: 'Forstyrrelseshistorik',
   station_nav_label: 'Overvågede stationer',
   filter_direction: 'Filtrér forstyrrelser efter retning',
   filter_range: 'Historikkens tidsinterval',

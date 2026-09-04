@@ -427,8 +427,23 @@ export async function queryHistory(db: D1Like, days: number, now: Date = new Dat
   };
 }
 
-const PUNCTUALITY_SQL =
-  'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+/**
+ * The stop ids this collector monitors — the same four as MONITORED_STOPS in
+ * index.ts, restated here because index.ts owns the per-stop metadata and
+ * imports this module, so db.ts cannot reach back for them. If a stop id is
+ * ever superseded again, both lists change together (db.test.ts asserts this
+ * list is what the corridor query and the purge migration 0003 both name).
+ *
+ * C1 (audit5): the corridor punctuality query aggregated the WHOLE departures
+ * table, so rows written against superseded stop ids leaked into /history.
+ * Kastrup 840004349 → 860000858 and Malmö C 740000001 → 740000003 (740000001
+ * is Stockholm C — Arlanda Express / Uppsala trains, not Øresund traffic at
+ * all) inflated the hub's headline departures by +9.1% over 30 days and +46%
+ * over 90, because the real data only starts 2026-08-06.
+ */
+export const MONITORED_STOP_IDS = ['740001586', '860000626', '740000003', '860000858'] as const;
+
+const PUNCTUALITY_SQL = `SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status`;
 
 /** One calendar day of punctuality stats, zero-filled when no departures. */
 export interface PunctualityRow {
@@ -462,7 +477,7 @@ export async function queryPunctuality(db: D1Like, days: number, now: Date = new
 
   const { results } = await db
     .prepare(PUNCTUALITY_SQL)
-    .bind(from, toExclusive)
+    .bind(...MONITORED_STOP_IDS, from, toExclusive)
     .all<{ date: string; status: string | null; count: number; avg_delay: number | null }>();
 
   const daily: PunctualityRow[] = [];

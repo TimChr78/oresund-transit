@@ -631,7 +631,8 @@ describe('homepage about block (audit3 C2)', () => {
     // …and the archive hubs, in content rather than only the footer.
     expect(block).toContain('href="/station"');
     expect(block).toContain('href="/line"');
-    expect(block).toContain('href="/history/30"');
+    // audit5 H2: the hub's own URL, not the child window /history/30.
+    expect(block).toContain('href="/history"');
   });
 
   it('uses no nested <div>, so the static-page strip regex and boot() keep working', () => {

@@ -246,6 +246,7 @@ export const en: Dict = {
   station_col_destination: 'Destination',
   nav_stations: 'Stations',
   nav_board: 'Live board',
+  nav_history: 'Disruption history',
   station_nav_label: 'Monitored stations',
   filter_direction: 'Filter disruptions by direction',
   filter_range: 'History range',

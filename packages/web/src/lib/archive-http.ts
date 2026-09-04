@@ -61,6 +61,11 @@ function html(body: string): Response {
  * still see a real error); only the body became a page a reader can act on
  * (audit4 N-H4). `pathLang` is the URL's own language prefix, or null for the
  * unprefixed routes so Accept-Language gets to answer instead.
+ *
+ * `route` is the path as requested — prefix included (audit5 H4). It is both
+ * the retry link's href and the path printed on the page, so a Swedish reader
+ * whose /sv/station/hyllie request failed sees that path and retries it, not
+ * the prefix-stripped /station/hyllie.
  */
 function unavailable(route: string, pathLang: Lang | null, acceptLanguage?: string | null): Response {
   return serviceUnavailableResponse(acceptLang(acceptLanguage, pathLang), route);
@@ -348,7 +353,9 @@ export async function handleArchiveRequest(
   } catch (err) {
     // Prefer not to leak internal error text to the page; log is provider-side.
     void err;
-    return unavailable(p, pathLang, acceptLanguage);
+    // The original pathname, not the prefix-stripped `p` — the 502 page's
+    // retry link and code line name the URL the visitor asked for (audit5 H4).
+    return unavailable(normalizePath(pathname), pathLang, acceptLanguage);
   }
 }
 

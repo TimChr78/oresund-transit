@@ -9,6 +9,7 @@
  * Unknown stations still return a clean 404 (the collector 404s).
  */
 import { handleArchiveRequest } from '../../../src/lib/archive-http';
+import { notFoundResponse } from '../../../src/lib/http-errors';
 
 export async function onRequest(context) {
   const result = await handleArchiveRequest(
@@ -21,8 +22,5 @@ export async function onRequest(context) {
   if (result) {
     return result;
   }
-  return new Response('Not found', {
-    status: 404,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-  });
+  return notFoundResponse('Not found', { 'Content-Type': 'text/plain; charset=utf-8' });
 }

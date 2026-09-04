@@ -15,14 +15,16 @@
  * asset either 404s directly or falls through the SPA fallback as text/html —
  * both are treated as "not a real asset" and answered with a clean 404.
  */
+import { notFoundResponse } from '../../src/lib/http-errors';
+
 export async function onRequest(context) {
   const asset = await context.env.ASSETS.fetch(context.request);
   const contentType = (asset.headers.get('content-type') || '').toLowerCase();
   const isSpaFallback = asset.status === 404 || contentType.includes('text/html');
   if (isSpaFallback) {
-    return new Response('Not found', {
-      status: 404,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    return notFoundResponse('Not found', {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
     });
   }
   return asset;

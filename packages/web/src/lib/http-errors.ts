@@ -21,6 +21,7 @@
  */
 import { esc } from './html';
 import { translate, type Lang } from '../i18n';
+import { localizedPath } from './seo';
 
 /**
  * The security header set public/_headers applies to static assets. Exported
@@ -39,6 +40,22 @@ export const SECURITY_HEADERS: Record<string, string> = {
 /** Merge the security set under a response's own headers. */
 export function withSecurityHeaders(headers: Record<string, string>): Record<string, string> {
   return { ...SECURITY_HEADERS, ...headers };
+}
+
+/**
+ * A 404 carrying the full security set (audit5 H5). Every 404 the site emits
+ * goes through here: before, the nine Functions that answer "not found" built
+ * their own `new Response(...)` with a bare Content-Type, so the HTML 404 was
+ * framable and HSTS-free on exactly the paths bots probe first, and the XML
+ * responses flip-flopped between protected and unprotected depending on which
+ * branch of their own code answered.
+ *
+ * `headers` carries whatever the caller adds of its own — content type, cache
+ * policy — and always loses to nothing: the security set is merged in under
+ * it, so a caller cannot accidentally drop CSP by forgetting it.
+ */
+export function notFoundResponse(body: string | null, headers: Record<string, string>): Response {
+  return new Response(body, { status: 404, headers: withSecurityHeaders(headers) });
 }
 
 /**
@@ -78,6 +95,16 @@ function langOf(tag: string): Lang | null {
  * a stylesheet request that could itself fail, or any JavaScript. The styling
  * mirrors the catch-all 404 page in functions/[[path]].js (same palette, same
  * brand mark) so every error URL reads as the same site.
+ *
+ * `route` is the path the visitor actually asked for, language prefix
+ * included — audit5 H4. It is used verbatim as the retry href rather than run
+ * back through localizedPath: the request path is already in the visitor's
+ * language (they typed it), and the archive families do not all localize, so
+ * re-prefixing /line/804 for a Swedish reader would build /sv/line/804 — a
+ * second dead link on a page that is already an error. The brand and home
+ * links, which are fixed destinations, DO go through localizedPath so a
+ * Swedish or Danish reader lands on their own home page instead of the
+ * English one.
  */
 export function renderUnavailablePage(lang: Lang, route: string): string {
   return `<!doctype html>
@@ -103,13 +130,13 @@ export function renderUnavailablePage(lang: Lang, route: string): string {
   </head>
   <body>
     <main>
-      <a class="brand" href="/">Øresund.live</a>
+      <a class="brand" href="${esc(localizedPath('/', lang))}">Øresund.live</a>
       <span class="code">502 · ${esc(route)}</span>
       <h1>${esc(translate('err502_title', lang))}</h1>
       <p>${esc(translate('err502_body', lang))}</p>
       <nav aria-label="${esc(translate('nav_site_sections', lang))}">
         <a href="${esc(route)}" rel="nofollow">${esc(translate('err502_retry', lang))}</a>
-        <a href="/" rel="nofollow">${esc(translate('err502_home', lang))}</a>
+        <a href="${esc(localizedPath('/', lang))}" rel="nofollow">${esc(translate('err502_home', lang))}</a>
       </nav>
     </main>
   </body>

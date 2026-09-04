@@ -82,6 +82,10 @@ const DEFAULT_BASE_URL = 'https://realtime-api.trafiklab.se/v1/departures';
  * Kastrup Lufthavn).
  */
 const MONITORED_STOPS = [
+  // The `id` values here and MONITORED_STOP_IDS in db.ts are the same list
+  // restated (db.ts cannot import this module). A stop id added or superseded
+  // here must change there too — and migrations/0003 — or the corridor
+  // punctuality query silently disagrees with the table it reads (audit5 C1).
   { id: '740001586', name: 'Malmö Hyllie', slug: 'hyllie', filter: isCrossborderTrain, crossborder: true },
   { id: '860000626', name: 'København H', slug: 'kobenhavn-h', filter: isSwedenBoundTrain, crossborder: true },
   // ✅ Verified 2026-08-24 against ResRobot: real Malmö Centralstation is

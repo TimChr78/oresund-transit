@@ -249,6 +249,9 @@ export interface Dict {
   station_col_destination: string;
   nav_stations: string;
   nav_board: string;
+  // The /history hub, as it reads in the archive shell's nav (audit5 H2: the
+  // hub was reachable only from its four children — the site never linked it).
+  nav_history: string;
   station_nav_label: string;
   // Accessible names for the two filter groups on the board (audit4 LOW)
   filter_direction: string;
