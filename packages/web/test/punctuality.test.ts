@@ -170,5 +170,33 @@ describe('renderPunctualityChart', () => {
   });
 });
 
+describe('renderPunctualityChart — per-day values in the SVG titles (audit6)', () => {
+  it('writes the numeric share into every data day <title>', () => {
+    const html = renderPunctualityChart(PUNCTUALITY, 'en');
+    for (const day of PUNCTUALITY.daily) {
+      expect(html).toContain(`<title>${day.date} — ${String(day.on_time_pct)}%</title>`);
+    }
+    // A number, not the string a coerced share would have produced — the value
+    // a reader hovers is the same one the data table shows.
+    expect(html).toContain('<title>2026-08-01 — 80%</title>');
+    expect(html).not.toContain('NaN%');
+    expect(html).not.toContain('undefined%');
+  });
+
+  it('keeps the collector\'s one-decimal share in both the tooltip and the latest legend', () => {
+    const fractional: PunctualityResponse = {
+      days: 7,
+      date_from: '2026-08-06',
+      date_to: '2026-08-06',
+      daily: [
+        { date: '2026-08-06', total: 12, on_time: 11, delayed: 1, canceled: 0, on_time_pct: 91.7, avg_delay_seconds: 40 },
+      ],
+    };
+    const html = renderPunctualityChart(fractional, 'en');
+    expect(html).toContain('<title>2026-08-06 — 91.7%</title>');
+    expect(html).toContain('class="legend-item punct-latest">91.7%</span>');
+  });
+});
+
 // Keep HistoryResponse referenced so the fixture stays typed to the API shape.
 void HISTORY;

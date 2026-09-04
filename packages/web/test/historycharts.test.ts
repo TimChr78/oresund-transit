@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HistoryResponse } from '../src/api';
+import type { HistoryResponse, PunctualityResponse } from '../src/api';
 import { renderHistoryCharts } from '../src/components/HistoryCharts';
 
 const HISTORY: HistoryResponse = {
@@ -23,6 +23,53 @@ const HISTORY: HistoryResponse = {
   by_cause: [],
   by_hour: [],
 };
+
+const PUNCTUALITY: PunctualityResponse = {
+  days: 7,
+  date_from: '2026-07-31',
+  date_to: '2026-08-06',
+  daily: [
+    { date: '2026-08-05', total: 10, on_time: 9, delayed: 1, canceled: 0, on_time_pct: 90, avg_delay_seconds: 60 },
+    { date: '2026-08-06', total: 12, on_time: 11, delayed: 1, canceled: 0, on_time_pct: 91.7, avg_delay_seconds: 40 },
+  ],
+};
+
+describe('renderHistoryCharts — keyed section (audit6)', () => {
+  /**
+   * The day-range toggle nulls this section's data before refetching, so the
+   * reconciler matches it by key rather than by class. A key that varied with
+   * the window — or a section that rendered twice — would make the swap remove
+   * and reinsert the node the keyboard user is on.
+   */
+  it('renders exactly one history section, keyed for the reconciler', () => {
+    const html = renderHistoryCharts(HISTORY, PUNCTUALITY, 7, 'en');
+    expect((html.match(/data-key="history-section"/g) ?? [])).toHaveLength(1);
+    expect(html).toContain('<section class="history" data-key="history-section">');
+  });
+
+  it.each([7, 14, 30, 90] as const)('keeps the same key across the %s-day window', (days) => {
+    // With and without the punctuality chart: the second fetch lands
+    // independently, and either order has to leave the same key standing.
+    expect(renderHistoryCharts({ ...HISTORY, days }, null, days, 'en')).toContain('data-key="history-section"');
+    expect(renderHistoryCharts({ ...HISTORY, days }, PUNCTUALITY, days, 'en')).toContain('data-key="history-section"');
+  });
+
+  it('keeps the key and the toggles when the punctuality feed is empty', () => {
+    const html = renderHistoryCharts(HISTORY, { ...PUNCTUALITY, daily: [] }, 30, 'en');
+    expect(html).toContain('data-key="history-section"');
+    expect(html).toContain('data-action="set-days"');
+    // The range toggle is the reason the section is keyed at all.
+    expect(html).toContain('aria-pressed="true"');
+  });
+
+  it('re-renders the same keyed section with updated chart output', () => {
+    const before = renderHistoryCharts(HISTORY, PUNCTUALITY, 7, 'en');
+    const after = renderHistoryCharts({ ...HISTORY, total_disruptions: 99, daily: HISTORY.daily.map((d) => ({ ...d, count: d.count + 5 })) }, PUNCTUALITY, 7, 'en');
+    expect(after).toContain('data-key="history-section"');
+    expect(after).not.toBe(before);
+    expect(after).toContain('title="2026-08-06: 11"');
+  });
+});
 
 describe('renderHistoryCharts — external values in attributes (audit5 M8)', () => {
   it('escapes the collector-supplied date and count in the bar tooltip', () => {

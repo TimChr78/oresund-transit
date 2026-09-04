@@ -16,6 +16,7 @@
 import { type Lang } from '../i18n';
 import { isValidLocalDate, isValidLocalTimestamp } from '../i18n/format';
 import type { LiveStatus } from '@oresund/shared';
+import { isValidPunctualityDay } from '../api';
 import { acceptLang, serviceUnavailableResponse, SECURITY_HEADERS, withSecurityHeaders } from './http-errors';
 import {
   CANONICAL_LINES,
@@ -108,15 +109,27 @@ function parseHistory(json: unknown): ArchiveHistory {
 }
 
 /**
- * A real calendar window: both ends are dates that exist. audit6 M7 — the
- * boundaries were only `typeof`-checked at all four archive routes, so an
- * impossible window from the collector reached the formatters intact and
- * fmtDate's `Date.UTC` rollover turned "2026-99-99" into "7 Jun 2034", which
- * then landed in a meta description. Rejected here the payload is garbage and
- * the route answers its branded 502, like any other unparseable body.
+ * A real calendar window: both ends are dates that exist, and they run
+ * forwards. audit6 M7 — the boundaries were only `typeof`-checked at all four
+ * archive routes, so an impossible window from the collector reached the
+ * formatters intact and fmtDate's `Date.UTC` rollover turned "2026-99-99" into
+ * "7 Jun 2034", which then landed in a meta description. Rejected here the
+ * payload is garbage and the route answers its branded 502, like any other
+ * unparseable body.
+ *
+ * Both ends having passed isValidLocalDate they are plain "YYYY-MM-DD", so the
+ * ordering check is a string comparison — a reversed window ("from" after
+ * "to") would otherwise render its copy backwards while every formatter
+ * happily iterated an empty range.
  */
 function isWindow(from: unknown, to: unknown): from is string {
-  return typeof from === 'string' && typeof to === 'string' && isValidLocalDate(from) && isValidLocalDate(to);
+  return (
+    typeof from === 'string' &&
+    typeof to === 'string' &&
+    isValidLocalDate(from) &&
+    isValidLocalDate(to) &&
+    from <= to
+  );
 }
 
 /** A W3C date, the only shape a sitemap <lastmod> may carry. */
@@ -149,25 +162,10 @@ function parsePunctuality(json: unknown): ArchivePunctuality {
   }
   // A row that is not a full punctuality day would poison the sums, so it is
   // dropped rather than partially trusted — the hub then under-reports instead
-  // of reporting a number nothing measured.
-  b.daily = b.daily.filter(
-    (r) =>
-      r &&
-      typeof r === 'object' &&
-      typeof r.date === 'string' &&
-      Number.isFinite(r.total) &&
-      Number.isFinite(r.on_time) &&
-      Number.isFinite(r.delayed) &&
-      Number.isFinite(r.canceled) &&
-      // CodeRabbit PR53: counts are non-negative and on_time cannot exceed
-      // total — a row like total=10/on_time=11 would render an impossible
-      // 110.0% against the declared 0-100 contract.
-      r.total >= 0 &&
-      r.on_time >= 0 &&
-      r.delayed >= 0 &&
-      r.canceled >= 0 &&
-      r.on_time <= r.total,
-  );
+  // of reporting a number nothing measured. The row predicate is the one the
+  // board's own client parses the same endpoint with (../api), so the hub and
+  // the chart can never disagree about what a day's numbers are.
+  b.daily = b.daily.filter(isValidPunctualityDay);
   return b as ArchivePunctuality;
 }
 

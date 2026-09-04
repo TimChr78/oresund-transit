@@ -13,12 +13,14 @@
  * (audit4 N-H4): the status code is what a feed reader keys on, so a human who
  * opens the URL in a browser gets an explanation instead of a bare line.
  */
-import { renderRssFeed } from '../src/lib/rss';
+import { knownArchiveLines, renderRssFeed } from '../src/lib/rss';
 import { acceptLang, serviceUnavailableResponse, withSecurityHeaders } from '../src/lib/http-errors';
 import { RSS_TITLE } from '../src/i18n';
 
 const COLLECTOR_URL =
   'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit/disruptions?limit=50';
+const LINES_URL =
+  'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit/lines';
 
 const FEED_OPTS = {
   // The same string the pages' RSS autodiscovery <link> carries (audit5 L6).
@@ -26,6 +28,25 @@ const FEED_OPTS = {
   description: 'Recent disruptions across the Øresund (Öresundståg), newest first.',
   link: 'https://oresund.live/',
 };
+
+/**
+ * The lines the collector has observed, which (with the canonical set, see
+ * knownArchiveLines) is exactly what /line/{line} answers for. Best-effort: a
+ * failure here degrades the feed to linking the canonical archives — every one
+ * of which exists — rather than emitting item links the archive route 404s.
+ */
+async function observedLines() {
+  try {
+    const res = await fetch(LINES_URL, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data?.lines)
+      ? data.lines.filter((l) => l && typeof l.line === 'string').map((l) => l.line)
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 function unavailable(request) {
   return serviceUnavailableResponse(acceptLang(request.headers.get('accept-language')), '/feed.xml');
@@ -70,6 +91,8 @@ export async function onRequest(context) {
     return unavailable(request);
   }
   const disruptions = Array.isArray(data?.disruptions) ? data.disruptions : [];
-  const xml = renderRssFeed(disruptions, FEED_OPTS);
+  // Every item link stays inside the archive route's own discovery set, so a
+  // feed item can never deep-link a /line/{line} URL that answers 404.
+  const xml = renderRssFeed(disruptions, { ...FEED_OPTS, knownLines: knownArchiveLines(await observedLines()) });
   return new Response(xml, { status: 200, headers });
 }

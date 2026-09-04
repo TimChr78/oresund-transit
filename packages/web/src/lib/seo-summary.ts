@@ -69,7 +69,7 @@ export function summaryStatusKey(live: LiveStatus): Key {
  * not a real stamp in the window's past.
  *
  * `now` is the same corridor wall clock the buckets below are anchored on: a
- * stamp must fall at or before it to be counted (audit6 M9). Validation alone
+ * stamp must fall strictly before it to be counted (audit6 M9). Validation alone
  * left the failure mode open in the other direction — any CALENDAR-VALID future
  * stamp ("2099-01-01T00:00:00", "2078-12-31T23:59:59") passed
  * isValidLocalTimestamp and satisfied `ts >= boundary`, so it was counted into
@@ -83,7 +83,11 @@ function normalizeTimestamp(timestamp: string | null | undefined, now: string): 
   // digit-count check, and cancellationBuckets() then compares these strings
   // LEXICOGRAPHICALLY — an impossible month sorts above every real date.
   if (!isValidLocalTimestamp(t)) return null;
-  return t <= now ? t : null;
+  // Exclusive upper bound: the window is [now-24h, now), and a cancellation
+  // stamped exactly `now` belongs to the bucket a LATER build computes —
+  // counting it here would let the same row be read as "last 24h" by this
+  // build and as the previous 24h by the next one.
+  return t < now ? t : null;
 }
 
 /**

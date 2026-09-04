@@ -1,5 +1,6 @@
 import type { Disruption } from '@oresund/shared';
 import { causeLabel } from './causes';
+import { CANONICAL_LINES } from './archive';
 import { formatDelaySeconds, stockholmWallClock } from '../i18n/format';
 
 /**
@@ -20,6 +21,15 @@ export interface RssOptions {
   link: string;
   /** Channel lastBuildDate; defaults to the current time (RFC 1123). */
   lastBuildDate?: Date;
+  /**
+   * The lines the collector has observed, as /api/transit/lines reports them —
+   * combined with CANONICAL_LINES by knownArchiveLines() before it is passed
+   * here, so the set is exactly what the /line/{line} route answers 200 for.
+   * An item naming a line outside it keeps the channel link rather than
+   * pointing a feed reader at a 404. Omitted (callers that cannot know the
+   * set) leaves the deep link on every line.
+   */
+  knownLines?: readonly string[];
 }
 
 const ESCAPE_MAP: Record<string, string> = {
@@ -81,13 +91,36 @@ function toRfc822(timestamp: string): string {
 }
 
 /**
+ * The line set the /line/{line} archive route answers 200 for (the same
+ * discovery set its isKnownLine guards with): the canonical corridor lines —
+ * static, so they need no fetch and their pages always exist — plus every
+ * line the collector has observed in its window.
+ *
+ * The collector stores whatever route.designation it accepted, and reports the
+ * observed set capped at its most frequent 500, so a designation can sit in
+ * the disruption feed while no archive page answers for it. Feeding this set
+ * to renderRssFeed keeps every item link inside it.
+ */
+export function knownArchiveLines(discovered: readonly string[]): readonly string[] {
+  return [...new Set([...CANONICAL_LINES, ...discovered])];
+}
+
+/**
  * The item's link (audit6 L17): every item used to point at the channel URL,
  * which gave a reader nothing to deep-link to. Each disruption names a line,
  * and /line/{line} is a real page — so the item links there and the feed
  * becomes a way into the archives rather than 50 copies of the homepage.
+ *
+ * Only when a page really is there (audit6): a line outside `knownLines` gets
+ * the channel link back, because an item that links a 404 is worse than one
+ * that links the board.
  */
-function linkFor(d: Disruption, channelLink: string): string {
-  return d.line ? `https://oresund.live/line/${encodeURIComponent(d.line)}` : channelLink;
+function linkFor(d: Disruption, opts: RssOptions): string {
+  const known = opts.knownLines;
+  if (d.line && (known === undefined || known.includes(d.line))) {
+    return `https://oresund.live/line/${encodeURIComponent(d.line)}`;
+  }
+  return opts.link;
 }
 
 /** Item title composed from line + type + direction (feed is English-only). */
@@ -126,7 +159,7 @@ export function renderRssFeed(items: Disruption[], opts: RssOptions): string {
       const pubDateEl = pubDate ? `\n      <pubDate>${pubDate}</pubDate>` : '';
       return `    <item>
       <title>${escXml(titleFor(d))}</title>
-      <link>${escXml(linkFor(d, opts.link))}</link>
+      <link>${escXml(linkFor(d, opts))}</link>
       <guid isPermaLink="false">https://oresund.live/disruption/${d.id}</guid>${pubDateEl}
       <description>${escXml(descriptionFor(d))}</description>
     </item>`;

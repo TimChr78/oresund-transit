@@ -151,6 +151,19 @@ describe('cancellationBuckets', () => {
     ];
     expect(cancellationBuckets(disruptions, NOW)).toEqual({ last24: 1, prev24: 0 });
   });
+
+  it('leaves a cancellation stamped exactly now out of both buckets (the window is [now-24h, now))', () => {
+    // The upper bound is exclusive: a row stamped `now` is the next build's
+    // "previous 24h", and counting it here would let the same cancellation be
+    // read into the last 24h by this build and into the previous 24h by the
+    // next one — the trend sentence would then double-count it.
+    const disruptions = [
+      mkDisruption('2026-08-21T12:00:00'), // exactly now -> neither bucket
+      mkDisruption('2026-08-21T11:59:59'), // one second before -> last24
+      mkDisruption('2026-08-20T12:00:00'), // exactly now-24h -> last24
+    ];
+    expect(cancellationBuckets(disruptions, NOW)).toEqual({ last24: 2, prev24: 0 });
+  });
 });
 
 describe('trendKeyFor', () => {

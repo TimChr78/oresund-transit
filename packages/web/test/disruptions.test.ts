@@ -201,6 +201,29 @@ describe('renderDisruptionsTable — archive mode (date separators)', () => {
     const html = renderDisruptionsTable(rows, 'en', 'archive');
     expect(html).toContain('2026-07-20');
   });
+
+  it.each([
+    ['an impossible month', '2026-99-99'],
+    ['a day the month has no room for', '2026-02-30'],
+  ])('falls back to the raw date for %s instead of an empty separator', (_label, bad) => {
+    // The separator labels the group, so an empty interpolation left a
+    // date-sep row with nothing in it. The raw string is the honest fallback.
+    const html = renderDisruptionsTable([disruption({ sched_time: `${bad}T09:00:00` })], 'en', 'archive');
+    expect(html).toContain('date-sep');
+    // The separator cell carries the raw date, so the group is still labelled.
+    expect(html).toContain(`>${bad}<`);
+  });
+
+  it('keeps raw and localized separators apart when both appear', () => {
+    const html = renderDisruptionsTable(
+      [disruption({ sched_time: '2026-08-06T09:00:00' }), disruption({ id: 2, sched_time: '2026-99-99T09:00:00' })],
+      'en',
+      'archive',
+    );
+    expect((html.match(/date-sep/g) ?? [])).toHaveLength(2);
+    expect(html).toContain('>2026-08-06<');
+    expect(html).toContain('>2026-99-99<');
+  });
 });
 
 describe('renderDisruptionsTable — empty archive', () => {

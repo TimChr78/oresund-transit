@@ -14,22 +14,32 @@ import { renderStationPicker, stationNameKey, stationScopeLabel } from './Statio
 import { renderStatCards } from './StatCards';
 import { renderBannerSlot, renderStatusBanner } from './StatusBanner';
 
-/** Per-section loading / error / empty placeholder (kept static, no motion). */
-function placeholder(kind: 'loading' | 'error' | 'empty', lang: Lang, retryAction?: string): string {
-  // role="status" (audit6 L15): a section's loading and error blocks used to be
-  // inert, so a screen reader got no signal that anything had changed — least
-  // of all that a failed section had come back. Announcing the state is the
-  // gap-closer; the banner gets the full treatment in renderBannerSlot, because
-  // that announcement is the one that matters.
-  if (kind === 'loading') return `<div class="empty" role="status">${translate('empty_loading', lang)}</div>`;
+/**
+ * Per-section loading / error / empty placeholder (kept static, no motion).
+ *
+ * Every placeholder announces itself (`role="status"`, audit6 L15) EXCEPT the
+ * ones the banner renders: renderBannerSlot is already the live region, and a
+ * status region nested inside a status region makes assistive tech read the
+ * same state twice — or hear only the inner one, the node the reconciler swaps
+ * out on the way to `ok`. The banner branches pass `announce: false` and leave
+ * the announcing to the keyed section that stands through every /live state.
+ */
+function placeholder(
+  kind: 'loading' | 'error' | 'empty',
+  lang: Lang,
+  retryAction?: string,
+  opts: { announce?: boolean } = {},
+): string {
+  const role = opts.announce === false ? '' : ' role="status"';
+  if (kind === 'loading') return `<div class="empty"${role}>${translate('empty_loading', lang)}</div>`;
   if (kind === 'error') {
     return `
-    <div class="empty" role="status">
+    <div class="empty"${role}>
       <span>${translate('empty_error', lang)}</span>
       <button type="button" class="btn btn-ghost btn-sm" data-action="${retryAction ?? ''}">${translate('empty_retry', lang)}</button>
     </div>`;
   }
-  return `<div class="empty" role="status">${translate('empty_no_data', lang)}</div>`;
+  return `<div class="empty"${role}>${translate('empty_no_data', lang)}</div>`;
 }
 
 /**
@@ -47,12 +57,13 @@ export function renderApp(state: AppState, lang: Lang): string {
     banner = renderStatusBanner(state.live, lang);
   } else if (state.liveState === 'no_data') {
     // The placeholder sits INSIDE the live region (audit6 M4) — see
-    // renderBannerSlot — so the region is never unmounted between states.
-    banner = renderBannerSlot(placeholder('empty', lang));
+    // renderBannerSlot — so the region is never unmounted between states. It
+    // stays inert: the region it sits in is the thing that announces.
+    banner = renderBannerSlot(placeholder('empty', lang, undefined, { announce: false }));
   } else if (state.liveState === 'error') {
-    banner = renderBannerSlot(placeholder('error', lang, 'retry-live'));
+    banner = renderBannerSlot(placeholder('error', lang, 'retry-live', { announce: false }));
   } else {
-    banner = renderBannerSlot(placeholder('loading', lang));
+    banner = renderBannerSlot(placeholder('loading', lang, undefined, { announce: false }));
   }
 
   const stats = state.stats

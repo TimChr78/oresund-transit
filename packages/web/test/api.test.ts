@@ -231,9 +231,34 @@ describe('parsePunctualityResponse (audit6 M8)', () => {
     ['a negative count', { ...row, delayed: -1 }],
     ['a row that is not an object', 'nope'],
     ['a row with no date', { ...row, date: undefined }],
+    // Counts the collector derives: total is their sum, so a row that breaks
+    // the identity is a broken aggregation, not a measurement.
+    ['counts that do not add up to total', { ...row, canceled: 2 }],
+    ['a fractional count', { ...row, total: 40.5, on_time_pct: 91.3 }],
+    ['a share over 100', { ...row, on_time_pct: 120 }],
+    ['a negative share', { ...row, on_time_pct: -1 }],
+    ['an average delay that is not a number', { ...row, avg_delay_seconds: '120' }],
+    ['an average delay of NaN', { ...row, avg_delay_seconds: Number.NaN }],
+    ['an average delay that is missing', { ...row, avg_delay_seconds: undefined }],
+    ['an impossible date', { ...row, date: '2026-99-06' }],
+    ['a day the month has no room for', { ...row, date: '2026-02-30' }],
+    ['a date that is not the declared shape', { ...row, date: '06/08/2026' }],
   ])('drops a row that is %s', (label, bad) => {
     const parsed = parsePunctualityResponse(ok([bad]));
     expect(parsed.daily, label).toEqual([]);
+  });
+
+  it('keeps a no-measurement day: zero counts that sum to zero and a null average', () => {
+    // The collector zero-fills every day in the window, so the empty day is the
+    // common case, not the edge case.
+    const empty = { date: '2026-08-06', total: 0, on_time: 0, delayed: 0, canceled: 0, on_time_pct: 0, avg_delay_seconds: null };
+    expect(parsePunctualityResponse(ok([empty])).daily).toEqual([empty]);
+  });
+
+  it('keeps the boundary shares 0 and 100', () => {
+    const bottom = { ...row, on_time: 0, delayed: 40, canceled: 0, on_time_pct: 0 };
+    const top = { ...row, on_time: 40, delayed: 0, canceled: 0, on_time_pct: 100 };
+    expect(parsePunctualityResponse(ok([bottom, top])).daily).toHaveLength(2);
   });
 });
 

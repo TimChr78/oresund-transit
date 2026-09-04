@@ -165,6 +165,32 @@ describe('station scope coverage (backlog A1)', () => {
   });
 });
 
+describe('renderStationDepartures — window note dates (audit6)', () => {
+  it('localizes a real window (da uses dd-mm-yyyy)', () => {
+    expect(renderStationDepartures(STATION, 'en')).toContain(
+      'Observed departures over the last 7 days (2026-08-28–2026-09-03).',
+    );
+    expect(renderStationDepartures(STATION, 'da')).toContain('(28-08-2026–03-09-2026)');
+  });
+
+  it.each([
+    ['an impossible month', '2026-99-99'],
+    ['a day the month has no room for', '2026-02-30'],
+  ])('keeps the raw %s in the note instead of an empty interpolation', (_label, bad) => {
+    // formatDate returns '' for an impossible date; the raw string is the
+    // fallback, so the note still names the window it covers rather than
+    // rendering "(–)".
+    const html = renderStationDepartures({ ...STATION, date_from: bad, date_to: bad }, 'en');
+    expect(html).toContain(`(${bad}–${bad})`);
+    expect(html).not.toContain('(–)');
+  });
+
+  it('keeps a valid end beside an impossible one, each rendered on its own terms', () => {
+    const html = renderStationDepartures({ ...STATION, date_from: '2026-99-99', date_to: '2026-09-03' }, 'en');
+    expect(html).toContain('(2026-99-99–2026-09-03)');
+  });
+});
+
 describe('stationScopeFromSearch (audit4 N-M10)', () => {
   it('resolves the four monitored slugs out of a query string', () => {
     expect(stationScopeFromSearch('?station=hyllie')).toBe('hyllie');

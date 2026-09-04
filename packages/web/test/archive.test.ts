@@ -914,14 +914,55 @@ describe('handleArchiveRequest dispatch', () => {
   it.each([
     ['an impossible month', { ...history, date_from: '2026-99-01' }],
     ['an impossible day', { ...history, date_to: '2026-02-30' }],
+    ['a reversed window', { ...history, date_from: '2026-08-06', date_to: '2026-07-31' }],
   ])('rejects a history window with %s instead of rendering one (audit6 M7)', (_label, payload) => {
     // The four archive boundaries only typeof-checked date_from/date_to, so an
     // impossible window reached the formatters intact and fmtDate's Date.UTC
     // rollover turned it into a plausible wrong date. Rejected here it is what
-    // any other unparseable body is: a branded 502.
+    // any other unparseable body is: a branded 502. A reversed window passes
+    // both date checks and would have rendered its copy end-first.
     stubFetch({ history: payload, punctuality });
     const res = handleArchiveRequest('/history/7');
     return expect(res.then((r) => r?.status)).resolves.toBe(502);
+  });
+
+  it('renders a single-day window, whose ends are equal rather than reversed', async () => {
+    // The ordering check is inclusive: [d, d] is the one-day window the
+    // collector writes on a quiet corridor, not a mistake.
+    stubFetch({ history: { ...history, date_from: '2026-08-06', date_to: '2026-08-06' }, punctuality });
+    const res = await handleArchiveRequest('/history/7');
+    expect(res?.status).toBe(200);
+  });
+
+  it('rejects a reversed line window instead of rendering one', async () => {
+    stubFetch({
+      lines: { lines: [{ line: '804', disruptions: 4 }] },
+      line: { ...lineStats, date_from: '2026-08-06', date_to: '2026-07-31' },
+    });
+    const res = await handleArchiveRequest('/line/804');
+    expect(res?.status).toBe(502);
+  });
+
+  it('drops a punctuality row that breaks its own arithmetic before summing the hub', async () => {
+    // corridorTotals sums the rows straight into the hub's headline numbers, so
+    // a mangled row (counts that do not add up, an out-of-range share, an
+    // impossible date) would move them. Same row predicate the board's client
+    // parses this endpoint with (src/api.ts), so the hub and the chart cannot
+    // disagree about what a day's numbers are.
+    stubFetch({
+      punctuality: {
+        ...punctuality,
+        daily: [
+          ...punctuality.daily,
+          { date: '2026-08-04', total: 10, on_time: 12, delayed: 0, canceled: 0, on_time_pct: 120, avg_delay_seconds: 30 },
+        ],
+      },
+      history: history30,
+    });
+    const html = await (await handleArchiveRequest('/history'))?.text();
+    // Only the two well-formed rows are summed — 60 departures, 91.7% on time.
+    expect(html).toContain('<b>60</b>');
+    expect(html).toContain('<b>91.7%</b>');
   });
 
   it('rejects a line payload with an impossible window instead of rendering it', async () => {
