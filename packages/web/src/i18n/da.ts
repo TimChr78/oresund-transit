@@ -328,7 +328,7 @@ export const da: Dict = {
   board_archives_intro: 'Tavlen viser i dag. Arkiverne gemmer den lange historik — pr. station, pr. linje og dag for dag.',
   meth_related_title: 'Relaterede sider',
   meth_related_intro:
-    'De samme definitioner i praksis: punktualitetsarkivet for hvert overvåget stoppested og forstyrrelleshistorikken bag graferne.',
+    'De samme definitioner i praksis: punktualitetsarkivet for hvert overvåget stoppested og forstyrrelseshistorikken bag graferne.',
 
   // Collector-outage fallback (audit4 N-H4)
   err502_title: 'Midlertidigt utilgængelig',

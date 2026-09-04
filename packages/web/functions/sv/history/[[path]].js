@@ -23,5 +23,5 @@ export async function onRequest(context) {
   if (result) {
     return result;
   }
-  return notFoundResponse('Not found', { 'Content-Type': 'text/plain; charset=utf-8' });
+  return notFoundResponse('Sidan hittades inte', { 'Content-Type': 'text/plain; charset=utf-8' });
 }
