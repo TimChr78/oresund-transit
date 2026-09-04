@@ -464,7 +464,9 @@ describe('handleFetch — API paths', () => {
   // against stored stamps, so a free-text or impossible bound is a caller error
   // (400), not a 200 whose echo blesses "date_from": "banana".
   it('GET /api/transit/delay-stats rejects a bound that is not a real date or stamp', async () => {
-    for (const bound of ['banana', '2026-99-99', '2026-02-30', '2026-08-06T24:00:00', '2026-08-06T12:00', '20260806']) {
+    // 2026-02-29 is the other half of the leap rule: the day-number is real,
+    // the year is not a leap year, so daysInMonth caps February at 28.
+    for (const bound of ['banana', '2026-99-99', '2026-02-30', '2026-02-29', '2026-08-06T24:00:00', '2026-08-06T12:00', '20260806']) {
       const db = new FakeD1();
       const res = await handleFetch(
         new Request(`https://oresund.live/api/transit/delay-stats?from=${bound}&to=2026-08-07`),
@@ -481,8 +483,11 @@ describe('handleFetch — API paths', () => {
     for (const [from, to] of [
       ['2026-08-06', '2026-08-07'],
       ['2026-08-06T00:00:00', '2026-08-07'],
-      // A leap day is a real date, not a shape that happens to parse.
       ['2028-02-28', '2028-03-01'],
+      // A leap day is a real date, not a shape that happens to parse: 2028 is
+      // a leap year, so daysInMonth must admit 02-29. 2026 is not, so the
+      // rejected half below covers the same day-number there.
+      ['2028-02-29', '2028-03-01'],
     ]) {
       const db = new FakeD1();
       const res = await handleFetch(

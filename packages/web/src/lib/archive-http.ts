@@ -135,7 +135,13 @@ function isWindow(from: unknown, to: unknown): from is string {
 /** A W3C date, the only shape a sitemap <lastmod> may carry. */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-function parseLines(json: unknown): ArchiveLine[] {
+/**
+ * Exported for the sitemap regression test (test/sitemap.test.ts): the
+ * ArchiveLine[] this produces is the shape buildSitemap consumes, so the
+ * calendar rule here is what stands between a collector "2026-99-99" and a
+ * submitted /line URL.
+ */
+export function parseLines(json: unknown): ArchiveLine[] {
   const b = json as { lines?: unknown } | null;
   if (!b || !Array.isArray(b.lines)) throw new TypeError('invalid lines shape');
   return (b.lines as { line?: unknown; disruptions?: unknown; last_seen?: unknown }[])
@@ -144,9 +150,14 @@ function parseLines(json: unknown): ArchiveLine[] {
       line: l.line as string,
       disruptions: l.disruptions as number,
       // N-M3: the line's own last-data date, when the collector reports one.
-      // Anything that is not a plain date is dropped, so the sitemap can never
-      // emit a <lastmod> that is not a date.
-      ...(typeof l.last_seen === 'string' && DATE_RE.test(l.last_seen) ? { last_seen: l.last_seen } : {}),
+      // Shape and CALENDAR are both checked, the same rule parseLine holds the
+      // /line/{line} row to below and the sitemap Function's asDate applies:
+      // DATE_RE alone admitted "2026-99-99", which sorts above every real date
+      // and so reads as monitored-era data to linePageIndexable — submitting a
+      // URL the line page itself answers noindex,follow for.
+      ...(typeof l.last_seen === 'string' && DATE_RE.test(l.last_seen) && isValidLocalDate(l.last_seen)
+        ? { last_seen: l.last_seen }
+        : {}),
     }));
 }
 
