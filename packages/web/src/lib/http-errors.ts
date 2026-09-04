@@ -96,8 +96,9 @@ function langOf(tag: string): Lang | null {
  * The branded collector-outage page. Self-contained on purpose: it is served
  * when the collector Worker is down, so it must not depend on the SPA bundle,
  * a stylesheet request that could itself fail, or any JavaScript. The styling
- * mirrors the catch-all 404 page in functions/[[path]].js (same palette, same
- * brand mark) so every error URL reads as the same site.
+ * mirrors this module's own 404 page below (renderNotFoundPage — same palette,
+ * same brand mark), which used to live in functions/[[path]].js before wave C
+ * moved it here (audit7 L15), so every error URL reads as the same site.
  *
  * `route` is the path the visitor actually asked for, language prefix
  * included — audit5 H4. It is used verbatim as the retry href rather than run

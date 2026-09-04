@@ -460,6 +460,49 @@ describe('handleFetch — API paths', () => {
     expect(res.status).toBe(400);
   });
 
+  // audit7 L4 — the endpoint is public and compares its bounds lexicographically
+  // against stored stamps, so a free-text or impossible bound is a caller error
+  // (400), not a 200 whose echo blesses "date_from": "banana".
+  it('GET /api/transit/delay-stats rejects a bound that is not a real date or stamp', async () => {
+    for (const bound of ['banana', '2026-99-99', '2026-02-30', '2026-08-06T24:00:00', '2026-08-06T12:00', '20260806']) {
+      const db = new FakeD1();
+      const res = await handleFetch(
+        new Request(`https://oresund.live/api/transit/delay-stats?from=${bound}&to=2026-08-07`),
+        env(db),
+      );
+      expect(res.status, bound).toBe(400);
+      await expect(res.json()).resolves.toEqual({
+        error: 'from and to must be a real calendar date or local stamp: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS',
+      });
+    }
+  });
+
+  it('GET /api/transit/delay-stats accepts a real date and a full local stamp', async () => {
+    for (const [from, to] of [
+      ['2026-08-06', '2026-08-07'],
+      ['2026-08-06T00:00:00', '2026-08-07'],
+      // A leap day is a real date, not a shape that happens to parse.
+      ['2028-02-28', '2028-03-01'],
+    ]) {
+      const db = new FakeD1();
+      const res = await handleFetch(
+        new Request(`https://oresund.live/api/transit/delay-stats?from=${from}&to=${to}`),
+        env(db),
+      );
+      expect(res.status, from).toBe(200);
+    }
+  });
+
+  it('GET /api/transit/delay-stats answers 400 for a reversed window', async () => {
+    const db = new FakeD1();
+    const res = await handleFetch(
+      new Request('https://oresund.live/api/transit/delay-stats?from=2026-08-07&to=2026-08-06'),
+      env(db),
+    );
+    expect(res.status).toBe(400);
+    expect(db.calls).toHaveLength(0);
+  });
+
   it('returns 404 for unknown paths', async () => {
     const db = new FakeD1();
     const res = await handleFetch(new Request('https://oresund.live/nope'), env(db));
@@ -559,6 +602,16 @@ describe('handleFetch — /api/transit/disruptions', () => {
       const db = new FakeD1();
       const res = await handleFetch(new Request(`https://oresund.live/api/transit/disruptions?limit=${bad}`), env(db));
       expect(res.status).toBe(400);
+    }
+  });
+
+  // audit7 L4: same boundary as delay-stats, on the optional from/to.
+  it('rejects a malformed from/to and a reversed window', async () => {
+    for (const qs of ['from=banana', 'to=2026-99-99', 'from=2026-08-07&to=2026-08-06']) {
+      const db = new FakeD1();
+      const res = await handleFetch(new Request(`https://oresund.live/api/transit/disruptions?${qs}`), env(db));
+      expect(res.status, qs).toBe(400);
+      expect(db.calls, qs).toHaveLength(0);
     }
   });
 });
@@ -763,6 +816,9 @@ describe('handleFetch — archive: lines / line', () => {
     db.stubAll(RECENT_SQL, [
       { id: 9, timestamp: '2026-08-06T12:00:00', line: '804', type: 'delay' },
     ]);
+    db.stubAll('SELECT MAX(date(timestamp)) AS last_seen FROM disruptions WHERE line = ?', [
+      { last_seen: '2026-08-06' },
+    ]);
     db.stubAll(
       'SELECT DISTINCT stop_id FROM departures WHERE line = ? AND sched_time >= ? AND sched_time < ? ORDER BY stop_id',
       // An id that is not one of the monitored stops (a historical/partial
@@ -777,6 +833,7 @@ describe('handleFetch — archive: lines / line', () => {
       days: number;
       date_from: string;
       total_disruptions: number;
+      last_seen: string | null;
       daily: { date: string; count: number; cancellations: number; delays: number; alerts: number; avg_delay: number | null }[];
       by_cause: { cause: string; count: number }[];
       recent: { id: number; line: string; type: string }[];
@@ -786,6 +843,9 @@ describe('handleFetch — archive: lines / line', () => {
     expect(body.days).toBe(7);
     expect(body.date_from).toBe('2026-07-31');
     expect(body.total_disruptions).toBe(4);
+    // audit7 L9: all-time last data day, the same fact /lines reports — the
+    // page and the sitemap index off one number, not off two windows.
+    expect(body.last_seen).toBe('2026-08-06');
     expect(body.daily[6]).toEqual({ date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 });
     expect(body.by_cause).toEqual([
       { cause: 'signal_failure', count: 3 },
@@ -804,6 +864,19 @@ describe('handleFetch — archive: lines / line', () => {
     expect(db.lastBindsFor('DISTINCT stop_id')).toEqual(['804', '2026-07-31', '2026-08-07']);
   });
 
+  it('reports last_seen null for a line the collector has never observed (audit7 L9)', async () => {
+    vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+    const db = new FakeD1();
+    db.stubAll(DAILY_SQL, []);
+    db.stubAll(CAUSE_SQL, []);
+    db.stubAll(RECENT_SQL, []);
+    db.stubAll('SELECT MAX(date(timestamp)) AS last_seen FROM disruptions WHERE line = ?', [{ last_seen: null }]);
+
+    const res = await handleFetch(new Request('https://oresund.live/api/transit/line/801?days=7'), env(db));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ line: '801', total_disruptions: 0, last_seen: null });
+  });
+
   it('GET /api/transit/line/804 serves no stops list when nothing was observed (empty archive)', async () => {
     vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
     const db = new FakeD1();
@@ -816,6 +889,17 @@ describe('handleFetch — archive: lines / line', () => {
     const db = new FakeD1();
     const res = await handleFetch(new Request('https://oresund.live/api/transit/line/'), env(db));
     expect(res.status).toBe(400);
+  });
+
+  // audit7 L4: a bare "%" threw a URIError out of decodeURIComponent and
+  // answered 500 for a malformed request.
+  it('rejects a path segment that is not valid percent-encoding rather than 500ing', async () => {
+    for (const path of ['/api/transit/line/%', '/api/transit/line/80%E', '/api/transit/station/%', '/api/transit/station/%zz']) {
+      const db = new FakeD1();
+      const res = await handleFetch(new Request(`https://oresund.live${path}`), env(db));
+      expect(res.status, path).toBe(400);
+      expect(db.calls, path).toHaveLength(0);
+    }
   });
 });
 

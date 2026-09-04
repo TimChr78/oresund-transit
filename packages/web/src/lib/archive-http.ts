@@ -186,6 +186,15 @@ function parseLine(json: unknown): ArchiveLineStats {
   // independently), so a payload without it just renders no section — but one
   // that is malformed must not reach the renderer as a broken entry.
   if (b.stops !== undefined) b.stops = parseStations({ stations: b.stops });
+  // L9: last_seen drives the page's robots directive (through
+  // linePageIndexable, the same input the sitemap submits on), so it is held to
+  // the same standard parseLines holds the /lines row to — a plain date, and a
+  // real calendar day, or dropped. Anything else would go straight into the
+  // lexicographic era comparison, where "9999-12-31" reads as monitored-era
+  // data and a short string sorts however it likes.
+  if (b.last_seen != null && !(DATE_RE.test(b.last_seen) && isValidLocalDate(b.last_seen))) {
+    delete b.last_seen;
+  }
   return b as ArchiveLineStats;
 }
 
@@ -203,6 +212,42 @@ function parseStations(json: unknown): ArchiveStation[] {
  */
 function isKnownLine(raw: string, lines: ArchiveLine[]): boolean {
   return (CANONICAL_LINES as readonly string[]).includes(raw) || lines.some((l) => l.line === raw);
+}
+
+/**
+ * The /lines discovery payload, degraded rather than emptied on failure (audit7
+ * N-M4). `.catch(() => [])` — what this used to return — collapsed network
+ * errors, non-2xx bodies, unparseable JSON and parser TypeErrors into "no line
+ * exists", which made isKnownLine a bare `CANONICAL_LINES.includes` and handed
+ * the guard's verdict to whatever the collector's health happened to be. That
+ * is the exact 404-vs-502 conflation audit6's M10 was — "collector unhealthy"
+ * read as "content does not exist" — and the exact mistake feed.xml.js never
+ * made: it has always degraded this same failure to the canonical set. Falling
+ * back to `CANONICAL_LINES` here makes the route agree with the feed.
+ *
+ * What that buys, stated plainly: the guard can no longer run against an empty
+ * set, and every canonical line keeps rendering with its full "Other lines" list
+ * and ItemList JSON-LD through an outage. It does NOT make an unknown line
+ * resolve — a designation outside the canonical twelve still needs the
+ * collector's own word that it exists, because the /line/{line} endpoint answers
+ * 200 for any string at all (that is the soft-404 hole audit6 H1 closed). The
+ * fallback is the canonical set, not the collector's authority.
+ *
+ * The canonical entries carry no `last_seen`, so `linePageIndexable` falls back
+ * to the window count and the page's robots directive is unaffected.
+ */
+function canonicalLineFallback(): ArchiveLine[] {
+  return CANONICAL_LINES.map((line) => ({ line, disruptions: 0 }));
+}
+
+/** The /lines discovery set as plain designations, for knownArchiveLines(). */
+function discoveredLineIds(lines: ArchiveLine[]): string[] {
+  return lines.map((l) => l.line);
+}
+
+/** Discovery with the canonical fallback — the guarded form routes link from. */
+function discoverLines(fetchImpl: FetchLike): Promise<ArchiveLine[]> {
+  return fetchJson(`${COLLECTOR_BASE}/lines`, parseLines, fetchImpl).catch(canonicalLineFallback);
 }
 
 function parseStation(json: unknown): ArchiveStationStats {
@@ -339,7 +384,7 @@ export async function handleArchiveRequest(
       const raw = decodeURIComponent(line[1]!);
       const [stats, lines] = await Promise.all([
         fetchJsonOrNull(`${COLLECTOR_BASE}/line/${enc(raw)}?days=30`, parseLine, fetchImpl),
-        fetchJson(`${COLLECTOR_BASE}/lines`, parseLines, fetchImpl).catch(() => [] as ArchiveLine[]),
+        discoverLines(fetchImpl),
       ]);
       // audit6 H1: /line is the one archive family that took any input at all.
       // The collector's /line/{line} endpoint validates only that the segment
@@ -348,7 +393,9 @@ export async function handleArchiveRequest(
       // /line/%20 all rendered 200 with index,follow and a self-referencing
       // canonical — an unbounded indexable URL space of one-page-per-input
       // soft 404s. A line archive exists for the canonical set, or for a line
-      // the collector has actually observed; nothing else is a page.
+      // the collector has actually observed; nothing else is a page. Discovery
+      // failing degrades to the canonical set rather than to an empty one
+      // (audit7 N-M4), so the guard never turns on collector health.
       if (!isKnownLine(raw, lines)) return null;
       if (!stats) return null; // unknown line → 404
       return html(renderLinePage(stats.line, stats, lines));
@@ -364,13 +411,18 @@ export async function handleArchiveRequest(
       const slug = decodeURIComponent(station[1]!);
       // The corridor snapshot is best-effort: a /live gap must degrade to a
       // page without its status band, not fail the whole station URL.
-      const [stats, stations, live] = await Promise.all([
+      const [stats, stations, live, lines] = await Promise.all([
         fetchJsonOrNull(`${COLLECTOR_BASE}/station/${enc(slug)}?days=30`, parseStation, fetchImpl),
         fetchJson(`${COLLECTOR_BASE}/stations`, parseStations, fetchImpl).catch(() => [] as ArchiveStation[]),
         fetchJson(`${COLLECTOR_BASE}/live`, parseLive, fetchImpl).catch(() => null),
+        discoverLines(fetchImpl),
       ]);
       if (!stats) return null; // unknown station → 404
-      return html(renderStationPage(stats, stations, live, lang));
+      // L8 (audit7): the page's line cross-links are read out of `departures`,
+      // so they are bounded by the same discovery set the /line route answers
+      // for — a designation running at the stop that has not yet recorded a
+      // disruption is left unlinked rather than pointed at a 404.
+      return html(renderStationPage(stats, stations, live, lang, discoveredLineIds(lines)));
     }
     return null;
   } catch (err) {

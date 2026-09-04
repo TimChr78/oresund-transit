@@ -364,6 +364,29 @@ describe('isOresundTrain', () => {
     expect(isOresundTrain(hyllieRaw.departures[7]!)).toBe(true);
   });
 
+  it('matches the operator id as a suffix — the ids Trafiklab actually sends are 18 digits (audit7 L2)', () => {
+    const base = hyllieRaw.departures[0]!;
+    const withAgency = (id: string) => ({ ...base, agency: { ...base.agency, id } });
+    // The 18-digit VR Sverige id is what the live API reports; the bare "110"
+    // the branch used to compare against never occurs.
+    expect(isOresundTrain(withAgency('500000000000000110'))).toBe(true);
+    expect(isOresundTrain(withAgency('110'))).toBe(true);
+    // No agency id at all — falls through to the designation test.
+    expect(isOresundTrain(withAgency(''))).toBe(true); // designation 804
+  });
+
+  it('counts an Øresundståg with no 8xx designation on the operator id alone (audit7 L2)', () => {
+    // The case the dead branch dropped: a departure at Malmö C carrying the
+    // corridor operator but a designation the 8xx test rejects.
+    const base = hyllieRaw.departures[0]!;
+    const noDesignation = {
+      ...base,
+      route: { ...base.route, designation: '' },
+      agency: { ...base.agency, id: '500000000000000110' },
+    };
+    expect(isOresundTrain(noDesignation)).toBe(true);
+  });
+
   it('flags any 8xx designation even without agency 110', () => {
     const base = hyllieRaw.departures[0]!;
     const withRoute = (route: Partial<typeof base.route>, agency: Partial<typeof base.agency>) => ({

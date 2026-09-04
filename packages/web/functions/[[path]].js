@@ -26,7 +26,7 @@
  * localized twins, so those two anchors are annotated as English.
  */
 import { STATIC_PAGE_PATHS } from '../src/lib/static-pages';
-import { notFoundPageResponse, renderNotFoundPage } from '../src/lib/http-errors';
+import { notFoundPageResponse } from '../src/lib/http-errors';
 
 const SPA_PAGES = new Set(['/index.html', ...STATIC_PAGE_PATHS]);
 

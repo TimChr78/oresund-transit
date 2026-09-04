@@ -53,8 +53,10 @@ function stampDate(value) {
   const date = m?.[1];
   if (!date || !asDate(date)) return null;
   // No time at all is the shape the build actually writes (sv-SE, date only).
-  // Hour is 00-23 and minute/second 00-59 by the pattern above.
-  return m[2] === undefined ? date : date;
+  // Hour is 00-23 and minute/second 00-59 by the pattern above, so once the
+  // whole stamp has matched there is nothing left to branch on (audit7 L14 —
+  // this used to be `m[2] === undefined ? date : date`).
+  return date;
 }
 
 function parseLines(json) {

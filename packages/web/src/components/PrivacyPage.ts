@@ -16,8 +16,10 @@ export function renderPrivacyPage(lang: Lang, dict: Dict): string {
   <div class="wrap privacy-wrap">
     <header class="topbar">
       <!-- lang="da" (audit6 L9): the wordmark is Danish, and a screen reader
-           garbles the Ø without it. -->
-      <div class="brand" lang="da">${esc(dict.brand_name)}</div>
+           garbles the Ø without it. An <a>, not a div (audit7 L3): every other
+           page's wordmark links home, and these two were the last ones that
+           rendered the brand as inert text. -->
+      <a class="brand" href="${esc(localizedPath('/', lang))}" lang="da">${esc(dict.brand_name)}</a>
       <a class="privacy-back" href="${esc(localizedPath('/', lang))}">${esc(dict.privacy_back)}</a>
     </header>
     <main class="privacy">

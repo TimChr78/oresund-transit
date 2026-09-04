@@ -1,0 +1,40 @@
+-- N-M1 (audit7): purge disruptions recorded before the site's monitoring
+-- start. Migration 0004. Date: 2026-09-04.
+--
+-- WHY: migration 0003 purged `departures` and left `disruptions` alone, because
+-- `disruptions` has no `stop_id` column to filter on — the same pre-correction
+-- polling window therefore survives in the sibling table. It is reachable from
+-- exactly one page: /history/90 published 3568 disruptions for
+-- 2026-06-07 -> 2026-09-04, of which 932 across 26 days (2026-07-11 ->
+-- 2026-08-05) predate the monitoring start — the same rows 0003 removed from
+-- `departures`, written at the wrong stops before the id corrections. Every
+-- locale says the opposite on the page ("No disruptions recorded since
+-- monitoring began 2026-08-06"), and /line/6 (last_seen 2026-08-04) and
+-- /line/16 (2026-08-02) render that note while carrying data from before it.
+-- The /history hub stayed clean only because it hardcodes days=30, whose window
+-- opens on exactly the monitoring date.
+--
+-- The boundary is the monitoring start, not a date derived from it: it is the
+-- day live Trafiklab polling began, it is what the site publishes as
+-- LIVE_DATA_SINCE (packages/web/src/lib/archive.ts) and as the monitoring-start
+-- sentence in all three locale dictionaries, and after 0003 it is the day the
+-- earliest `departures` row carries. Keeping the three in step is asserted by
+-- db.test.ts, which reads this file.
+--
+-- COMPARISON: `date(timestamp) < '2026-08-06'` — the same date() extraction
+-- every disruption window query in src/db.ts already applies to this column
+-- (HISTORY_DAILY_SQL, EXISTING_DISRUPTION_SQL), so the purge and the readers
+-- agree on what a row's day is, and the bound is a quoted string literal in the
+-- same form 0003 uses for its stop ids. `timestamp` is stored as a naive local
+-- ISO stamp ("2026-08-06T21:59:27"), which SQLite's date() parses directly.
+-- Strict `<`: a row stamped on 2026-08-06 itself is the first monitored day and
+-- is kept.
+--
+-- DELETE, not tag: same reasoning as 0003 — a tag would need a schema change
+-- plus a filter in every future reader, which is how this class of bug
+-- regressed. Recoverable only from a D1 backup / time travel taken before this
+-- migration is applied.
+--
+-- Apply with:
+--   npx wrangler d1 migrations apply oresund-transit --remote
+DELETE FROM disruptions WHERE date(timestamp) < '2026-08-06';

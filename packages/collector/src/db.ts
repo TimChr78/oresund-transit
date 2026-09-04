@@ -539,6 +539,14 @@ export interface LineHistoryStats {
   date_from: string;
   date_to: string;
   total_disruptions: number;
+  /**
+   * The last calendar day the line recorded a disruption, all-time
+   * (audit7 L9) — the same fact `/lines` reports as `last_seen`, so the
+   * archive page and the sitemap decide indexability from one number instead
+   * of from two different windows. Null when the collector has never observed
+   * the line.
+   */
+  last_seen: string | null;
   daily: HistoryStats['daily'];
   by_cause: { cause: string; count: number }[];
   recent: Disruption[];
@@ -549,6 +557,12 @@ const LINE_DAILY_SQL =
 const LINE_CAUSE_SQL =
   'SELECT cause, COUNT(*) AS count FROM disruptions WHERE line = ? AND timestamp >= ? AND timestamp < ? GROUP BY cause ORDER BY count DESC';
 const LINE_RECENT_SQL = 'SELECT * FROM disruptions WHERE line = ? ORDER BY timestamp DESC LIMIT ?';
+// Its own query, deliberately — not derived from LINE_RECENT_SQL's first row.
+// `recent` is one WHERE clause away from becoming window-bounded, and a
+// last_seen that quietly started measuring the window instead of the table
+// would re-open exactly the page-vs-sitemap drift this field exists to close
+// (audit7 L9). Identical to queryDistinctLines' MAX(date(timestamp)).
+const LINE_LAST_SEEN_SQL = 'SELECT MAX(date(timestamp)) AS last_seen FROM disruptions WHERE line = ?';
 
 const RECENT_DISRUPTIONS_LIMIT = 20;
 
@@ -562,7 +576,7 @@ export async function queryLineHistory(
   const from = addDaysStr(to, -(days - 1));
   const toExclusive = addDaysStr(to, 1);
 
-  const [dailyRows, causeRows, recentRows] = await Promise.all([
+  const [dailyRows, causeRows, recentRows, lastSeenRows] = await Promise.all([
     db
       .prepare(LINE_DAILY_SQL)
       .bind(line, from, toExclusive)
@@ -572,7 +586,9 @@ export async function queryLineHistory(
       .prepare(LINE_RECENT_SQL)
       .bind(line, RECENT_DISRUPTIONS_LIMIT)
       .all<Disruption>(),
+    db.prepare(LINE_LAST_SEEN_SQL).bind(line).all<{ last_seen: string | null }>(),
   ]);
+  const last_seen = lastSeenRows.results[0]?.last_seen ?? null;
 
   const daily: LineHistoryStats['daily'] = [];
   const byDate = new Map<string, LineHistoryStats['daily'][number]>();
@@ -607,6 +623,7 @@ export async function queryLineHistory(
     date_from: from,
     date_to: to,
     total_disruptions: daily.reduce((sum, e) => sum + e.count, 0),
+    last_seen,
     daily,
     by_cause: causeRows.results
       .map((r) => ({ cause: r.cause ?? 'unknown', count: r.count }))
