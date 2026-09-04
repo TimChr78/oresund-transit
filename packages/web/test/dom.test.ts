@@ -500,6 +500,129 @@ describe('refocusTarget — the fallback is somewhere focus can actually land', 
 });
 
 
+describe('the removal sweep keeps the focus (audit6 M3)', () => {
+  beforeEach(() => {
+    globalThis.document = fakeDocument as unknown as Document;
+    active = null;
+  });
+  afterEach(() => {
+    delete (globalThis as { document?: unknown }).document;
+    active = null;
+  });
+
+  /**
+   * The exact transition the audit named: SET_DAY_RANGE nulls history, stats
+   * and punctuality, so the second render turns the <section class="history">
+   * that CONTAINS the focused day-range button into a bare <div class="empty">.
+   * Different tag, different key — the section is removed, not replaced, and
+   * the removal sweep had no focus handling at all.
+   */
+  const withHistory = '<main>\n  <section class="history" data-key="history-section">\n    <div class="day-toggle">\n      <button type="button" class="day-toggle-btn" data-action="set-days">30 days</button>\n    </div>\n  </section>\n</main>\n';
+  const loading = '<main>\n  <div class="empty">Loading…</div>\n</main>\n';
+
+  it('does not drop a keyboard user onto <body> when their section is removed', () => {
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(asEl, withHistory, parseHtml);
+    const button = root.children[0]!.children[0]!.children[0]!.children[0]!;
+    button.focus();
+    expect(active).toBe(button);
+
+    reconcile(asEl, loading, parseHtml);
+
+    // The section went, and the focus came back to where it stood rather than
+    // falling to <body>. The replacement is a <div>, which needs a tabindex
+    // before focus() can land on it.
+    const replacement = root.children[0]!.children[0]!;
+    expect(replacement.getAttribute('class')).toBe('empty');
+    expect(active).toBe(replacement);
+    expect(replacement.getAttribute('tabindex')).toBe('-1');
+    expect(document.activeElement).toBe(replacement);
+  });
+
+  it('hands the focus to the surviving sibling when the removed node was last', () => {
+    const before = '<main>\n  <section class="history" data-key="history-section">\n    <button>Range</button>\n  </section>\n  <section class="archives" data-key="archives">\n    <a href="/line">Lines</a>\n  </section>\n</main>\n';
+    const after = '<main>\n  <section class="archives" data-key="archives">\n    <a href="/line">Lines</a>\n  </section>\n</main>\n';
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(asEl, before, parseHtml);
+    root.children[0]!.children[0]!.children[0]!.focus();
+
+    reconcile(asEl, after, parseHtml);
+
+    // Nothing replaced the removed section, so the nearest surviving neighbour
+    // — the element now standing where it did — takes the focus.
+    expect(root.children.length).toBe(1);
+    expect(root.children[0]!.children.length).toBe(1);
+    expect(active).toBe(root.children[0]!.children[0]);
+  });
+
+  it('leaves the focus alone when nothing focused is removed', () => {
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(asEl, withHistory, parseHtml);
+    reconcile(asEl, loading, parseHtml);
+    expect(document.activeElement).toBeNull();
+  });
+});
+
+describe('a live region survives empty → data by identity (audit6 M4)', () => {
+  /**
+   * StatusBanner renders the SAME keyed region for every /live state; only the
+   * band colour is added when there is something to report. LIVE_NO_DATA used
+   * to swap the region for a bare <div class="empty"> — a different tag, so the
+   * region was removed and the one that came back on recovery was inserted
+   * already holding its text, which most screen readers read as "nothing
+   * changed".
+   */
+  const empty =
+    '<main>\n  <section data-key="status-banner" class="status-slot" role="status" aria-live="polite">\n    <div class="empty">No data</div>\n  </section>\n</main>\n';
+  const ok = '<main>\n  <section data-key="status-banner" class="status-banner status-green" role="status" aria-live="polite">\n    <span class="sb-text">Normal service</span>\n  </section>\n</main>\n';
+
+  it('reuses the region element when the board recovers from a 503', () => {
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(asEl, empty, parseHtml);
+    const region = root.children[0]!.children[0]!;
+    expect(region.getAttribute('role')).toBe('status');
+
+    reconcile(asEl, ok, parseHtml);
+
+    expect(root.children[0]!.children[0]).toBe(region);
+    expect(region.getAttribute('role')).toBe('status');
+    expect(region.getAttribute('class')).toBe('status-banner status-green');
+  });
+
+  it('reuses it again when the board degrades to empty', () => {
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(asEl, ok, parseHtml);
+    const region = root.children[0]!.children[0]!;
+
+    reconcile(asEl, empty, parseHtml);
+
+    expect(root.children[0]!.children[0]).toBe(region);
+    expect(region.getAttribute('class')).toBe('status-slot');
+  });
+});
+
+describe('copyAttributes (audit6 L6) — the banner can be byte-identical again', () => {
+  const banner = (band: string): string =>
+    `<main>\n  <section data-key="status-banner" class="status-banner ${band}" role="status" aria-live="polite">\n    <span class="sb-text">Normal service</span>\n  </section>\n</main>\n`;
+
+  it('re-derives the attribute order from the new markup, so the fast path is not lost', () => {
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(asEl, banner('status-green'), parseHtml);
+    reconcile(asEl, banner('status-amber'), parseHtml);
+    // One full cycle later the markup is what it was at first paint.
+    const html = banner('status-green');
+    reconcile(asEl, html, parseHtml);
+    expect(root.children[0]!.children[0]!.outerHTML).toBe(parse(html)[0]!.children[0]!.outerHTML);
+  });
+});
+
+
 describe('isPlainPrimaryClick (audit4 N-M8)', () => {
   const click = (overrides: Partial<Parameters<typeof isPlainPrimaryClick>[0]> = {}): boolean =>
     isPlainPrimaryClick({ button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...overrides });

@@ -44,6 +44,7 @@ import {
   type DepartureInput,
   type DisruptionInput,
 } from './db.js';
+import { MONITORED_STOPS as MONITORED_STOP_DATA } from './stops.js';
 
 export interface Env {
   DB: D1Like;
@@ -57,44 +58,34 @@ export type FetchLike = (url: string) => Promise<{ ok: boolean; status?: number;
 const DEFAULT_BASE_URL = 'https://realtime-api.trafiklab.se/v1/departures';
 
 /**
- * The four monitored stops.
- *
- * Hyllie 740001586 and København H 860000626 are verified live SiteIds (they
- * come from the real fixtures' query.query): Hyllie monitors Denmark-bound
- * trains via isCrossborderTrain, København H monitors Sweden-bound trains via
- * isSwedenBoundTrain. Kastrup Lufthavn mirrors København H's filter.
- *
- * ✅ VERIFIED LIVE 2026-08-22: Kastrup 860000858 returned real departures
- * against the live Trafiklab key. The earlier 840004349 Kastrup id was a
- * registry misinterpretation — Danish stops use the 86xxxx range (København
- * H = 860000626); polled against the live key, 840004349 matched nothing.
- * ⚠️ Malmö C 740000001 was WRONG (Stockholm C); real id is 740000003.
+ * The four monitored stops — ids, names, slugs and the cross-border flag come
+ * from ./stops, the one copy of that set (audit6 M11). This module only adds
+ * what polling needs: the per-stop departure filter.
  *
  * Trafiklab quota: polling every 5 minutes costs ~288 requests/day per stop,
  * ≈ 8.6k requests/month. Four monitored stops therefore consume ≈ 35k
  * requests/month of the Trafiklab key quota; each added or removed stop
  * moves that needle by ~8.6k requests/month.
  *
- * Buses are excluded per the Phase 2 scope decision. `crossborder: false` on
- * Malmö C: its filter (isAnyTrain) intentionally admits purely local Pågatåg
- * trains, which cannot attest cross-border service — the service-shutdown
- * detector counts only the three crossborder stops (Hyllie, København H,
- * Kastrup Lufthavn).
+ * Filters are Øresundståg-scoped (audit6 M5): the corridor monitors the
+ * cross-border train service, so every stop's filter rejects Pågatåg, SJ and
+ * buses. `crossborder: false` on Malmö C is a narrower claim — its filter
+ * (isOresundTrain) sees only through trains, but purely local Øresundståg
+ * turns cannot attest cross-border service — so the service-shutdown detector
+ * counts only the three crossborder stops (Hyllie, København H, Kastrup
+ * Lufthavn).
  */
-const MONITORED_STOPS = [
-  // The `id` values here and MONITORED_STOP_IDS in db.ts are the same list
-  // restated (db.ts cannot import this module). A stop id added or superseded
-  // here must change there too — and migrations/0003 — or the corridor
-  // punctuality query silently disagrees with the table it reads (audit5 C1).
-  { id: '740001586', name: 'Malmö Hyllie', slug: 'hyllie', filter: isCrossborderTrain, crossborder: true },
-  { id: '860000626', name: 'København H', slug: 'kobenhavn-h', filter: isSwedenBoundTrain, crossborder: true },
-  // ✅ Verified 2026-08-24 against ResRobot: real Malmö Centralstation is
-  // 740000003 (740000001 was Stockholm C — collected Arlanda Express/Uppsala).
-  // Filter = Øresundståg only (agency 110 / 8xx line): no Pågatåg/SJ/buses.
-  { id: '740000003', name: 'Malmö C', slug: 'malmo-c', filter: isOresundTrain, crossborder: false },
-  // ✅ Verified live 2026-08-22: 860000858 = 'Kastrup flygplats' (ResRobot exact name) — real departures.
-  { id: '860000858', name: 'Københavns Lufthavn (Kastrup)', slug: 'kastrup', filter: isSwedenBoundTrain, crossborder: true },
-] as const;
+const STOP_FILTERS: Record<string, (dep: TrafiklabDeparture) => boolean> = {
+  hyllie: isCrossborderTrain,
+  'kobenhavn-h': isSwedenBoundTrain,
+  'malmo-c': isOresundTrain,
+  kastrup: isSwedenBoundTrain,
+};
+
+const MONITORED_STOPS = MONITORED_STOP_DATA.map((stop) => ({
+  ...stop,
+  filter: STOP_FILTERS[stop.slug]!,
+}));
 
 /** The stable archive URL slug for a monitored stop (ASCII, URL-safe). */
 export interface StationInfo {
@@ -103,7 +94,8 @@ export interface StationInfo {
   stop_name: string;
 }
 
-const STATIONS: StationInfo[] = MONITORED_STOPS.map((s) => ({
+/** The four monitored stops, as the API's /stations discovery payload reports them. */
+export const STATIONS: StationInfo[] = MONITORED_STOPS.map((s) => ({
   slug: s.slug,
   stop_id: s.id,
   stop_name: s.name,
@@ -462,7 +454,11 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
   // ---- Archive (server-rendered SEO pages) ----
   // Discovery endpoints feed the archive index pages + the dynamic sitemap.
   if (url.pathname === '/api/transit/lines') {
-    return json({ lines: await queryDistinctLines(env.DB) });
+    // An explicit, generous limit (audit6 M10): the default 50 ordered the
+    // rows by disruption count, so a canonical line crowded out by busier
+    // ones came back as "never seen" and the sitemap dropped a page that has
+    // data. The corridor has a dozen lines; 500 cannot be outrun.
+    return json({ lines: await queryDistinctLines(env.DB, 500) });
   }
 
   if (url.pathname === '/api/transit/stations') {

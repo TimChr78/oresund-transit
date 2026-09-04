@@ -26,57 +26,9 @@
  * localized twins, so those two anchors are annotated as English.
  */
 import { STATIC_PAGE_PATHS } from '../src/lib/static-pages';
-import { localizedPath } from '../src/lib/seo';
-import { notFoundResponse } from '../src/lib/http-errors';
-import { BRAND_NAME, translate } from '../src/i18n';
-import { esc } from '../src/lib/html';
+import { notFoundPageResponse, renderNotFoundPage } from '../src/lib/http-errors';
 
 const SPA_PAGES = new Set(['/index.html', ...STATIC_PAGE_PATHS]);
-
-function notFoundHtml(pathname) {
-  const lang = pathname.startsWith('/sv/') ? 'sv' : pathname.startsWith('/da/') ? 'da' : 'en';
-  const title = translate('err404_title', lang);
-  return `<!doctype html>
-<html lang="${lang}">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${esc(title)} — ${BRAND_NAME}</title>
-    <meta name="robots" content="noindex" />
-    <style>
-      :root { color-scheme: dark; }
-      * { box-sizing: border-box; }
-      body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0a0c10; color: #e7eaf0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.55; }
-      main { max-width: 560px; padding: 2rem 1.25rem; text-align: center; }
-      h1 { font-size: 1.5rem; margin: 0 0 .4rem; }
-      p { color: #8b93a7; margin: 0 0 1.4rem; }
-      .brand { color: #10b981; font-weight: 700; font-size: .95rem; text-decoration: none; letter-spacing: .02em; display: inline-block; margin-bottom: 1.6rem; }
-      nav { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem 1.1rem; font-size: .9rem; }
-      nav a { color: #9fc9ff; text-decoration: none; }
-      nav a:hover { text-decoration: underline; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <a class="brand" href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a>
-      <h1>${esc(title)}</h1>
-      <p>${esc(translate('err404_body', lang))}</p>
-      <nav aria-label="${esc(translate('nav_site_sections', lang))}">
-        <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a>
-        <a href="${localizedPath('/history', lang)}">${esc(translate('nav_history', lang))}</a>
-        <a href="/line" hreflang="en">${esc(translate('arch_link_line', lang))}</a>
-        <a href="/station" hreflang="en">${esc(translate('arch_link_station', lang))}</a>
-      </nav>
-    </main>
-  </body>
-</html>`;
-}
-
-const NOT_FOUND_HEADERS = {
-  'Content-Type': 'text/html; charset=utf-8',
-  'Cache-Control': 'no-store',
-  'X-Robots-Tag': 'noindex',
-};
 
 export async function onRequest(context) {
   const pathname = new URL(context.request.url).pathname;
@@ -86,7 +38,7 @@ export async function onRequest(context) {
   if (isSpaFallback) {
     // audit5 H5: this was the one HTML response in the tree with no CSP and no
     // X-Frame-Options — framable and HSTS-free on the paths bots probe first.
-    return notFoundResponse(notFoundHtml(pathname), NOT_FOUND_HEADERS);
+    return notFoundPageResponse(pathname);
   }
   return asset;
 }

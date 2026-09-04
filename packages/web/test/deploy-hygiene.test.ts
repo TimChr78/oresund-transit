@@ -8,10 +8,12 @@ import { readFileSync, existsSync } from 'node:fs';
  * custom-domain /assets/* cache rule would cache that HTML under the JS URL
  * for hours -> blank page. Two layers defend against it:
  *
- * 1. functions/assets/[[path]].js — scoped to /assets/* via _routes.json,
- *    returns a real 404 when the requested asset is missing (detected via the
- *    ASSETS binding: a real asset is JS/CSS, a missing one falls through the
- *    SPA fallback as text/html).
+ * 1. functions/assets/[[path]].js — returns a real 404 when the requested
+ *    asset is missing (detected via the ASSETS binding: a real asset is
+ *    JS/CSS, a missing one falls through the SPA fallback as text/html). It is
+ *    reached for every URL, because _routes.json is include "/*" and scopes
+ *    nothing (audit5 M9 / audit6 L8) — Function choice is by URL specificity,
+ *    not by that file.
  * 2. Inline self-heal script in index.html — detects the never-booted app
  *    and reloads once (sessionStorage-guarded against loops).
  *
@@ -39,7 +41,8 @@ describe('deploy-race protection', () => {
     // route-specific Functions still win by specificity; assets pass through
     // ASSETS.fetch inside the catch-all.
     expect(parsed.include).toEqual(['/*']);
-    // Everything else stays on the free static tier.
+    // Nothing is excluded, so nothing falls back to the free static tier: a
+    // Function runs on every request (audit6 L8).
     expect(parsed.exclude).toEqual([]);
   });
 

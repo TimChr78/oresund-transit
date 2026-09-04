@@ -190,6 +190,52 @@ describe('buildSitemap', () => {
     );
   });
 
+  it('omits the pre-monitoring bus lines from the sitemap even though they have rows (audit6 M6)', () => {
+    // Lines 6 and 16 carry real rows in `disruptions` — from 2026-08-04 and
+    // 2026-08-02, BEFORE the 2026-08-06 monitoring start — so they pass a
+    // "has rows" check while their own lastmod says the page had content
+    // before this site existed. hasSubmittableData keys off the monitored era,
+    // not off the row count. The pages stay live and labelled (buses, in the
+    // H1 and breadcrumb), and they now carry noindex too (audit6 L2).
+    const xml = buildSitemap(
+      [
+        { line: '6', disruptions: 46, last_seen: '2026-08-04' },
+        { line: '16', disruptions: 30, last_seen: '2026-08-02' },
+        { line: '802', disruptions: 400, last_seen: '2026-09-01' },
+      ],
+      [],
+      LASTMOD,
+    );
+    const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
+    for (const bus of ['6', '16']) {
+      expect(
+        entries.find((e) => e.includes(`<loc>https://oresund.live/line/${bus}</loc>`)),
+        bus,
+      ).toBeUndefined();
+    }
+    // A line with monitored-era data is still submitted, dated from its own data.
+    const train = entries.find((e) => e.includes('<loc>https://oresund.live/line/802</loc>'));
+    expect(train).toBeDefined();
+    expect(train).toContain('<lastmod>2026-09-01</lastmod>');
+  });
+
+  it('submits the canonical train lines when the collector is unreachable (audit6 M10)', () => {
+    // The outage path: nothing is known about any line, which is not the same
+    // as every line having no data. The canonical trains go out (minus the
+    // buses), and none of them claims a freshness date it cannot back.
+    const xml = buildSitemap([], [], LASTMOD, { collectorUnknown: true });
+    const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
+    for (const line of ['801', '802', '806', '807', '910']) {
+      expect(entries.find((e) => e.includes(`<loc>https://oresund.live/line/${line}</loc>`)), line).toBeDefined();
+    }
+    for (const bus of ['6', '16']) {
+      expect(entries.find((e) => e.includes(`<loc>https://oresund.live/line/${bus}</loc>`)), bus).toBeUndefined();
+    }
+    const lineEntry = entries.find((e) => e.includes('<loc>https://oresund.live/line/802</loc>'));
+    expect(lineEntry).toBeDefined();
+    expect(lineEntry).not.toContain('<lastmod>');
+  });
+
   it('drops a lastmod source that is not a date instead of clamping it (audit5 L11)', () => {
     // slice(0, 10) made any string LOOK like a date — and <lastmod> is the one
     // sitemap signal Google acts on. A timestamp is not a date; say nothing.

@@ -112,6 +112,17 @@ describe('renderRssFeed', () => {
     expect(xml).toContain('<link>https://oresund.live/</link>');
   });
 
+  it('links each item at its own line archive instead of the homepage (audit6 L17)', () => {
+    const xml = renderRssFeed([disruption({ line: '803' }), disruption({ id: 2, line: null })], OPTS);
+    const links = [...xml.matchAll(/<link>([^<]*)<\/link>/g)].map((m) => m[1]!);
+    // <link> appears once for the channel and once per item.
+    expect(links[0]).toBe('https://oresund.live/');
+    expect(links[1]).toBe('https://oresund.live/line/803');
+    // A row with no line designation has nothing to deep-link to, so it keeps
+    // the channel URL.
+    expect(links[2]).toBe('https://oresund.live/');
+  });
+
   it('includes cause, severity, delay minutes and raw_text in the description', () => {
     const xml = renderRssFeed(
       [

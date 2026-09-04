@@ -5,9 +5,10 @@ import { formatDelaySeconds, stockholmWallClock } from '../i18n/format';
 /**
  * Pure RSS 2.0 feed renderer for /feed.xml.
  *
- * The feed lists recent disruptions (Öresundståg / Pågatåg) newest first,
- * exactly as the collector's /api/transit/disruptions returns them — this
- * module NEVER re-sorts.
+ * The feed lists recent disruptions (Øresundståg) newest first, exactly as the
+ * collector's /api/transit/disruptions returns them — this module NEVER
+ * re-sorts. The collector has been Øresundståg-only since the August stop-id
+ * correction (audit6 M5), so the feed must not claim Pågatåg coverage.
  *
  * All text values are XML-escaped on output; disruption data is external
  * input and can contain &, <, quotes.
@@ -79,6 +80,16 @@ function toRfc822(timestamp: string): string {
   return `${weekday}, ${d} ${MONTHS[+mo - 1]} ${y} ${h}:${mi}:${s} ${tz}`;
 }
 
+/**
+ * The item's link (audit6 L17): every item used to point at the channel URL,
+ * which gave a reader nothing to deep-link to. Each disruption names a line,
+ * and /line/{line} is a real page — so the item links there and the feed
+ * becomes a way into the archives rather than 50 copies of the homepage.
+ */
+function linkFor(d: Disruption, channelLink: string): string {
+  return d.line ? `https://oresund.live/line/${encodeURIComponent(d.line)}` : channelLink;
+}
+
 /** Item title composed from line + type + direction (feed is English-only). */
 function titleFor(d: Disruption): string {
   const dir = d.direction === 'to_denmark' ? ' to Denmark' : d.direction === 'to_sweden' ? ' to Sweden' : '';
@@ -115,7 +126,7 @@ export function renderRssFeed(items: Disruption[], opts: RssOptions): string {
       const pubDateEl = pubDate ? `\n      <pubDate>${pubDate}</pubDate>` : '';
       return `    <item>
       <title>${escXml(titleFor(d))}</title>
-      <link>${escXml(opts.link)}</link>
+      <link>${escXml(linkFor(d, opts.link))}</link>
       <guid isPermaLink="false">https://oresund.live/disruption/${d.id}</guid>${pubDateEl}
       <description>${escXml(descriptionFor(d))}</description>
     </item>`;

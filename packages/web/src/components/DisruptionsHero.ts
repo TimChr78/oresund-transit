@@ -16,8 +16,11 @@ import { sortNewestFirst } from '../lib/stats';
 export function renderDisruptionsHero(disruptions: readonly Disruption[], lang: Lang): string {
   if (disruptions.length === 0) return '';
   const items = sortNewestFirst(disruptions).slice(0, 3);
+  // data-key (audit6 L4): the strip appears and disappears between renders as
+  // disruption_count changes, and it is a link a keyboard user can be on when
+  // it does.
   return `
-  <a class="hero-strip" href="#disruptions-table">
+  <a class="hero-strip" href="#disruptions-table" data-key="hero-strip">
     <span class="hero-strip-label">${esc(translate('hero_disruptions', lang))}</span>
     <span class="hero-strip-items">
       ${items

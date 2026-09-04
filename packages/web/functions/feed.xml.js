@@ -1,7 +1,10 @@
 /**
- * /feed.xml — RSS 2.0 feed of recent disruptions (Öresundståg / Pågatåg),
- * newest first. Thin wiring: fetch from the collector Worker, render with the
- * pure renderer (src/lib/rss.ts), respond with the RSS content-type.
+ * /feed.xml — RSS 2.0 feed of recent Øresundståg disruptions, newest first.
+ * Thin wiring: fetch from the collector Worker, render with the pure renderer
+ * (src/lib/rss.ts), respond with the RSS content-type. The channel description
+ * names Øresundståg only (audit6 M5) — the collector has been single-agency
+ * since the August stop-id correction, and the feed is a crawler-visible
+ * surface that must not claim coverage the data does not have.
  *
  * The feed is cached for 5 minutes (client/browser hint; the collector polls
  * every 5 min). On any collector failure — unreachable, non-2xx, or an
@@ -20,7 +23,7 @@ const COLLECTOR_URL =
 const FEED_OPTS = {
   // The same string the pages' RSS autodiscovery <link> carries (audit5 L6).
   title: RSS_TITLE,
-  description: 'Recent disruptions across the Øresund (Öresundståg / Pågatåg), newest first.',
+  description: 'Recent disruptions across the Øresund (Öresundståg), newest first.',
   link: 'https://oresund.live/',
 };
 

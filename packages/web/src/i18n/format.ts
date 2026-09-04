@@ -44,10 +44,21 @@ function daysInMonth(year: number, month: number): number {
 }
 
 /**
- * True for a real calendar DATE — "2026-08-06", month 1–12, day 1–31 and a day
- * that exists in that month ("2026-02-30" is not a date). Shape-only checks
- * pass "2026-99-99", and a caller that renders it or compares it
- * lexicographically against real dates produces a plausible-looking lie.
+ * The years the corridor's sources can actually report. audit6 L18: with only
+ * component-range checks, "0000-01-01" and "9999-12-31" were both "real"
+ * dates, so "no invented date" wasn't quite achieved — a stamp the collector
+ * could never write still passed. Both validators share the bound, so neither
+ * layer accepts what the other rejects.
+ */
+const MIN_YEAR = 2000;
+const MAX_YEAR = 2100;
+
+/**
+ * True for a real calendar DATE — "2026-08-06", a year the sources could have
+ * written, month 1–12, and a day that exists in that month ("2026-02-30" is
+ * not a date). Shape-only checks pass "2026-99-99", and a caller that renders
+ * it or compares it lexicographically against real dates produces a
+ * plausible-looking lie.
  */
 export function isValidLocalDate(value: unknown): value is string {
   if (typeof value !== 'string') return false;
@@ -56,6 +67,7 @@ export function isValidLocalDate(value: unknown): value is string {
   const year = Number(m[1]);
   const month = Number(m[2]);
   const day = Number(m[3]);
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
   if (month < 1 || month > 12) return false;
   return day >= 1 && day <= daysInMonth(year, month);
 }
@@ -83,6 +95,7 @@ export function isValidLocalTimestamp(value: unknown): boolean {
   const hour = Number(m[4]);
   const minute = Number(m[5]);
   const second = Number(m[6]);
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
   if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59) return false;
   return day >= 1 && day <= daysInMonth(year, month);
 }

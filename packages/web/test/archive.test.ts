@@ -292,7 +292,7 @@ describe('archive renderers', () => {
     expect(html).not.toContain('<a href="/line/807">Line 807</a>');
   });
 
-  it('empty-archive line page renders correct SEO markup (index,follow, no noindex)', () => {
+  it('empty-archive line page renders correct SEO markup (noindex,follow)', () => {
     const empty: ArchiveLineStats = {
       ...lineStats,
       line: '807',
@@ -304,14 +304,40 @@ describe('archive renderers', () => {
     expect(html).toContain('<title>Line 807 — disruption archive — Øresund.live</title>');
     expect(html).toContain('<meta name="description" content="Disruption history for Line 807');
     expect(html).toContain('<link rel="canonical" href="https://oresund.live/line/807" />');
-    // Empty archives must stay indexable — never noindex.
-    expect(html).toContain('<meta name="robots" content="index,follow" />');
-    expect(html).not.toContain('noindex');
+    // audit6 L2 — an archive with nothing recorded in its window is a real,
+    // linked page with an honest note, but not a page to index. noindex,follow
+    // keeps it out of the index while the sibling and station cross-links it
+    // carries still count, which is the same rule the sitemap applies (M6).
+    expect(html).toContain('<meta name="robots" content="noindex,follow" />');
     // M1: an annotation replaces the zero-data sections (no blank tables).
     expect(html).toContain('No disruptions recorded since monitoring began 2026-08-06.');
     // Sibling links still list the canonical line set.
     expect(html).toContain('href="/line/801"');
+
+    // A line with data stays indexable.
+    const withData = renderLinePage('802', lineStats, []);
+    expect(withData).toContain('<meta name="robots" content="index,follow" />');
+    expect(withData).not.toContain('noindex');
   });
+
+  it('never formats an impossible collector date into a plausible one (audit6 M7)', () => {
+    // fmtDate is the English archive formatter audit5 M5 left alone: Date.UTC
+    // rolls over, so "2026-99-99" became "7 Jun 2034" and "2026-02-30" became
+    // "2 Mar 2026" — a confident, wrong, indexable date in the /line/* and
+    // /history/{days} meta descriptions. The impossible value comes back as
+    // itself: visibly wrong, never plausibly wrong.
+    const impossible: ArchiveLineStats = {
+      ...lineStats,
+      date_from: '2026-99-99',
+      date_to: '2026-02-30',
+    };
+    const html = renderLinePage('804', impossible, []);
+    expect(html).not.toContain('2034');
+    expect(html).not.toContain('2027');
+    expect(html).not.toContain('Mar 2026');
+    expect(html).toContain('content="Disruption history for Line 804 on the Øresund crossing — 4 disruptions between 2026-99-99 and 2026-02-30."');
+  });
+
 
   it('empty line archives annotate instead of rendering empty <ul>/<table> sections', () => {
     const empty: ArchiveLineStats = {
@@ -884,6 +910,31 @@ describe('handleArchiveRequest dispatch', () => {
       }),
     );
   }
+
+  it.each([
+    ['an impossible month', { ...history, date_from: '2026-99-01' }],
+    ['an impossible day', { ...history, date_to: '2026-02-30' }],
+  ])('rejects a history window with %s instead of rendering one (audit6 M7)', (_label, payload) => {
+    // The four archive boundaries only typeof-checked date_from/date_to, so an
+    // impossible window reached the formatters intact and fmtDate's Date.UTC
+    // rollover turned it into a plausible wrong date. Rejected here it is what
+    // any other unparseable body is: a branded 502.
+    stubFetch({ history: payload, punctuality });
+    const res = handleArchiveRequest('/history/7');
+    return expect(res.then((r) => r?.status)).resolves.toBe(502);
+  });
+
+  it('rejects a line payload with an impossible window instead of rendering it', async () => {
+    stubFetch({ lines: { lines: [{ line: '804', disruptions: 4 }] }, line: { ...lineStats, date_from: '2026-13-01' } });
+    const res = await handleArchiveRequest('/line/804');
+    expect(res?.status).toBe(502);
+  });
+
+  it('still renders a line page whose window is a real calendar window', async () => {
+    stubFetch({ lines: { lines: [{ line: '804', disruptions: 4 }] }, line: lineStats });
+    const res = await handleArchiveRequest('/line/804');
+    expect(res?.status).toBe(200);
+  });
 
   it('renders /history as the aggregate hub from two collector calls', async () => {
     const fetched: string[] = [];

@@ -111,7 +111,16 @@ export function fetchPunctuality(days: HistoryDays = 7): Promise<PunctualityResp
   return request('punctuality', parsePunctualityResponse, { days });
 }
 
-/** Guarded parse of the /api/transit/punctuality JSON shape. */
+/**
+ * Guarded parse of the /api/transit/punctuality JSON shape.
+ *
+ * Per-row validation (audit6 M8), mirroring the server-side parse the archive
+ * routes run over the same endpoint (archive-http.ts parsePunctuality). The
+ * board's chart interpolates `on_time_pct` into an SVG <title> and a legend
+ * <span>, and svgY() coerces with .toFixed(1) — so a string or a non-finite
+ * number reached the DOM without anything throwing. A row that fails is
+ * dropped, which under-reports rather than rendering a value nothing measured.
+ */
 export function parsePunctualityResponse(json: unknown): PunctualityResponse {
   const body = json as Partial<PunctualityResponse> | null;
   if (
@@ -124,7 +133,23 @@ export function parsePunctualityResponse(json: unknown): PunctualityResponse {
   ) {
     throw new TypeError('invalid /api/transit/punctuality response shape');
   }
-  return body as PunctualityResponse;
+  const daily = body.daily.filter(
+    (r) =>
+      r &&
+      typeof r === 'object' &&
+      typeof r.date === 'string' &&
+      Number.isFinite(r.total) &&
+      Number.isFinite(r.on_time) &&
+      Number.isFinite(r.delayed) &&
+      Number.isFinite(r.canceled) &&
+      Number.isFinite(r.on_time_pct) &&
+      r.total >= 0 &&
+      r.on_time >= 0 &&
+      r.delayed >= 0 &&
+      r.canceled >= 0 &&
+      r.on_time <= r.total,
+  );
+  return { ...body, daily } as PunctualityResponse;
 }
 
 /** /api/transit/disruptions wraps its list in { disruptions: [...] }. */

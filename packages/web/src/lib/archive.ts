@@ -14,7 +14,7 @@
  */
 import type { Disruption, Departure, LiveStatus } from '@oresund/shared';
 import { BRAND_NAME, getDict, RSS_TITLE, translate, type Key, type Lang } from '../i18n';
-import { formatDelaySeconds, formatExactDelay, formatDate, formatPct, formatTime } from '../i18n/format';
+import { formatDelaySeconds, formatExactDelay, formatDate, formatPct, formatTime, isValidLocalDate } from '../i18n/format';
 import { bannerModel } from '../components/StatusBanner';
 import { stationNameKey, stationTitleName } from '../components/StationPicker';
 import { causeLabel } from './causes';
@@ -43,15 +43,20 @@ export interface ArchiveLine {
 }
 
 /**
- * The canonical Øresundståg / Pågatåg / bus line set served over the bridge.
+ * The canonical line set served over the bridge — the Øresundståg designations
+ * plus the two Gottröra/Hyllie bus designations (6, 16) that the corridor
+ * filter picks up at Hyllie.
  *
  * Lines are discovered dynamically from disruption data (they come from the
  * route `designation` of Trafiklab departures), but a line with no disruptions
- * in the current window never shows up in that discovery — so /line/* pages
- * for e.g. 801 or 807 existed but were invisible to crawlers. This static set
- * is unioned with whatever is discovered so every valid line archive is always
- * listed in the sitemap and the /line index, whether or not it has recorded
- * disruptions.
+ * in the current window never shows up in that discovery. This static set is
+ * unioned with whatever is discovered so every line archive is always a real,
+ * linked page — but "linked" and "submitted to the sitemap" are deliberately
+ * different things since audit5 M4 / audit6 M6: a line the collector has never
+ * observed, or whose only rows predate LIVE_DATA_SINCE, renders a labelled
+ * "no disruptions" note and is kept out of the sitemap and marked noindex.
+ * hasMonitoredEraData below is the era test; sitemap.ts's hasSubmittableData
+ * builds the submission rule on it.
  */
 export const CANONICAL_LINES: readonly string[] = [
   '801',
@@ -290,6 +295,12 @@ interface ShellOpts {
    * (hreflangSelf).
    */
   hreflangPath?: string;
+  /**
+   * The robots directive. Defaults to index,follow; a thin page passes
+   * noindex,follow to stay out of the index without orphaning its outbound
+   * links (audit6 L2).
+   */
+  robots?: string;
 }
 
 /** Escape a value for an HTML attribute (quotes already escaped by esc). */
@@ -323,7 +334,7 @@ function hreflangSelf(url: string): string {
  * no-JS clients), with the site favicon, SEO tags and the mandatory
  * attribution.
  */
-function pageShell({ title, description, canonical, jsonLd, body, lang = 'en', hreflangPath }: ShellOpts): string {
+function pageShell({ title, description, canonical, jsonLd, body, lang = 'en', hreflangPath, robots = 'index,follow' }: ShellOpts): string {
   // M10: og:locale (+ alternates where localized twins exist) — the og block
   // below never announced the page's language, only its title and URL.
   const localeTags = hreflangPath ? ogLocaleTags(lang) : `    <meta property="og:locale" content="${OG_LOCALE[lang]}" />`;
@@ -362,7 +373,7 @@ ${hreflang}
          this way; the archive pages were 27 of 31 URLs where the feed was
          undiscoverable to a reader or crawler. -->
     <link rel="alternate" type="application/rss+xml" title="${RSS_TITLE}" href="/feed.xml" />
-    <meta name="robots" content="index,follow" />${ogTags}${jsonLdBlock}
+    <meta name="robots" content="${attr(robots)}" />${ogTags}${jsonLdBlock}
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='32' cy='18' r='7' fill='%2310b981'/><circle cx='32' cy='32' r='7' fill='%23f59e0b'/><circle cx='32' cy='46' r='7' fill='%23ef4444'/></svg>" />
     <style>
       :root { color-scheme: dark; }
@@ -466,7 +477,20 @@ const siteIdentity = {
 
 /** Live Trafiklab polling started 2026-08-06; earlier disruption history was
  * backfilled from KoDa's historical archive (May 2026 onward). */
-const LIVE_DATA_SINCE = '2026-08-06';
+export const LIVE_DATA_SINCE = '2026-08-06';
+
+/**
+ * True when a line's own disruption rows fall inside the monitored era, and so
+ * describe service this site actually observed. A `last_seen` before
+ * LIVE_DATA_SINCE is the pre-filter archive — bus designations 6 and 16 last
+ * saw a disruption on 2026-08-04 and 2026-08-02, before monitoring began —
+ * which is exactly the data a sitemap entry or an indexable page must not
+ * imply is current (audit6 M6). An absent `last_seen` is a line the collector
+ * has never observed at all.
+ */
+export function hasMonitoredEraData(lastSeen: string | null | undefined): boolean {
+  return !!lastSeen && lastSeen >= LIVE_DATA_SINCE;
+}
 
 const TRAFIKLAB_CREATOR = { '@type': 'Organization', name: 'Trafiklab', url: 'https://www.trafiklab.se' };
 const KODA_CREATOR = { '@type': 'Organization', name: 'KoDa' };
@@ -479,9 +503,16 @@ const CC_BY_4_0 = 'https://creativecommons.org/licenses/by/4.0/';
  * the live-data start include KoDa's backfill; windows entirely inside the
  * live era (and station punctuality, which only ever comes from live
  * departures) are Trafiklab-only.
+ *
+ * The comparison runs through the calendar validator (audit6 L13): a raw
+ * lexicographic `<` against LIVE_DATA_SINCE is the audit5 M5 class again — an
+ * impossible "2026-99-99" sorts above every real date and would have credited
+ * KoDa with a window that never happened.
  */
 function creatorsFor(dateFrom: string): unknown[] {
-  return dateFrom < LIVE_DATA_SINCE ? [TRAFIKLAB_CREATOR, KODA_CREATOR] : [TRAFIKLAB_CREATOR];
+  return isValidLocalDate(dateFrom) && dateFrom < LIVE_DATA_SINCE
+    ? [TRAFIKLAB_CREATOR, KODA_CREATOR]
+    : [TRAFIKLAB_CREATOR];
 }
 
 /** Dataset JSON-LD (audit H4) — the structured description of the CC-BY
@@ -538,8 +569,20 @@ function fmtDelay(seconds: number | null | undefined): string {
   return `${mins} min`;
 }
 
-/** Display an ISO local date as a friendly label (naive, Europe/Stockholm). */
+/**
+ * Display an ISO local date as a friendly label (naive, Europe/Stockholm) on
+ * the English-only archive routes.
+ *
+ * Calendar-validated before it is formatted (audit6 M7): `Date.UTC` rolls
+ * over, so the shape-only check this used to do turned "2026-99-99" into
+ * "7 Jun 2034" and "2026-02-30" into "2 Mar 2026" — a confident, wrong,
+ * *indexable* date in the /line/* and /history/{days} meta descriptions, which
+ * is worse in kind than an obviously broken one. formatDate (the localized
+ * path) got this guard first; the sibling was missed. An invalid value comes
+ * back as itself: visibly wrong, never plausibly wrong.
+ */
 function fmtDate(date: string): string {
+  if (!isValidLocalDate(date)) return date;
   const [y, m, d] = date.split('-').map(Number);
   if (!y || !m || !d) return date;
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', {
@@ -643,13 +686,16 @@ export function renderHistoryHub(punctuality: ArchivePunctuality, history: Archi
     .map((text) => `    <p class="meta">${esc(text)}</p>`)
     .join('\n');
   const body = `
-    <p class="crumb"><a href="${localizedPath('/', lang)}">${BRAND_NAME}</a> › ${esc(translate('hub_history_h1', lang))}</p>
+    <p class="crumb"><a href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a> › ${esc(translate('hub_history_h1', lang))}</p>
     <h1>${esc(translate('hub_history_h1', lang))}</h1>
     <p class="sub">${esc(
       translate('hub_history_sub', lang, {
         days: history.days,
-        from: formatDate(history.date_from, lang),
-        to: formatDate(history.date_to, lang),
+        // The raw string is the fallback (audit6 L1): formatDate returns ''
+        // for an impossible date, and an empty interpolation reads as
+        // ",  to ." rather than as broken data.
+        from: formatDate(history.date_from, lang) || history.date_from,
+        to: formatDate(history.date_to, lang) || history.date_to,
       }),
     )} ${esc(translate('archive_attribution', lang))}.</p>
     <p class="intro">${esc(translate('hub_history_intro', lang))}</p>
@@ -696,6 +742,12 @@ ${CANONICAL_LINES.map((line) => `      <li>${linkTo(`/line/${encodeURIComponent(
           })),
         },
         {
+          // The hub's own list of line archives — the full canonical family.
+          // It is a table of contents for this page's link list, not a
+          // submission list: the sitemap deliberately submits only the lines
+          // with monitored-era data (see buildSitemap), and those withheld
+          // pages carry noindex. The three documents disagree by design
+          // (audit6 L3); each is internally consistent about what it counts.
           '@type': 'ItemList',
           numberOfItems: CANONICAL_LINES.length,
           itemListElement: CANONICAL_LINES.map((line, i) => ({
@@ -762,7 +814,9 @@ ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/$
 /** /line — index of the per-line archives. */
 export function renderLineIndex(lines: ArchiveLine[]): string {
   const all = unionCanonicalLines(lines);
-  const description = 'Per-line disruption archives for the Øresund crossing — historical cancellations, delays and alerts for each Öresundståg / Pågatåg service.';
+  // The collector is Øresundståg-only (audit6 M5) — the description must not
+  // claim Pågatåg coverage the August stop-id correction removed.
+  const description = 'Per-line disruption archives for the Øresund crossing — historical cancellations, delays and alerts for each Öresundståg service.';
   const list = all
     .map(
       (l) =>
@@ -770,7 +824,7 @@ export function renderLineIndex(lines: ArchiveLine[]): string {
     )
     .join('\n');
   const body = `
-    <p class="crumb"><a href="/">${BRAND_NAME}</a> › Lines</p>
+    <p class="crumb"><a href="/" lang="da">${BRAND_NAME}</a> › Lines</p>
     <h1>Line archives</h1>
     <p class="sub">Historical disruption records for each service across the Øresund. ${esc(translate('archive_attribution', 'en'))}.</p>
     <p class="intro">${esc(translate('hub_line_intro', 'en'))}</p>
@@ -786,6 +840,13 @@ ${list}
       '@graph': [
         breadcrumb([{ name: 'Lines', url: `${SITE_URL}/line` }]),
         {
+          // This list describes the page's own visible list — every line
+          // archive that exists, zero-data ones included. The sitemap submits
+          // a subset of it (the lines with monitored-era data) and llms.txt
+          // enumerates the whole family as an index of pages. That divergence
+          // is deliberate (audit6 L3): an ItemList is a table of contents for
+          // THIS document, not a submission list, and the pages the sitemap
+          // withholds are exactly the ones carrying noindex.
           '@type': 'ItemList',
           numberOfItems: all.length,
           itemListElement: all.map((l, i) => ({
@@ -818,7 +879,7 @@ export function renderLinePage(line: string, stats: ArchiveLineStats, allLines: 
   const bus = isBusLine(line);
   const h1 = translate(bus ? 'bus_line_archive_h1' : 'line_archive_h1', 'en', { line });
   const body = `
-    <p class="crumb"><a href="/">${BRAND_NAME}</a> › <a href="/line">Lines</a> › ${esc(label)}</p>
+    <p class="crumb"><a href="/" lang="da">${BRAND_NAME}</a> › <a href="/line">Lines</a> › ${esc(label)}</p>
     <h1>${esc(h1)}</h1>
     <p class="sub">${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)} (last ${stats.days} days). ${esc(translate('archive_attribution', 'en'))}.</p>
 ${bus ? `    <p class="meta">${esc(translate('line_bus_note', 'en', { line }))}</p>` : ''}
@@ -851,6 +912,12 @@ ${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${enco
     title: `${h1} — ${BRAND_NAME}`,
     description,
     canonical: `${SITE_URL}/line/${encodeURIComponent(line)}`,
+    // L2 (audit6): a line with nothing recorded in the window is a real,
+    // linked page with an honest note — not a page a search engine should
+    // index. noindex,follow keeps the link graph flowing (the "Other lines"
+    // and station cross-links still count) while keeping the thin pages out of
+    // the index, which is the same rule the sitemap applies.
+    robots: empty ? 'noindex,follow' : 'index,follow',
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -888,7 +955,12 @@ function disruptionListItem(d: Disruption, lang: Lang = 'en'): string {
   // pages goes through a formatter, and "2026-08-21T17:42:10" among them read
   // as machine output. An unparseable value falls back to the no-data mark.
   const when = d.timestamp ? ` <span class="meta">· ${esc(formatTime(d.timestamp, lang) || NO_DATA_MARK)}</span>` : '';
-  return `      <li>${esc(type)} on line ${esc(d.line ?? 'unknown')}${dir ? ` ${esc(dir)}` : ''}${when}</li>`;
+  // lineLabel, not the bare designation (audit6 L5): a bus reaches this list
+  // the day it has a disruption, and "Delay on line 6 to Denmark" would be the
+  // one remaining place a bus is called a train on a page whose H1, breadcrumb
+  // and Dataset all say otherwise.
+  const line = d.line ? ` on ${lineLabel(d.line, lang)}` : '';
+  return `      <li>${esc(type)}${esc(line)}${dir ? ` ${esc(dir)}` : ''}${when}</li>`;
 }
 
 /**
@@ -1047,15 +1119,16 @@ export function renderStationPage(
   // The hub link stays on the unprefixed /station — the hub itself is not
   // localized, unlike the per-station pages this page links to below.
   const body = `
-    <p class="crumb"><a href="${localizedPath('/', lang)}">${BRAND_NAME}</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
+    <p class="crumb"><a href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
     <h1>${esc(translate('station_h1', lang, { name }))}</h1>
     <p class="sub">${esc(
       translate('station_sub', lang, {
         days: stats.days,
         // formatDate, not fmtDate: a localized page must not switch to English
-        // month names in its own subtitle (audit4 LOW).
-        from: formatDate(stats.date_from, lang),
-        to: formatDate(stats.date_to, lang),
+        // month names in its own subtitle (audit4 LOW). The raw string is the
+        // fallback (audit6 L1) — an empty interpolation rendered "(–)".
+        from: formatDate(stats.date_from, lang) || stats.date_from,
+        to: formatDate(stats.date_to, lang) || stats.date_to,
       }),
     )} ${esc(translate('archive_attribution', lang))}.</p>
     ${renderStationLive(stats, live ?? null, lang)}

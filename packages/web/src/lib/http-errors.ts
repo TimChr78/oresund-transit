@@ -160,3 +160,65 @@ export function serviceUnavailableResponse(lang: Lang, route: string): Response 
     }),
   });
 }
+
+export const NOT_FOUND_HEADERS: Record<string, string> = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'Cache-Control': 'no-store',
+  'X-Robots-Tag': 'noindex',
+};
+
+/**
+ * The branded 404, localized from the URL's own language prefix.
+ *
+ * Shared by the root catch-all and the archive Functions (audit6 M13/L10): the
+ * new `functions/{sv,da}/history/[[path]].js` used to answer
+ * `/sv/history/{7,14,30,90}` with a one-line plain-text 404 because
+ * handleArchiveRequest now claims the whole /sv/history prefix — a silent
+ * downgrade from the branded, localized, four-link page the root catch-all
+ * served before, and inconsistent with `/sv/gibberish`, which still gets it.
+ * The localized station Functions had the same bug in a different costume: an
+ * ENGLISH plain-text 404 while their history twins were localized.
+ */
+export function renderNotFoundPage(pathname: string): string {
+  const lang = pathname.startsWith('/sv/') ? 'sv' : pathname.startsWith('/da/') ? 'da' : 'en';
+  const title = translate('err404_title', lang);
+  return `<!doctype html>
+<html lang="${lang}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${esc(title)} — ${BRAND_NAME}</title>
+    <meta name="robots" content="noindex" />
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0a0c10; color: #e7eaf0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.55; }
+      main { max-width: 560px; padding: 2rem 1.25rem; text-align: center; }
+      h1 { font-size: 1.5rem; margin: 0 0 .4rem; }
+      p { color: #8b93a7; margin: 0 0 1.4rem; }
+      .brand { color: #10b981; font-weight: 700; font-size: .95rem; text-decoration: none; letter-spacing: .02em; display: inline-block; margin-bottom: 1.6rem; }
+      nav { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem 1.1rem; font-size: .9rem; }
+      nav a { color: #9fc9ff; text-decoration: none; }
+      nav a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="brand" href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a>
+      <h1>${esc(title)}</h1>
+      <p>${esc(translate('err404_body', lang))}</p>
+      <nav aria-label="${esc(translate('nav_site_sections', lang))}">
+        <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a>
+        <a href="${localizedPath('/history', lang)}">${esc(translate('nav_history', lang))}</a>
+        <a href="/line" hreflang="en">${esc(translate('arch_link_line', lang))}</a>
+        <a href="/station" hreflang="en">${esc(translate('arch_link_station', lang))}</a>
+      </nav>
+    </main>
+  </body>
+</html>`;
+}
+
+/** A 404 Response carrying the branded page for `pathname` and the security set. */
+export function notFoundPageResponse(pathname: string): Response {
+  return notFoundResponse(renderNotFoundPage(pathname), NOT_FOUND_HEADERS);
+}

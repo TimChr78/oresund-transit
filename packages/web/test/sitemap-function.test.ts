@@ -57,21 +57,42 @@ describe('functions/sitemap.xml.js', () => {
     expect(xml).toMatch(/<loc>https:\/\/oresund\.live\/line\/804<\/loc><lastmod>2026-08-28<\/lastmod>/);
   });
 
-  it('dates every URL even when the collector fails (static base, still 200)', async () => {
+  it('keeps the canonical line + station URLs when the collector is down (still 200)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
     const res = await onRequest({ request: new Request('https://oresund.live/sitemap.xml'), env: {} });
     expect(res.status).toBe(200);
     const xml = await res.text();
     expect(xml).toContain('https://oresund.live/');
-    // audit5 M4: with no collector data the sitemap has no line pages to offer —
-    // the never-observed canonical set is no longer submitted just to exist.
-    expect(xml).not.toContain('https://oresund.live/line/804');
+    // audit6 M10 — this used to assert the OPPOSITE: the fallback was
+    // buildSitemap([], [], …), so any collector blip withdrew all 21 line and
+    // station URLs (55% of the submitted set) for as long as the outage lasted
+    // plus up to max-age=600 of CDN cache. The canonical lines and the four
+    // monitored stations are static facts that do not depend on collector
+    // health, so an outage must not un-submit them.
+    expect(xml).toContain('https://oresund.live/line/804');
+    expect(xml).toContain('https://oresund.live/station/hyllie');
+    expect(xml).toContain('https://oresund.live/sv/station/hyllie');
     // The /line index itself is still offered, and dated.
     expect(xml).toContain('https://oresund.live/line</loc>');
-    // Stations remain discovery-only — no static station set.
-    expect(xml).not.toContain('https://oresund.live/station/hyllie');
-    // audit3 H4 — every URL carries a lastmod.
-    assertEveryUrlDated(xml);
+    // audit6 M6 — the bus lines stay out even here: their archives predate
+    // monitoring and the healthy sitemap omits them, so an outage must not
+    // add them back.
+    expect(xml).not.toContain('https://oresund.live/line/6<');
+    expect(xml).not.toContain('https://oresund.live/line/16<');
+    // audit4 N-M3 still holds, and matters more here than anywhere: a line
+    // whose data is unknown publishes NO lastmod rather than an unverified
+    // date. With the collector down nothing is known about any line, so no
+    // /line/{n} entry claims freshness — and every other URL is still dated.
+    const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
+    expect(entries.length).toBeGreaterThan(0);
+    const lineUrl = /<loc>https:\/\/oresund\.live\/line\/\d+<\/loc>/;
+    for (const entry of entries) {
+      if (lineUrl.test(entry)) {
+        expect(entry, entry).not.toMatch(/<lastmod>/);
+      } else {
+        expect(entry, entry).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
+      }
+    }
   });
 
   it('keeps the archive URLs when only the history endpoint fails (the date degrades instead)', async () => {
@@ -138,17 +159,33 @@ describe('functions/sitemap.xml.js', () => {
 
   it.each([
     ['an impossible time', '2026-09-01T25:00:00Z'],
+    ['an impossible hour', '2026-09-01T24:00:00Z'],
     ['trailing junk', '2026-09-01junk'],
     ['an impossible calendar date', '2026-02-30'],
+    ['a space-separated stamp', '2026-09-01 09:15:00'],
   ])('ignores a build stamp that is %s instead of slicing it to a date', async (_label, generated) => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ lines: [], stations: [] })));
-    const res = await onRequest({
-      request: new Request('https://oresund.live/sitemap.xml'),
-      env: assetsBinding({ generated }),
-    });
-    // slice(0, 10) turned all three into "2026-09-01" — a date the build never
-    // wrote. The stamp is dropped whole, so the static URLs fall back to today.
-    expect(staticLastmod(await res.text())).not.toBe('2026-09-01');
+    // The clock is stubbed (audit6 M12): the fallback legitimately resolves to
+    // today(), so an assertion of the form "not 2026-09-01" fails on the day
+    // the suite happens to run on 2026-09-01 — three cases would break even
+    // though stampDate behaved correctly. Pinned to a fixed instant, the
+    // expectation is exact instead of date-dependent.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-01T00:00:00Z'));
+    try {
+      vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ lines: [], stations: [] })));
+      const res = await onRequest({
+        request: new Request('https://oresund.live/sitemap.xml'),
+        env: assetsBinding({ generated }),
+      });
+      // slice(0, 10) turned several of these into "2026-09-01" — a date the
+      // build never wrote. The stamp is dropped whole, so the static URLs fall
+      // back to today, which here is exactly 2026-09-01 in the corridor's own
+      // wall clock.
+      expect(staticLastmod(await res.text())).toBe('2026-09-01');
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
   });
 
   it('drops a last_seen that is not a real calendar date (2026-02-30)', async () => {

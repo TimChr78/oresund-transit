@@ -96,7 +96,7 @@ export function renderPunctualityChart(punctuality: PunctualityResponse, lang: L
   const dots = series.days
     .map((d, k) => {
       const x = xOf(series.indices[k]!);
-      return `<circle cx="${x.toFixed(1)}" cy="${svgY(d.on_time_pct, H).toFixed(1)}" r="2.5" class="punct-dot"><title>${esc(d.date)} — ${d.on_time_pct}%</title></circle>`;
+      return `<circle cx="${x.toFixed(1)}" cy="${svgY(d.on_time_pct, H).toFixed(1)}" r="2.5" class="punct-dot"><title>${esc(d.date)} — ${esc(String(d.on_time_pct))}%</title></circle>`;
     })
     .join('');
 
@@ -137,7 +137,7 @@ export function renderPunctualityChart(punctuality: PunctualityResponse, lang: L
     </div>
     <div class="legend">
       <span class="legend-item"><span class="legend-dot dot-punct"></span>${translate('stat_on_time', lang)}</span>
-      ${latest ? `<span class="legend-item punct-latest">${latest.on_time_pct}%</span>` : ''}
+      ${latest ? `<span class="legend-item punct-latest">${esc(String(latest.on_time_pct))}%</span>` : ''}
     </div>
     ${renderSrTable({
       caption: srCaption(lang),

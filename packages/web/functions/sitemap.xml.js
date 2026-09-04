@@ -7,12 +7,15 @@
  * with live data (GSC ready) without a deploy-time snapshot.
  *
  * This Function shadows the former static public/sitemap.xml. On any
- * collector failure the static base (home + methodology + privacy) is still
- * served rather than a 502, so the sitemap never disappears entirely.
+ * collector failure the canonical base (home + methodology + privacy + the
+ * canonical line and station archives) is still served rather than a 502, so
+ * the sitemap never disappears entirely and never withdraws URLs it has
+ * already submitted (audit6 M10).
  */
-import { buildSitemap } from '../src/lib/sitemap';
+import { buildSitemap, STATIC_STATIONS } from '../src/lib/sitemap';
 import { withSecurityHeaders } from '../src/lib/http-errors';
-import { isValidLocalDate } from '../src/i18n/format';
+import { isValidLocalDate, stockholmWallClock } from '../src/i18n/format';
+import { CANONICAL_LINES } from '../src/lib/archive';
 
 const COLLECTOR_BASE = 'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit';
 
@@ -21,8 +24,12 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The two shapes dist/build-meta.json's stamp may take: a date, or an ISO
  * instant on one. Nothing else — not a date with junk glued on, not an
- * instant with an impossible hour — is a stamp this build wrote. */
-const STAMP_RE = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?Z?)?$/;
+ * instant with an impossible hour — is a stamp this build wrote. Every time
+ * component is pinned to its real range in the pattern itself (audit6 L12), so
+ * this layer and isValidLocalDate agree by construction instead of the hour
+ * check in stampDate admitting a "24:00" that a date parser one layer down
+ * rejects. */
+const STAMP_RE = /^(\d{4}-\d{2}-\d{2})(?:T(2[0-3]|[01]\d):([0-5]\d)(?::([0-5]\d))?(?:\.\d+)?Z?)?$/;
 
 /**
  * The date part of a value that IS a date; null for anything else. Shape and
@@ -45,12 +52,9 @@ function stampDate(value) {
   const m = typeof value === 'string' ? STAMP_RE.exec(value) : null;
   const date = m?.[1];
   if (!date || !asDate(date)) return null;
-  const hour = m[2];
   // No time at all is the shape the build actually writes (sv-SE, date only).
-  if (hour === undefined) return date;
-  const minute = Number(m[3]);
-  const second = m[4] === undefined ? 0 : Number(m[4]);
-  return Number(hour) < 24 && minute < 60 && second < 60 ? date : null;
+  // Hour is 00-23 and minute/second 00-59 by the pattern above.
+  return m[2] === undefined ? date : date;
 }
 
 function parseLines(json) {
@@ -75,9 +79,14 @@ function parseStations(json) {
   return Array.isArray(b.stations) ? b.stations.filter((s) => s && typeof s.slug === 'string') : [];
 }
 
-/** Today as a W3C date — the last-resort <lastmod> if both real sources fail. */
+/** Today as a W3C date — the last-resort <lastmod> if both real sources fail.
+ * The corridor's calendar day (Europe/Stockholm), not the server's: this file
+ * was the one place left reading the visitor/build zone, a day behind
+ * Stockholm for the 22:00–24:00 UTC window under CEST (audit6 L7), and it
+ * disagreed with the Stockholm-pinned stamp generate-llms.ts writes. */
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  const { year, month, day } = stockholmWallClock(new Date());
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -107,8 +116,34 @@ async function buildDate(context) {
   return undefined;
 }
 
+/**
+ * The collector-down sitemap: the canonical line set plus the four monitored
+ * stations, over the static base.
+ *
+ * audit6 M10 — this used to be `buildSitemap([], [], lastmod)`, so any
+ * collector blip withdrew all 21 line and station URLs (55% of the submitted
+ * set) for as long as the outage lasted, plus up to `max-age=600` of CDN cache
+ * afterwards. Google re-fetching the sitemap mid-outage sees 21 URLs vanish at
+ * once, and repeated vanishing is a recognised cause of URLs being dropped
+ * from the index — precisely the failure the fallback exists to prevent. The
+ * canonical lines and the monitored stations are static facts that do not
+ * depend on collector health, so the outage path serves them whole.
+ *
+ * The bus lines stay out (audit6 M6): their archives predate monitoring and
+ * the steady-state sitemap omits them, so an outage must not add them back.
+ * `collectorUnknown` is what lets the train lines survive — buildSitemap's
+ * freshness filter drops a line the collector reports as never seen, but during
+ * an outage the collector reported NOTHING. Unknown is not never-seen, and a
+ * line that turns out to have no data is a labelled, internally linked page
+ * with an honest note, not a soft 404.
+ */
 function staticBase(lastmod) {
-  return buildSitemap([], [], lastmod);
+  return buildSitemap(
+    CANONICAL_LINES.map((line) => ({ line, disruptions: 0 })),
+    STATIC_STATIONS.map(({ slug, stop_id, stop_name }) => ({ slug, stop_id, stop_name })),
+    lastmod,
+    { collectorUnknown: true },
+  );
 }
 
 export async function onRequest(context) {
@@ -152,8 +187,9 @@ export async function onRequest(context) {
     const lastmod = { deployed: fallback, data: asDate(historySettled?.date_to) ?? fallback };
     res = buildSitemap(parseLines(linesJson), parseStations(stationsJson), lastmod);
   } catch {
-    // Collector down — fall back to the static base rather than 502, so the
-    // sitemap always exists for GSC.
+    // Collector down — fall back to the canonical set rather than 502, so the
+    // sitemap always exists for GSC and never withdraws the archive URLs
+    // mid-crawl (audit6 M10).
     res = staticBase({ deployed: fallback, data: fallback });
   }
 

@@ -45,8 +45,9 @@ export function bannerModel(live: LiveStatus, lang: Lang): BannerModel {
 
 export function renderStatusBanner(live: LiveStatus, lang: Lang): string {
   const m = bannerModel(live, lang);
-  return `
-  <section data-key="status-banner" class="status-banner ${m.bandClass}" role="status" aria-live="polite">
+  return bannerSection(
+    `status-banner ${m.bandClass}`,
+    `
     <span class="sb-text">${esc(m.text)}</span>
     <span class="sb-meta">
       ${m.count ? `<span class="sb-count">${esc(m.count)}</span>` : ''}
@@ -54,6 +55,30 @@ export function renderStatusBanner(live: LiveStatus, lang: Lang): string {
         <span class="sb-updated">${esc(m.updated)}</span>
         <span class="sb-clock">${esc(m.time)}</span>
       </span>
-    </span>
+    </span>`,
+  );
+}
+
+/**
+ * The banner's slot: the same keyed live region whatever the /live fetch is
+ * doing (audit6 M4). The no-data and error states used to swap the region for
+ * a bare `<div class="empty">` — a different tag, so the reconciler REMOVED
+ * the region — and the region that came back on recovery was inserted already
+ * holding its text, which most screen readers read as "nothing changed". A
+ * board that degrades to a 503 and comes back therefore dropped its next
+ * announcement, which is the single most important announcement on the site.
+ * Keeping the region standing through loading → no data → error → ok means the
+ * recovery lands on a region assistive tech has been listening to since first
+ * paint; `data-key` is what makes the two states the same node to the
+ * reconciler, and the band colour is the only thing the ok state adds.
+ */
+export function renderBannerSlot(content: string): string {
+  return bannerSection('status-slot', content);
+}
+
+/** The keyed live region both banner states render through. */
+function bannerSection(cls: string, inner: string): string {
+  return `
+  <section data-key="status-banner" class="${cls}" role="status" aria-live="polite">${inner}
   </section>`;
 }

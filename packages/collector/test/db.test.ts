@@ -253,10 +253,12 @@ describe('writeLiveStatus / readLiveStatus', () => {
 });
 
 describe('queryDelayStats', () => {
-  const statusSql =
-    'SELECT status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY status';
-  const lineSql =
-    'SELECT line, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY line, status';
+  // audit6 M2: both delay-stats queries carry the same monitored-stop filter
+  // the corridor punctuality query got in wave A. The strings are derived from
+  // MONITORED_STOP_IDS rather than restated, so a stop id cannot drift between
+  // the two aggregates.
+  const statusSql = `SELECT status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY status`;
+  const lineSql = `SELECT line, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY line, status`;
 
   it('aggregates totals, percentages, average delay and per-line stats', async () => {
     const db = new FakeD1();
@@ -387,23 +389,24 @@ describe('queryPunctuality', () => {
 
 // ---- C1 (audit5): corridor vs per-station reconciliation ----
 
-/** The columns of `departures` the two punctuality queries read. */
+/** The columns of `departures` the corridor aggregates read. */
 interface StoredDeparture {
   stop_id: string;
   sched_time: string;
   status: string | null;
   delay_seconds: number;
+  line?: string | null;
 }
 
 /**
- * Evaluates the corridor and per-station punctuality SQL against ONE in-memory
- * table. FakeD1 keys its stubs on the exact SQL string, which cannot express
- * "the same rows seen through two different WHERE clauses" — and that shared
- * table is the whole point: the reconciliation invariant only means something
- * if both queries read the same data. The WHERE semantics (stop filter, the
- * half-open [from, to) window, GROUP BY date + status, COUNT/AVG) are applied
- * here so a query that loses its stop filter fails this test instead of
- * passing it.
+ * Evaluates the corridor punctuality, per-station punctuality and delay-stats
+ * SQL against ONE in-memory table. FakeD1 keys its stubs on the exact SQL
+ * string, which cannot express "the same rows seen through two different WHERE
+ * clauses" — and that shared table is the whole point: the reconciliation
+ * invariant only means something if both queries read the same data. The WHERE
+ * semantics (stop filter, the half-open [from, to) window, GROUP BY, COUNT/AVG)
+ * are applied here so a query that loses its stop filter fails this test
+ * instead of passing it.
  */
 class ReconciliationD1 implements D1Like {
   constructor(readonly rows: StoredDeparture[]) {}
@@ -426,13 +429,22 @@ class ReconciliationPrepared implements D1PreparedLike {
     return this;
   }
 
+  /** Which corridor aggregate this statement is, from its own GROUP BY. */
+  private get kind(): 'punctuality' | 'status' | 'line' {
+    if (this.sql.includes('GROUP BY date(sched_time), status')) return 'punctuality';
+    if (this.sql.includes('GROUP BY line, status')) return 'line';
+    if (this.sql.includes('GROUP BY status')) return 'status';
+    return 'punctuality';
+  }
+
   async all<T>(): Promise<{ results: T[] }> {
-    if (!this.sql.includes('GROUP BY date(sched_time), status')) {
-      throw new Error(`ReconciliationD1 only evaluates the punctuality queries, got: ${this.sql}`);
+    if (!this.sql.includes('stop_id IN (') && !this.sql.includes('stop_id = ?')) {
+      throw new Error(`corridor SQL has no stop filter (audit5 C1 / audit6 M2 regression): ${this.sql}`);
     }
-    // The corridor query binds its stop ids then the window; the station query
-    // binds one id then the window. Arity is derived from the SQL, so a query
-    // that stops binding stop ids cannot quietly degrade into "whole table".
+    // Every corridor query binds its stop ids then the window; the station
+    // query binds one id then the window. Arity is derived from the SQL, so a
+    // query that stops binding stop ids cannot quietly degrade into "whole
+    // table".
     let stopIds: string[];
     let from: string;
     let to: string;
@@ -442,36 +454,56 @@ class ReconciliationPrepared implements D1PreparedLike {
       stopIds = this.binds.slice(0, split).map(String);
       from = String(this.binds[split]);
       to = String(this.binds[split + 1]);
-    } else if (this.sql.includes('stop_id = ?')) {
+    } else {
       if (this.binds.length !== 3) throw new Error(`station query expected 3 binds, got ${this.binds.length}`);
       stopIds = [String(this.binds[0])];
       from = String(this.binds[1]);
       to = String(this.binds[2]);
-    } else {
-      throw new Error(`punctuality SQL has no stop filter (audit5 C1 regression): ${this.sql}`);
     }
 
-    const groups = new Map<string, { date: string; status: string | null; count: number; sum: number }>();
+    const kind = this.kind;
+    const groups = new Map<string, { date?: string; line?: string | null; status: string | null; count: number; sum: number }>();
     for (const row of this.fake.rows) {
       // TEXT comparison, as in SQLite — sched_time is stored as a naive local
       // stamp, so the date prefix and the half-open window compare correctly.
       if (!stopIds.includes(row.stop_id)) continue;
       if (row.sched_time < from || row.sched_time >= to) continue;
       const date = row.sched_time.slice(0, 10);
-      const key = `${date}|${row.status ?? ''}`;
-      const entry = groups.get(key) ?? { date, status: row.status, count: 0, sum: 0 };
+      const key =
+        kind === 'punctuality'
+          ? `${date}|${row.status ?? ''}`
+          : kind === 'line'
+            ? `${row.line ?? ''}|${row.status ?? ''}`
+            : (row.status ?? '');
+      const entry = groups.get(key) ?? {
+        ...(kind === 'punctuality' ? { date } : {}),
+        ...(kind === 'line' ? { line: row.line ?? null } : {}),
+        status: row.status,
+        count: 0,
+        sum: 0,
+      };
       entry.count += 1;
       entry.sum += row.delay_seconds;
       groups.set(key, entry);
     }
+
     const results = [...groups.values()]
       .map((g) => ({
-        date: g.date,
+        ...('date' in g ? { date: g.date! } : {}),
+        ...('line' in g ? { line: g.line } : {}),
         status: g.status,
         count: g.count,
         avg_delay: g.count > 0 ? g.sum / g.count : null,
       }))
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.status ?? '') < (b.status ?? '') ? -1 : 1));
+      .sort((a, b) => {
+        const da = 'date' in a ? a.date! : '';
+        const db = 'date' in b ? b.date! : '';
+        if (da !== db) return da < db ? -1 : 1;
+        const la = 'line' in a ? (a.line ?? '') : '';
+        const lb = 'line' in b ? (b.line ?? '') : '';
+        if (la !== lb) return la < lb ? -1 : 1;
+        return (a.status ?? '') < (b.status ?? '') ? -1 : 1;
+      });
     return { results: results as T[] };
   }
 
@@ -505,18 +537,27 @@ describe('corridor vs station reconciliation (audit5 C1)', () => {
     ...buildDay('740000003', '2026-08-21', 9, 1, 1),
     // Kastrup 860000858
     ...buildDay('860000858', '2026-08-20', 3, 1, 0),
-    // ghost rows — superseded ids, inside the same window
-    ...buildDay('840004349', '2026-08-20', 40, 10, 5),
-    ...buildDay('740000001', '2026-08-21', 55, 12, 3),
+    // ghost rows — superseded ids, inside the same window. They carry the
+    // Gottröra/Hyllie bus designation the pre-filter era recorded, which is
+    // exactly what an unfiltered aggregate would publish as corridor traffic.
+    ...buildDay('840004349', '2026-08-20', 40, 10, 5, '6'),
+    ...buildDay('740000001', '2026-08-21', 55, 12, 3, '16'),
     // ghost rows — outside the window, to prove the window bound still holds
     ...buildDay('740001586', '2026-08-01', 30, 0, 0),
   ];
 
   /** One day at one stop: `onTime` on-time, `delayed` delayed, `canceled` canceled. */
-  function buildDay(stopId: string, date: string, onTime: number, delayed: number, canceled: number): StoredDeparture[] {
+  function buildDay(
+    stopId: string,
+    date: string,
+    onTime: number,
+    delayed: number,
+    canceled: number,
+    line: string | null = '804',
+  ): StoredDeparture[] {
     const out: StoredDeparture[] = [];
     const push = (status: string | null, delay: number, slot: number) =>
-      out.push({ stop_id: stopId, sched_time: `${date}T06:${String(10 + slot).padStart(2, '0')}:00`, status, delay_seconds: delay });
+      out.push({ stop_id: stopId, sched_time: `${date}T06:${String(10 + slot).padStart(2, '0')}:00`, status, delay_seconds: delay, line });
     for (let i = 0; i < onTime; i++) push('on_time', 0, i % 40);
     for (let i = 0; i < delayed; i++) push('delayed', 300 + i * 10, (i + 1) % 40);
     for (let i = 0; i < canceled; i++) push('canceled', 0, (i + 2) % 40);
@@ -559,6 +600,47 @@ describe('corridor vs station reconciliation (audit5 C1)', () => {
       expect(day.total, day.date).toBeLessThanOrEqual(51);
     }
   });
+
+  /**
+   * audit6 M2 — delay-stats is the second corridor aggregate over
+   * `departures`, and it lost the stop filter when wave A added it to the
+   * punctuality query: over the same live window it reported 6914 departures
+   * against the hub's 6537, with bus and other non-Øresundståg lines in
+   * by_line. Same table, same invariant, same test shape as the one above.
+   */
+  it('reconciles delay-stats to the exact window the corridor hub reads', async () => {
+    const db = new ReconciliationD1(rows);
+    const corridor = await queryPunctuality(db, 7, NOW);
+    // The half-open window queryPunctuality derives from days=7.
+    const stats = await queryDelayStats(db, '2026-08-18', '2026-08-25');
+
+    expect(stats.total_departures).toBe(corridor.daily.reduce((sum, day) => sum + day.total, 0));
+    expect(stats.on_time_count).toBe(42);
+    expect(stats.canceled_count).toBe(3);
+    // The ghost rows rode in under the bus designations; a stop-less aggregate
+    // published them as corridor lines.
+    expect(Object.keys(stats.by_line).sort()).toEqual(['804']);
+  });
+
+  it('binds its stop ids rather than relying on the table being clean', async () => {
+    // FakeD1 records the binds; asserting them here means a refactor that
+    // drops the IN (...) clause from the SQL fails loudly even though the
+    // stub-keyed result would look identical.
+    const db = new FakeD1();
+    db.stubAll(
+      `SELECT status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY status`,
+      [],
+    );
+    db.stubAll(
+      `SELECT line, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY line, status`,
+      [],
+    );
+    await queryDelayStats(db, '2026-08-06', '2026-08-07');
+
+    const expected = [...MONITORED_STOP_IDS, '2026-08-06', '2026-08-07'];
+    expect(db.calls.filter((c) => c.sql.includes('GROUP BY status')).map((c) => c.binds)).toEqual([expected]);
+    expect(db.calls.filter((c) => c.sql.includes('GROUP BY line, status')).map((c) => c.binds)).toEqual([expected]);
+  });
 });
 
 describe('purge migration 0003 (audit5 C1)', () => {
@@ -570,6 +652,17 @@ describe('purge migration 0003 (audit5 C1)', () => {
     // The purge and the read-side filter must name the same stops, or the
     // historical window and the live aggregate disagree again.
     expect([...new Set(ids)]).toEqual([...MONITORED_STOP_IDS]);
+  });
+
+  // audit6 M11: the id list used to live twice — here and in index.ts's
+  // routing table — with nothing cross-checking them. Both now derive from
+  // src/stops.ts, so this pins the derivation that makes the drift impossible
+  // rather than comparing the constant to itself.
+  it('derives the bind list from the monitored stop table, not a second copy', async () => {
+    const { MONITORED_STOPS } = await import('../src/stops.js');
+    const { STATIONS } = await import('../src/index.js');
+    expect([...MONITORED_STOP_IDS]).toEqual(MONITORED_STOPS.map((s) => s.id));
+    expect(STATIONS.map((s: { stop_id: string }) => s.stop_id)).toEqual([...MONITORED_STOP_IDS]);
   });
 });
 

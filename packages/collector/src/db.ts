@@ -6,6 +6,22 @@
  */
 import type { Departure, Disruption, DelayStats, LineDelayStats, LiveStatus } from '@oresund/shared';
 import { stickierType, type DisruptionType } from './logic.js';
+import { MONITORED_STOP_IDS } from './stops.js';
+
+/** The monitored stop ids — defined once in ./stops, re-exported for callers. */
+export { MONITORED_STOP_IDS };
+
+/**
+ * C1 (audit5) / audit6 M2: every corridor-wide aggregate over `departures`
+ * binds the monitored stop ids. The table still holds rows written against
+ * superseded ids until migration 0003 is applied remotely, and an unfiltered
+ * aggregate publishes those rows as corridor traffic — delay-stats reported
+ * 6914 departures for the same window the stop-filtered hub correctly reports
+ * 6537, with non-Øresundståg lines (1, 6, 10, 16) in its by_line breakdown.
+ * The statements below share one filter, so no future query in this file can
+ * quietly drop it.
+ */
+const STOP_BINDS = MONITORED_STOP_IDS.map(() => '?').join(', ');
 
 /**
  * Minimal structural D1 interface — anything with prepare()/bind()/all()/
@@ -206,24 +222,24 @@ export async function readLiveStatus(db: D1Like): Promise<LiveStatus | null> {
   }
 }
 
-const DELAY_STATS_STATUS_SQL =
-  'SELECT status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY status';
-const DELAY_STATS_LINE_SQL =
-  'SELECT line, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY line, status';
+const DELAY_STATS_STATUS_SQL = `SELECT status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${STOP_BINDS}) AND sched_time >= ? AND sched_time < ? GROUP BY status`;
+const DELAY_STATS_LINE_SQL = `SELECT line, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${STOP_BINDS}) AND sched_time >= ? AND sched_time < ? GROUP BY line, status`;
 
 /**
  * Delay-% analytics over the departures observed in [from, to) (ISO
  * date/datetime strings compared lexicographically against sched_time).
+ * Bounded to the monitored stops, like every other corridor aggregate here —
+ * see the note on DELAY_STATS_STATUS_SQL (audit6 M2).
  */
 export async function queryDelayStats(db: D1Like, from: string, to: string): Promise<DelayStats> {
   const [byStatus, byLine] = await Promise.all([
     db
       .prepare(DELAY_STATS_STATUS_SQL)
-      .bind(from, to)
+      .bind(...MONITORED_STOP_IDS, from, to)
       .all<{ status: string; count: number; avg_delay: number | null }>(),
     db
       .prepare(DELAY_STATS_LINE_SQL)
-      .bind(from, to)
+      .bind(...MONITORED_STOP_IDS, from, to)
       .all<{ line: string | null; status: string; count: number; avg_delay: number | null }>(),
   ]);
 
@@ -427,23 +443,8 @@ export async function queryHistory(db: D1Like, days: number, now: Date = new Dat
   };
 }
 
-/**
- * The stop ids this collector monitors — the same four as MONITORED_STOPS in
- * index.ts, restated here because index.ts owns the per-stop metadata and
- * imports this module, so db.ts cannot reach back for them. If a stop id is
- * ever superseded again, both lists change together (db.test.ts asserts this
- * list is what the corridor query and the purge migration 0003 both name).
- *
- * C1 (audit5): the corridor punctuality query aggregated the WHOLE departures
- * table, so rows written against superseded stop ids leaked into /history.
- * Kastrup 840004349 → 860000858 and Malmö C 740000001 → 740000003 (740000001
- * is Stockholm C — Arlanda Express / Uppsala trains, not Øresund traffic at
- * all) inflated the hub's headline departures by +9.1% over 30 days and +46%
- * over 90, because the real data only starts 2026-08-06.
- */
-export const MONITORED_STOP_IDS = ['740001586', '860000626', '740000003', '860000858'] as const;
-
-const PUNCTUALITY_SQL = `SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status`;
+/** The corridor punctuality query — the /history hub's headline numbers. */
+const PUNCTUALITY_SQL = `SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${STOP_BINDS}) AND sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status`;
 
 /** One calendar day of punctuality stats, zero-filled when no departures. */
 export interface PunctualityRow {

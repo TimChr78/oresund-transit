@@ -12,19 +12,24 @@ import { renderHistoryCharts } from './HistoryCharts';
 import { renderStationDepartures } from './StationDepartures';
 import { renderStationPicker, stationNameKey, stationScopeLabel } from './StationPicker';
 import { renderStatCards } from './StatCards';
-import { renderStatusBanner } from './StatusBanner';
+import { renderBannerSlot, renderStatusBanner } from './StatusBanner';
 
 /** Per-section loading / error / empty placeholder (kept static, no motion). */
 function placeholder(kind: 'loading' | 'error' | 'empty', lang: Lang, retryAction?: string): string {
-  if (kind === 'loading') return `<div class="empty">${translate('empty_loading', lang)}</div>`;
+  // role="status" (audit6 L15): a section's loading and error blocks used to be
+  // inert, so a screen reader got no signal that anything had changed — least
+  // of all that a failed section had come back. Announcing the state is the
+  // gap-closer; the banner gets the full treatment in renderBannerSlot, because
+  // that announcement is the one that matters.
+  if (kind === 'loading') return `<div class="empty" role="status">${translate('empty_loading', lang)}</div>`;
   if (kind === 'error') {
     return `
-    <div class="empty">
+    <div class="empty" role="status">
       <span>${translate('empty_error', lang)}</span>
       <button type="button" class="btn btn-ghost btn-sm" data-action="${retryAction ?? ''}">${translate('empty_retry', lang)}</button>
     </div>`;
   }
-  return `<div class="empty">${translate('empty_no_data', lang)}</div>`;
+  return `<div class="empty" role="status">${translate('empty_no_data', lang)}</div>`;
 }
 
 /**
@@ -41,11 +46,13 @@ export function renderApp(state: AppState, lang: Lang): string {
   if (state.live) {
     banner = renderStatusBanner(state.live, lang);
   } else if (state.liveState === 'no_data') {
-    banner = placeholder('empty', lang);
+    // The placeholder sits INSIDE the live region (audit6 M4) — see
+    // renderBannerSlot — so the region is never unmounted between states.
+    banner = renderBannerSlot(placeholder('empty', lang));
   } else if (state.liveState === 'error') {
-    banner = placeholder('error', lang, 'retry-live');
+    banner = renderBannerSlot(placeholder('error', lang, 'retry-live'));
   } else {
-    banner = placeholder('loading', lang);
+    banner = renderBannerSlot(placeholder('loading', lang));
   }
 
   const stats = state.stats
