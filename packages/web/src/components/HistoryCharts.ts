@@ -32,6 +32,9 @@ const LINE_ROUTES: Record<string, string> = {
 /** weekday_<key> translation suffix for Mon..Sun. */
 const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
+/** What renders in place of a value the collector never supplied. */
+const NO_DATA_MARK = '—';
+
 /** Muted one-liner under a chart title defining what the chart shows. */
 function chartHint(key: Key, lang: Lang): string {
   return `<p class="chart-hint">${esc(translate(key, lang))}</p>`;
@@ -126,8 +129,15 @@ export function renderHistoryCharts(
   lang: Lang,
   heatmapHistory: HistoryResponse | null = null,
 ): string {
-  const segments = dailyBarSegments(history.daily);
-  const max = Math.max(0, ...history.daily.map((d) => d.count));
+  // parseHistoryResponse only checks that `daily` IS an array — a row's date
+  // can arrive missing, null or not a string at all, and esc() would throw on
+  // it mid-render. The dates are normalized once, here, so the bar tooltip,
+  // the x-axis labels, the weekday buckets and the screen-reader table all
+  // read the same usable string: a row that lost its date keeps its bar and
+  // carries the no-data mark instead.
+  const daily = history.daily.map((d) => ({ ...d, date: typeof d.date === 'string' ? d.date : NO_DATA_MARK }));
+  const segments = dailyBarSegments(daily);
+  const max = Math.max(0, ...daily.map((d) => d.count));
   // Real y-axis: clean ticks from yAxisTicks; the TOP TICK is the axis
   // ceiling — bars, gridlines, trend and axis labels all scale against it.
   const ticks = yAxisTicks(max);
@@ -136,10 +146,10 @@ export function renderHistoryCharts(
   // X-axis labels: localized month names, month starts always labeled, bare
   // day-of-month elsewhere; long ranges stride so labels never crowd.
   const monthNames = Array.from({ length: 12 }, (_, i) => translate(`month_${i + 1}` as Key, lang));
-  const labelPlan = dailyLabelPlan(history.daily.map((d) => d.date), dayRange, monthNames);
+  const labelPlan = dailyLabelPlan(daily.map((d) => d.date), dayRange, monthNames);
   const labelTexts = new Map(labelPlan.map((l) => [l.index, l.text]));
 
-  const dayBars = history.daily
+  const dayBars = daily
     .map((d, i) => {
       const seg = segments[i] ?? { cancellations: 0, delays: 0, alerts: 0 };
       const dayFrac = max > 0 ? d.count / max : 0;
@@ -165,13 +175,13 @@ export function renderHistoryCharts(
 
   // X-axis labels live in their own strip below the plot, so bars, gridlines
   // and the axis column share ONE scale against the plot band.
-  const xLabels = history.daily
+  const xLabels = daily
     .map((_, i) => `<span class="bar-label">${esc(labelTexts.get(i) ?? '')}</span>`)
     .join('');
 
   // Horizontal gridlines at every y-axis tick, behind the bars, scaled
   // against the top tick so the top gridline is the axis ceiling.
-  const n = history.daily.length;
+  const n = daily.length;
   const grid =
     n > 0 && topTick > 0
       ? `<svg class="daily-grid" viewBox="0 0 ${n} 100" preserveAspectRatio="none" aria-hidden="true">${ticks
@@ -195,7 +205,7 @@ export function renderHistoryCharts(
   // 3-day moving-average overlay, aligned to the bar x-centers (viewBox is
   // n units wide × 100 tall, stretched over the plot band; scaled against
   // the top tick so it sits inside the axis).
-  const trend = movingAverage(history.daily.map((d) => d.count), 3);
+  const trend = movingAverage(daily.map((d) => d.count), 3);
   const trendPoints =
     max > 0 && n > 0
       ? trend
@@ -276,7 +286,7 @@ export function renderHistoryCharts(
           translate('type_alert', lang),
           translate('th_total', lang),
         ],
-        rows: history.daily.map((d) => [
+        rows: daily.map((d) => [
           formatDate(d.date, lang) || d.date,
           String(d.cancellations),
           String(d.delays),
@@ -297,7 +307,7 @@ export function renderHistoryCharts(
     <div class="chart">
       <h3 class="chart-title">${translate('hist_by_weekday', lang)}</h3>
       ${chartHint('hist_by_weekday_hint', lang)}
-      <div class="hbars">${byWeekdayBars(history.daily, lang)}</div>
+      <div class="hbars">${byWeekdayBars(daily, lang)}</div>
     </div>
 
     <div class="chart">

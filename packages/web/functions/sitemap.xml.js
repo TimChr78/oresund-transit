@@ -12,15 +12,45 @@
  */
 import { buildSitemap } from '../src/lib/sitemap';
 import { withSecurityHeaders } from '../src/lib/http-errors';
+import { isValidLocalDate } from '../src/i18n/format';
 
 const COLLECTOR_BASE = 'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit';
 
 /** A W3C date, the only shape a sitemap <lastmod> may carry. */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** The date part of a value that IS a date; null for anything else. */
+/** The two shapes dist/build-meta.json's stamp may take: a date, or an ISO
+ * instant on one. Nothing else — not a date with junk glued on, not an
+ * instant with an impossible hour — is a stamp this build wrote. */
+const STAMP_RE = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?Z?)?$/;
+
+/**
+ * The date part of a value that IS a date; null for anything else. Shape and
+ * CALENDAR are both checked (audit5): DATE_RE alone let "2026-02-30" through
+ * to buildSitemap, which then dropped it at w3cDate — the same impossible date
+ * rejected one layer down, after two callers had already treated it as real.
+ */
 function asDate(value) {
-  return typeof value === 'string' && DATE_RE.test(value) ? value : null;
+  return typeof value === 'string' && DATE_RE.test(value) && isValidLocalDate(value) ? value : null;
+}
+
+/**
+ * The build stamp's date part, or null when the stamp is not one. VALIDATED
+ * WHOLE before slicing (audit5): `slice(0, 10)` read "2026-09-01T25:00:00Z"
+ * and "2026-09-01junk" as "2026-09-01", a date the build never wrote. A
+ * stamp that is not a real date — and a real time, when it carries one —
+ * contributes nothing and the caller falls back.
+ */
+function stampDate(value) {
+  const m = typeof value === 'string' ? STAMP_RE.exec(value) : null;
+  const date = m?.[1];
+  if (!date || !asDate(date)) return null;
+  const hour = m[2];
+  // No time at all is the shape the build actually writes (sv-SE, date only).
+  if (hour === undefined) return date;
+  const minute = Number(m[3]);
+  const second = m[4] === undefined ? 0 : Number(m[4]);
+  return Number(hour) < 24 && minute < 60 && second < 60 ? date : null;
 }
 
 function parseLines(json) {
@@ -57,10 +87,10 @@ function today() {
  * deploy rather than on every request. Undefined when the binding is absent
  * (unit tests) or the asset is missing.
  *
- * The stamp is reduced to its date part and only kept when it really is one
- * (audit5 L11): the sitemap no longer clamps whatever string arrives, so a
- * malformed build stamp must degrade to `today()` rather than be sliced into
- * something that looks like a date.
+ * The stamp is reduced to its date part and only kept when the whole stamp
+ * really is one (audit5 L11, audit5 review): the sitemap no longer clamps
+ * whatever string arrives, so a malformed build stamp must degrade to
+ * `today()` rather than be sliced into something that looks like a date.
  */
 async function buildDate(context) {
   try {
@@ -68,8 +98,8 @@ async function buildDate(context) {
     const res = await context.env.ASSETS.fetch(new Request(`${origin}/build-meta.json`));
     if (res.ok) {
       const meta = await res.json();
-      const generated = meta && typeof meta.generated === 'string' ? meta.generated.slice(0, 10) : null;
-      if (asDate(generated)) return generated;
+      const generated = meta && typeof meta.generated === 'string' ? stampDate(meta.generated) : null;
+      if (generated) return generated;
     }
   } catch {
     // No ASSETS binding / unreadable asset — the caller falls back.

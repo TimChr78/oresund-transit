@@ -364,6 +364,10 @@ export const sv: Dict = {
   bus_line_archive_href: 'Busslinje {line} — förseningar & historik',
   line_archive_h1: 'Linje {line} — störningsarkiv',
   bus_line_archive_h1: 'Busslinje {line} — störningsarkiv',
+  // Kortformen, delad av brödsmulan, metabeskrivningen och Dataset-noden så att
+  // sidan inte kallar samma linje buss i rubriken och tåg ett element längre ner.
+  line_archive_label: 'Linje {line}',
+  bus_line_archive_label: 'Busslinje {line}',
   line_bus_note:
     'Busslinje {line} stannar vid Malmö Hyllie, så dess störningar arkiveras här tillsammans med tåglinjerna.',
 };

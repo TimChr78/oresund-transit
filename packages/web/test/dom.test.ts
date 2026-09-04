@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { isPlainPrimaryClick, reconcile, refocusTarget, type ParseHtml } from '../src/lib/dom';
 
 /**
@@ -117,7 +117,13 @@ class FakeElement {
     if (!parent) return;
     parent.childNodes = parent.childNodes.filter((n) => n !== this);
     this.parentNode = null;
+    // Removing the focused node — or anything above it — sends the caret to <body>.
+    if (active !== null && (active === this || contains(this, active))) active = BODY;
     touched++;
+  }
+  /** A no-op on anything not focusable, exactly as in a browser. */
+  focus(): void {
+    if (FOCUSABLE.has(this.tagName.toUpperCase()) || this.getAttribute('tabindex') !== null) active = this;
   }
 }
 
@@ -126,6 +132,33 @@ function detach(node: FakeElement): void {
     node.parentNode.childNodes = node.parentNode.childNodes.filter((n) => n !== node);
     node.parentNode = null;
   }
+}
+
+/**
+ * The focus model the focus-carrying tests run against: `<body>` is where a
+ * browser puts the caret when the focused node leaves the document, and only
+ * a naturally focusable element — or one handed `tabindex="-1"` — takes the
+ * focus back. Real enough to pin the guarantee, small enough to stay a stub.
+ */
+const BODY = new FakeElement('body');
+let active: FakeElement | null = null;
+
+/** A stand-in for the global `document` the reconciler reads the caret from. */
+const fakeDocument = {
+  get activeElement(): unknown {
+    return active;
+  },
+};
+
+/** Elements the browser focuses on their own; anything else needs a tabindex. */
+const FOCUSABLE = new Set(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY', 'IFRAME']);
+
+/** True when `ancestor` is `node` or sits above it. */
+function contains(ancestor: FakeElement, node: FakeElement): boolean {
+  for (let cur: FakeElement | null = node.parentNode; cur; cur = cur.parentNode) {
+    if (cur === ancestor) return true;
+  }
+  return false;
 }
 
 /**
@@ -398,6 +431,71 @@ describe('refocusTarget (audit5 H3) — a replacement hands the focus back', () 
     const next = doc('<div>\n  <button>A</button>\n</div>\n');
 
     expect(refocus(current, next, null)).toBeNull();
+  });
+});
+
+describe('refocusTarget — the fallback is somewhere focus can actually land', () => {
+  beforeEach(() => {
+    globalThis.document = fakeDocument as unknown as Document;
+    active = null;
+  });
+  afterEach(() => {
+    delete (globalThis as { document?: unknown }).document;
+    active = null;
+  });
+
+  it('restores the focus when a focused retry button is replaced by a note', () => {
+    // The live error → loading transition: the error placeholder holds a
+    // retry <button> beside its message, the loading one is a bare <div>
+    // with text in it. That text makes the replacement un-keyable, so the
+    // whole block is replaced — and the focused button with it.
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(
+      asEl,
+      '<div class="empty">\n  <span>Something went wrong</span>\n  <button type="button" class="btn" data-action="retry-live">Retry</button>\n</div>\n',
+      parseHtml,
+    );
+    // The keyboard user is on the retry button when the refresh lands.
+    const button = root.children[0]!.children[1]!;
+    button.focus();
+    expect(active).toBe(button);
+
+    reconcile(asEl, '<div class="empty">Loading…</div>\n', parseHtml);
+
+    // The focused button went with the old block...
+    expect(root.children[0]!.getAttribute('data-action')).toBeNull();
+    // ...and the focus came back rather than staying on <body>. The
+    // replacement is a <div>, which cannot take the focus on its own — the
+    // tabindex it now carries is what let focus() land on it.
+    const fallback = root.children[0]!;
+    expect(active).toBe(fallback);
+    expect(fallback.getAttribute('tabindex')).toBe('-1');
+    expect(document.activeElement).toBe(fallback);
+  });
+
+  it('focuses a focusable counterpart without adding a tabindex to it', () => {
+    // The everyday swap: an error placeholder's button is re-rendered with a
+    // new label. Its counterpart is focusable in its own right, so the focus
+    // moves across with no synthetic tabindex and no tab stop added.
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(
+      asEl,
+      '<div class="empty">\n  <span>Request failed</span>\n  <button type="button" class="btn" data-action="retry-live">Retry</button>\n</div>\n',
+      parseHtml,
+    );
+    root.children[0]!.children[1]!.focus();
+
+    reconcile(
+      asEl,
+      '<div class="empty">\n  <span>Still failing</span>\n  <button type="button" class="btn" data-action="retry-live">Try again</button>\n</div>\n',
+      parseHtml,
+    );
+
+    const counterpart = root.children[0]!.children[1]!;
+    expect(active).toBe(counterpart);
+    expect(counterpart.getAttribute('tabindex')).toBeNull();
   });
 });
 

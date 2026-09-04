@@ -365,6 +365,11 @@ export const en: Dict = {
   bus_line_archive_href: 'Bus line {line} delays & history',
   line_archive_h1: 'Line {line} — disruption archive',
   bus_line_archive_h1: 'Bus line {line} — disruption archive',
+  // The short form, shared by the breadcrumb, the meta description and the
+  // Dataset node so the page does not call the same line a bus in its heading
+  // and a train one element over.
+  line_archive_label: 'Line {line}',
+  bus_line_archive_label: 'Bus line {line}',
   line_bus_note:
     'Bus line {line} calls at Malmö Hyllie, so its disruptions are archived here alongside the train lines.',
 };

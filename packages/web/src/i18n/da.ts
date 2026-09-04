@@ -366,6 +366,10 @@ export const da: Dict = {
   bus_line_archive_href: 'Buslinje {line} — forsinkelser & historik',
   line_archive_h1: 'Linje {line} — forstyrrelsesarkiv',
   bus_line_archive_h1: 'Buslinje {line} — forstyrrelsesarkiv',
+  // Kortformen, delt af brødkrummen, metabeskrivelsen og Dataset-noden, så siden
+  // ikke kalder samme linje en bus i overskriften og et tog et element længere nede.
+  line_archive_label: 'Linje {line}',
+  bus_line_archive_label: 'Buslinje {line}',
   line_bus_note:
     'Buslinje {line} standser ved Malmö Hyllie, så dens forstyrrelser arkiveres her sammen med toglinjerne.',
 };

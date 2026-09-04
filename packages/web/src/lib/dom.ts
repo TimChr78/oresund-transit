@@ -196,7 +196,8 @@ function copyAttributes(current: Element, next: Element): void {
  * activated — which is what triggers the swap — so the activated control's
  * counterpart in the new markup is found by walking its child-index path over
  * and handed back for focus. A path that no longer exists falls back to the
- * replacement itself, the nearest thing to where the user was.
+ * replacement itself, the nearest thing to where the user was — see
+ * carryFocus(), which is what makes that fallback a place focus can land.
  */
 export function refocusTarget(current: Element, next: Element, active: Node | null): Element | null {
   if (!active) return null;
@@ -221,12 +222,32 @@ export function refocusTarget(current: Element, next: Element, active: Node | nu
   return (target as Element | null) ?? next;
 }
 
+/**
+ * Put the focus on `target`, and make it focusable if it is not already.
+ *
+ * The fallback `refocusTarget` hands back is often a plain <div> — the error
+ * placeholder's retry button, say, is replaced whole by the loading block's
+ * `.empty` <div>, which cannot take the focus at all. focus() on it is a
+ * silent no-op and the user is exactly where the swap was meant to avoid
+ * sending them: on <body>. `tabindex="-1"` puts an element in the programmatic
+ * tab order — reachable by focus(), never by Tab — so the deliberate fallback
+ * becomes a real destination instead of a failed one.
+ */
+function carryFocus(target: Element): void {
+  const el = target as HTMLElement;
+  if (typeof el.focus !== 'function') return;
+  el.focus();
+  if (typeof document === 'undefined' || document.activeElement === el) return;
+  el.setAttribute('tabindex', '-1');
+  el.focus();
+}
+
 /** replaceWith, with the focus carried across to the replacement. */
 function replaceFocused(current: Element, next: Element): void {
   const active = typeof document === 'undefined' ? null : document.activeElement;
   const target = refocusTarget(current, next, active);
   current.replaceWith(next);
-  if (target) (target as HTMLElement).focus?.();
+  if (target) carryFocus(target);
 }
 
 /** Reuse `current` where it can, replace it where it cannot. */

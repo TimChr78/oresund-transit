@@ -93,6 +93,17 @@ export function lineArchiveHrefKey(line: string): Key {
 }
 
 /**
+ * The short mode-aware name of a line — "Line 804", "Bus line 6". The line
+ * page's H1 takes the long form; everything else that names the same page (the
+ * visible breadcrumb, the meta description, the JSON-LD BreadcrumbList entry
+ * and the Dataset node) takes this one, so a bus is not re-labelled as a train
+ * one element away from its own heading.
+ */
+export function lineLabel(line: string, lang: Lang = 'en'): string {
+  return translate(isBusLine(line) ? 'bus_line_archive_label' : 'line_archive_label', lang, { line });
+}
+
+/**
  * Union a dynamically-discovered line list with the canonical set. Canonical
  * lines come first (in CANONICAL_LINES order, keeping any discovered
  * disruption count), then any non-canonical lines discovered from data are
@@ -620,6 +631,17 @@ export function renderHistoryHub(punctuality: ArchivePunctuality, history: Archi
         stat(esc(formatPct(totals.onTimePct ?? 0, lang)), 'stat_on_time'),
         stat(String(history.total_disruptions), 'stat_disruptions'),
       ];
+  // The notes under the cards. The disruption card renders even on a corridor
+  // that has recorded no departures yet, so its denominator explanation has to
+  // render with it rather than give way to the no-data note — dropping it left
+  // that bare count unexplained. An empty corridor shows both: the first
+  // explains the missing cards, the second the number that is still there.
+  const notes = [
+    ...(empty ? [translate('station_no_data_note', lang)] : []),
+    translate('hub_disruptions_note', lang),
+  ]
+    .map((text) => `    <p class="meta">${esc(text)}</p>`)
+    .join('\n');
   const body = `
     <p class="crumb"><a href="${localizedPath('/', lang)}">${BRAND_NAME}</a> › ${esc(translate('hub_history_h1', lang))}</p>
     <h1>${esc(translate('hub_history_h1', lang))}</h1>
@@ -634,7 +656,7 @@ export function renderHistoryHub(punctuality: ArchivePunctuality, history: Archi
     <div>
       ${cards.join('\n      ')}
     </div>
-${empty ? `    <p class="meta">${esc(translate('station_no_data_note', lang))}</p>` : `    <p class="meta">${esc(translate('hub_disruptions_note', lang))}</p>`}
+${notes}
     <h2>${esc(translate('hub_history_windows_heading', lang))}</h2>
     <ul class="plain">
 ${windowLinks(lang)}
@@ -783,17 +805,20 @@ ${list}
 /** /line/{line} — one line's disruption archive. */
 export function renderLinePage(line: string, stats: ArchiveLineStats, allLines: ArchiveLine[]): string {
   const all = unionCanonicalLines(allLines);
-  const description = `Disruption history for line ${line} on the Øresund crossing — ${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)}.`;
+  // M4: the canonical set's bus lines are archived here because they call at a
+  // monitored stop — the H1 says which mode the page is about and the note says
+  // why a bus sits in a rail archive. The short form of the same mode-aware
+  // name carries into the breadcrumb, the description and the JSON-LD below, so
+  // the page never contradicts its own heading about what runs on the line.
+  const label = lineLabel(line);
+  const description = `Disruption history for ${label} on the Øresund crossing — ${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)}.`;
   // M1: a line with no recorded disruptions collapses its zero-data sections
   // into one annotation instead of rendering empty <ul>/<table> blocks.
   const empty = stats.total_disruptions === 0;
-  // M4: the canonical set's bus lines are archived here because they call at a
-  // monitored stop — the H1 says which mode the page is about and the note says
-  // why a bus sits in a rail archive.
   const bus = isBusLine(line);
   const h1 = translate(bus ? 'bus_line_archive_h1' : 'line_archive_h1', 'en', { line });
   const body = `
-    <p class="crumb"><a href="/">${BRAND_NAME}</a> › <a href="/line">Lines</a> › Line ${esc(line)}</p>
+    <p class="crumb"><a href="/">${BRAND_NAME}</a> › <a href="/line">Lines</a> › ${esc(label)}</p>
     <h1>${esc(h1)}</h1>
     <p class="sub">${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)} (last ${stats.days} days). ${esc(translate('archive_attribution', 'en'))}.</p>
 ${bus ? `    <p class="meta">${esc(translate('line_bus_note', 'en', { line }))}</p>` : ''}
@@ -831,10 +856,10 @@ ${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${enco
       '@graph': [
         breadcrumb([
           { name: 'Lines', url: `${SITE_URL}/line` },
-          { name: `Line ${line}`, url: `${SITE_URL}/line/${encodeURIComponent(line)}` },
+          { name: label, url: `${SITE_URL}/line/${encodeURIComponent(line)}` },
         ]),
         dataset({
-          name: `Line ${line} disruption archive`,
+          name: `${label} disruption archive`,
           description,
           pageUrl: `${SITE_URL}/line/${encodeURIComponent(line)}`,
           dateFrom: stats.date_from,

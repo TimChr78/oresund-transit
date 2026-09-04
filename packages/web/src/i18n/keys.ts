@@ -407,6 +407,14 @@ export interface Dict {
   /** The <h1> of a line archive (audit5 M4) — the bus lines say so. Takes {line}. */
   line_archive_h1: string;
   bus_line_archive_h1: string;
+  /**
+   * The short form of the same name, used where the long heading will not fit:
+   * the breadcrumb, the meta description and the Dataset node all share it, so
+   * a page does not call the same line a bus in its heading and a train one
+   * element over (audit5 review). Takes {line}.
+   */
+  line_archive_label: string;
+  bus_line_archive_label: string;
   line_bus_note: string;
 }
 

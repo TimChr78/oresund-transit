@@ -8,9 +8,13 @@
  * hashed JS/CSS file that has not propagated yet; a visitor in that window would
  * fetch HTML for the JS URL and get a blank page.
  *
- * Bounded to /assets/* by its own content-type check rather than by
- * _routes.json, which is include "/*" and so runs this Function on every
- * request (audit5 M9). It re-fetches the requested asset through the ASSETS
+ * Selected for /assets/* by Pages' file-based routing — this file's directory,
+ * not _routes.json. That file is include "/*", so every request enters
+ * Functions processing and routing picks the Function whose path matches;
+ * whatever the request is, this one only ever sees /assets/* (audit5 M9). The
+ * content-type check is not the scoping mechanism: it runs after that
+ * selection and decides whether what came back is a real asset or the SPA
+ * fallback. The Function re-fetches the requested asset through the ASSETS
  * binding — the fetch that also applies public/_headers to the response, which
  * is why the returned asset carries the security set: a real asset returns its actual content-type
  * (application/javascript / text/css) and is passed through untouched; a missing

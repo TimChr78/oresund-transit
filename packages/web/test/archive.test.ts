@@ -302,7 +302,7 @@ describe('archive renderers', () => {
     };
     const html = renderLinePage('807', empty, []);
     expect(html).toContain('<title>Line 807 — disruption archive — Øresund.live</title>');
-    expect(html).toContain('<meta name="description" content="Disruption history for line 807');
+    expect(html).toContain('<meta name="description" content="Disruption history for Line 807');
     expect(html).toContain('<link rel="canonical" href="https://oresund.live/line/807" />');
     // Empty archives must stay indexable — never noindex.
     expect(html).toContain('<meta name="robots" content="index,follow" />');
@@ -685,10 +685,14 @@ describe('the /history hub — aggregate archive page', () => {
       expect(html, lang).not.toContain(`>${esc(translate('stat_departures', lang))}</span>`);
       expect(html, lang).toContain(esc(translate('hub_disruptions_note', lang)));
     }
-    // The note does not appear on the empty-corridor variant, where the
-    // disruption card is the only one and the sentence would explain nothing.
+    // The empty-corridor variant renders BOTH notes: its disruption card is
+    // the only one left standing, so the sentence still explains a number on
+    // the page. Dropping it there left "7 disruptions" with no denominator.
     const empty = renderHistoryHub({ ...punctuality, daily: [] }, history30, 'en');
-    expect(empty).not.toContain(esc(translate('hub_disruptions_note', 'en')));
+    expect(empty).toContain(esc(translate('station_no_data_note', 'en')));
+    expect(empty).toContain(esc(translate('hub_disruptions_note', 'en')));
+    // The count itself is still on the page for the note to explain.
+    expect(empty).toContain('>7</b>');
   });
 
   it('localizes the structured data it shares with the visible page (audit5 M2)', () => {
@@ -759,10 +763,26 @@ describe('the /history hub — aggregate archive page', () => {
     expect(page).toContain('<h1>Bus line 6 — disruption archive</h1>');
     expect(page).toContain(esc(translate('line_bus_note', 'en', { line: '6' })));
     expect(page).toContain('<title>Bus line 6 — disruption archive — Øresund.live</title>');
-    // A train line keeps the unqualified heading.
+    // Every other field that names the page takes the same mode-aware label —
+    // not the hardcoded "Line" that had the page contradict its own heading.
+    expect(page).toContain('<a href="/line">Lines</a> › Bus line 6</p>');
+    expect(page).toContain('Disruption history for Bus line 6 on the Øresund crossing');
+    expect(page).not.toContain('Disruption history for line 6 on');
+    const crumb = findNode(page, 'BreadcrumbList');
+    const crumbNames = (crumb?.itemListElement as { name?: string }[] | undefined)?.map((i) => i.name);
+    expect(crumbNames).toContain('Bus line 6');
+    expect(crumbNames).not.toContain('Line 6');
+    const busDataset = findNode(page, 'Dataset');
+    expect(busDataset?.name).toBe('Bus line 6 disruption archive');
+    // A train line keeps the unqualified heading — and the unqualified label
+    // everywhere else, so the bus wording never leaks onto a train page.
     const train = renderLinePage('804', { ...lineStats, line: '804' }, []);
     expect(train).toContain('<h1>Line 804 — disruption archive</h1>');
     expect(train).not.toContain(esc(translate('line_bus_note', 'en', { line: '804' })));
+    expect(train).toContain('Disruption history for Line 804 on the Øresund crossing');
+    const trainCrumb = findNode(train, 'BreadcrumbList');
+    expect((trainCrumb?.itemListElement as { name?: string }[] | undefined)?.map((i) => i.name)).toContain('Line 804');
+    expect(findNode(train, 'Dataset')?.name).toBe('Line 804 disruption archive');
   });
 
   it('renders line-archive causes as a readable list, not raw enum keys (audit5 L13)', () => {
