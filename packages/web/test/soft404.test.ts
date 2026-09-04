@@ -102,7 +102,7 @@ describe('soft-404 catch-all (functions/[[path]].js)', () => {
     expect(body).toContain('<title>Page not found');
     // Navigation links back to the live board + the three archive sections.
     expect(body).toContain('href="/"');
-    expect(body).toContain('href="/history/30"');
+    expect(body).toContain('href="/history"');
     expect(body).toContain('href="/line"');
     expect(body).toContain('href="/station"');
   });
@@ -125,7 +125,8 @@ describe('_routes.json catch-all wiring', () => {
 
 describe('homepage shell footer', () => {
   it('ships plain <a> archive links in the initial HTML', () => {
-    expect(indexHtml).toContain('href="/history/30">Disruption history</a>');
+    // audit5 H2: the footer's head-term anchor points at the hub.
+    expect(indexHtml).toContain('href="/history">Disruption history</a>');
     expect(indexHtml).toContain('href="/line">Line archives</a>');
     expect(indexHtml).toContain('href="/station">Station archives</a>');
     expect(indexHtml).toContain('href="/methodology">Methodology</a>');

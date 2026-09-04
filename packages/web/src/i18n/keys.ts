@@ -249,6 +249,9 @@ export interface Dict {
   station_col_destination: string;
   nav_stations: string;
   nav_board: string;
+  // The /history hub, as it reads in the archive shell's nav (audit5 H2: the
+  // hub was reachable only from its four children — the site never linked it).
+  nav_history: string;
   station_nav_label: string;
   // Accessible names for the two filter groups on the board (audit4 LOW)
   filter_direction: string;
@@ -284,6 +287,22 @@ export interface Dict {
   line_archive_href: string;
   line_no_disruptions_note: string;
   station_no_data_note: string;
+
+  /**
+   * The /history hub — the aggregate archive page. With the station pages it is
+   * the one archive family served in en + sv + da, so every string it renders
+   * lives here. `hub_history_title` must stay ≤ 60 characters and
+   * `hub_history_desc` inside 120–155 (both asserted in test/archive.test.ts);
+   * `hub_history_sub` takes {days}, {from} and {to}.
+   */
+  hub_history_title: string;
+  hub_history_h1: string;
+  hub_history_desc: string;
+  hub_history_sub: string;
+  hub_history_intro: string;
+  hub_history_windows_heading: string;
+  /** The stat-card label for the corridor's recorded disruption count. */
+  stat_disruptions: string;
 
   // Station display names (audit3 M4) — keyed by the collector slug. A stop
   // name is a user-visible string, so it translates like any other.

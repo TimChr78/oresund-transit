@@ -11,6 +11,7 @@
  * served rather than a 502, so the sitemap never disappears entirely.
  */
 import { buildSitemap } from '../src/lib/sitemap';
+import { withSecurityHeaders } from '../src/lib/http-errors';
 
 const COLLECTOR_BASE = 'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit';
 
@@ -68,17 +69,19 @@ function staticBase(lastmod) {
 
 export async function onRequest(context) {
   const { request } = context;
+  // Every response shape this Function emits carries the security set (audit5
+  // H5): the sitemap used to be the one URL on the site with none at all.
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('Method not allowed', {
       status: 405,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD' },
+      headers: withSecurityHeaders({ 'Content-Type': 'text/plain; charset=utf-8', Allow: 'GET, HEAD' }),
     });
   }
 
-  const headers = {
+  const headers = withSecurityHeaders({
     'Content-Type': 'application/xml; charset=utf-8',
     'Cache-Control': 'public, max-age=600',
-  };
+  });
 
   // audit3 H4 — every URL carries <lastmod>. The static pages get the deploy
   // date; the archive pages get the collector's data-window end (date_to,

@@ -14,9 +14,11 @@ import { stationNameKey, STATION_SLUGS } from './StationPicker';
  * of bare footer chrome. One shared list, so the anchor text a crawler sees is
  * identical on every page that links a hub.
  *
- * `/line` and `/history/30` exist as single English URLs (no localized twins),
- * so they stay unprefixed on the sv/da pages — same convention as the
- * archive shell's footer. Localized pages use `localizedPath` (see HomeAbout).
+ * `/line` exists as a single English URL (no localized twin), so it stays
+ * unprefixed on the sv/da pages — same convention as the archive shell's
+ * footer. `/history` localizes (audit5 H2: the hub's anchor used to point at
+ * the child window `/history/30`, so "disruption history" voted for a URL that
+ * is not the hub), so it goes through `localizedPath`.
  */
 
 /** One archive hub link: label + the one-line "what you get" description. */
@@ -31,7 +33,7 @@ export function archiveHubs(lang: Lang): ArchiveLink[] {
   return [
     { href: '/station', label: translate('arch_link_station', lang), desc: translate('arch_link_station_desc', lang) },
     { href: '/line', label: translate('arch_link_line', lang), desc: translate('arch_link_line_desc', lang) },
-    { href: '/history/30', label: translate('arch_link_history', lang), desc: translate('arch_link_history_desc', lang) },
+    { href: localizedPath('/history', lang), label: translate('arch_link_history', lang), desc: translate('arch_link_history_desc', lang) },
   ];
 }
 

@@ -46,7 +46,10 @@ describe('deploy-race protection', () => {
   it('assets Function exists and returns a real 404 for missing assets', () => {
     expect(existsSync(new URL('../functions/assets/[[path]].js', import.meta.url))).toBe(true);
     expect(assetFn).toContain('context.env.ASSETS.fetch');
-    expect(assetFn).toContain('status: 404');
+    // audit5 H5: the 404 (and its headers) is built by the shared helper, so
+    // its status is no longer spelled out inline here. test/security-headers
+    // drives the Function and asserts the status and the full header set.
+    expect(assetFn).toContain('notFoundResponse(');
     // A real asset is JS/CSS; a missing one is text/html via the SPA fallback.
     expect(assetFn).toContain("includes('text/html')");
   });

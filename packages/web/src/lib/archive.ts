@@ -1,11 +1,12 @@
 /**
  * Server-side renderers for the archive routes (/line/*, /station/*,
  * /history/*). These produce complete, standalone HTML documents (English —
- * the crawler default) with per-route title/description/canonical, Open Graph
+ * the crawler default; the station pages and the /history hub take a language
+ * and render in it) with per-route title/description/canonical, Open Graph
  * tags, JSON-LD structured data (breadcrumbs + data), and the required
  * Trafiklab attribution. They are pure string builders — no fetch, no I/O —
  * so they are fully testable and reused by the thin Pages Functions in
- * functions/{line,station,history}/[[path]].js.
+ * functions/{line,station,history}/[[path]].js (and their sv/da twins).
  *
  * The data these render is pulled at request time from the collector Worker
  * (dynamic archives), unlike the prerendered static pages (/methodology,
@@ -118,6 +119,63 @@ export interface ArchiveHistory {
   }[];
 }
 
+/**
+ * The collector /api/transit/punctuality shape — the corridor-wide daily
+ * punctuality rows (every monitored stop summed, no station filter). This is
+ * what the /history hub aggregates into its three headline numbers; the
+ * per-station version of the same query is ArchiveStationStats.
+ */
+export interface ArchivePunctuality {
+  days: number;
+  date_from: string;
+  date_to: string;
+  daily: {
+    date: string;
+    total: number;
+    on_time: number;
+    delayed: number;
+    canceled: number;
+    on_time_pct: number;
+    avg_delay_seconds: number | null;
+  }[];
+}
+
+/** The three headline numbers the /history hub publishes for one window. */
+export interface CorridorTotals {
+  departures: number;
+  onTime: number;
+  delayed: number;
+  canceled: number;
+  /**
+   * On-time share over the whole window, 0–100 with one decimal. Null when no
+   * departure was recorded — a corridor that observed nothing has no share to
+   * report, and 0% would read as a catastrophic month rather than an empty one.
+   */
+  onTimePct: number | null;
+}
+
+/**
+ * Sum the corridor's daily punctuality rows into one set of headline numbers.
+ * The share is recomputed from the summed counts — averaging the daily
+ * percentages would weight a 4-departure day as heavily as a 400-departure one.
+ * Same rounding (one decimal, 0–100) the collector uses per day.
+ */
+export function corridorTotals(punctuality: ArchivePunctuality): CorridorTotals {
+  const totals = punctuality.daily.reduce(
+    (acc, row) => ({
+      departures: acc.departures + row.total,
+      onTime: acc.onTime + row.on_time,
+      delayed: acc.delayed + row.delayed,
+      canceled: acc.canceled + row.canceled,
+    }),
+    { departures: 0, onTime: 0, delayed: 0, canceled: 0 },
+  );
+  return {
+    ...totals,
+    onTimePct: totals.departures > 0 ? Math.round((totals.onTime / totals.departures) * 1000) / 10 : null,
+  };
+}
+
 /** The collector /api/transit/line/{line} shape. */
 export interface ArchiveLineStats {
   line: string;
@@ -184,14 +242,16 @@ interface ShellOpts {
   body: string;
   /**
    * Document language. The archive routes render en by default; the station
-   * pages are the one family that localizes (audit3 C1), so they pass the
-   * route's language through and every string in the shell follows it.
+   * pages and the /history hub are the families that localize (audit3 C1),
+   * so they pass the route's language through and every string in the shell
+   * follows it.
    */
   lang?: Lang;
   /**
-   * The en canonical base path of a LOCALIZED page (e.g. '/station/hyllie').
-   * When set, the shell emits the full en/sv/da/x-default hreflang cluster;
-   * when unset the page exists as one URL and self-announces (hreflangSelf).
+   * The en canonical base path of a LOCALIZED page (e.g. '/station/hyllie' or
+   * '/history'). When set, the shell emits the full en/sv/da/x-default
+   * hreflang cluster; when unset the page exists as one URL and self-announces
+   * (hreflangSelf).
    */
   hreflangPath?: string;
 }
@@ -203,9 +263,11 @@ function attr(value: string): string {
 
 /**
  * Minimal hreflang set for a page that exists as ONE URL (no localized
- * twins): the archive routes (/line/*, /station/*, /history/*) are served
- * in English only — the trilingual board handles language switching
- * client-side, so no /sv/ or /da/ variants exist. Per Google's hreflang
+ * twins): the archive routes /line/*, /station/* and /history/{days} are
+ * served in English only — the trilingual board handles language switching
+ * client-side, so no /sv/ or /da/ variants exist. (The exceptions are the
+ * station pages and the /history hub, which pass `hreflangPath` instead and
+ * get the full en/sv/da/x-default cluster.) Per Google's hreflang
  * guidance a single-URL page still announces itself: `en` (its document
  * language) plus a self-referencing `x-default`. Same <link rel="alternate">
  * shape as the static pages' hreflang cluster (src/lib/seo.ts), so both page
@@ -245,10 +307,11 @@ ${localeTags}
     <meta name="twitter:description" content="${attr(description)}" />
     <meta name="twitter:image" content="https://oresund.live/og-card.png" />`;
   const jsonLdBlock = jsonLd === undefined ? '' : `\n    <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`;
-  // Localized pages (the station routes) announce the full en/sv/da/x-default
-  // cluster; every other archive route exists as ONE URL per page — no /sv/
-  // /da/ twins (language switching on the board is client-side) — so those
-  // self-announce en + x-default, mirroring the static pages' cluster.
+  // Localized pages (the station routes and the /history hub) announce the
+  // full en/sv/da/x-default cluster; every other archive route exists as ONE
+  // URL per page — no /sv/ /da/ twins (language switching on the board is
+  // client-side) — so those self-announce en + x-default, mirroring the
+  // static pages' cluster.
   const hreflang = hreflangPath ? hreflangCluster(hreflangPath) : hreflangSelf(attr(canonical));
   return `<!doctype html>
 <html lang="${lang}">
@@ -333,7 +396,7 @@ ${hreflang}
     <header><a class="brand" href="${localizedPath('/', lang)}">Øresund.live</a></header>
     <main>${body}</main>
     <footer>
-      <p>${esc(translate('archive_attribution', lang))} · <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a> · <a href="${localizedPath('/methodology', lang)}">${esc(translate('nav_methodology', lang))}</a> · <a href="${localizedPath('/privacy', lang)}">${esc(translate('nav_privacy', lang))}</a></p>
+      <p>${esc(translate('archive_attribution', lang))} · <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a> · <a href="${localizedPath('/history', lang)}">${esc(translate('nav_history', lang))}</a> · <a href="${localizedPath('/methodology', lang)}">${esc(translate('nav_methodology', lang))}</a> · <a href="${localizedPath('/privacy', lang)}">${esc(translate('nav_privacy', lang))}</a></p>
     </footer>
   </body>
 </html>
@@ -480,29 +543,113 @@ function dailyTable(rows: ArchiveHistory['daily']): string {
   return `<div class="table-scroll"><table>${head}<tbody>${body}</tbody></table></div>`;
 }
 
-/** /history — index of the day-range archives. */
-export function renderHistoryIndex(): string {
-  const description = 'Archived disruption history for the Øresund crossing — daily totals, cancellations, delays and alerts across 7, 14, 30 and 90 days.';
-  const links = DAY_RANGES.map(
-    (d) => `<li><a href="/history/${d}">Last ${d} days</a> <span class="meta">— daily disruption counts &amp; delays</span></li>`,
-  ).join('\n');
+/**
+ * The /history window list, as visible links: every range the archive serves,
+ * localized with the shared days_* labels. The hub itself reports the default
+ * 30-day window; the four range pages carry the day-by-day tables.
+ */
+function windowLinks(lang: Lang): string {
+  // The window pages (/history/{d}) are English-only — no localized twins —
+  // so on the sv/da hubs these anchors are annotated as English (CodeRabbit
+  // PR53) while keeping the localized days_* labels.
+  return DAY_RANGES.map((d) => `      <li><a href="/history/${d}" hreflang="en" lang="en">${esc(translate(`days_${d}` as Key, lang))}</a></li>`).join(
+    '\n',
+  );
+}
+
+/**
+ * /history — the archive hub: the whole corridor's numbers for the default
+ * 30-day window, and the way into every window, station and line archive.
+ *
+ * The hub is the one archive page besides the station pages that ships
+ * localized twins (/sv/history, /da/history), so it takes a language and every
+ * string it renders goes through the dictionary. Unlike /station and /line it
+ * does NOT enumerate its children from collector discovery — the monitored
+ * stops and the canonical line set are the fixed navigation surface (the same
+ * sets llms.txt is built from), so the only collector calls the hub needs are
+ * the two that produce its numbers.
+ */
+export function renderHistoryHub(punctuality: ArchivePunctuality, history: ArchiveHistory, lang: Lang = 'en'): string {
+  const totals = corridorTotals(punctuality);
+  const empty = totals.departures === 0;
+  const description = translate('hub_history_desc', lang);
+  // The three headline cards. A corridor that recorded no departures yet has
+  // no punctuality to show — the on-time card would read as 0% (audit3 M1) —
+  // so the departure count and the share give way to the "no data" note while
+  // the disruption count, an independent dataset, still renders.
+  const stat = (value: string, key: Key) =>
+    `<span class="stat"><b>${value}</b><span>${esc(translate(key, lang))}</span></span>`;
+  const cards = empty
+    ? [stat(String(history.total_disruptions), 'stat_disruptions')]
+    : [
+        stat(String(totals.departures), 'stat_departures'),
+        // departures > 0 here, so the share is a number — the ?? is unreachable.
+        stat(esc(formatPct(totals.onTimePct ?? 0, lang)), 'stat_on_time'),
+        stat(String(history.total_disruptions), 'stat_disruptions'),
+      ];
   const body = `
-    <p class="crumb"><a href="/">Øresund.live</a> › History</p>
-    <h1>Disruption history</h1>
-    <p class="sub">Archived disruption totals for the Øresund crossing — cancellations, delays and alerts per day, over the range you choose.</p>
-    <h2>Choose a range</h2>
+    <p class="crumb"><a href="${localizedPath('/', lang)}">Øresund.live</a> › ${esc(translate('hub_history_h1', lang))}</p>
+    <h1>${esc(translate('hub_history_h1', lang))}</h1>
+    <p class="sub">${esc(
+      translate('hub_history_sub', lang, {
+        days: history.days,
+        from: formatDate(history.date_from, lang),
+        to: formatDate(history.date_to, lang),
+      }),
+    )} ${esc(translate('archive_attribution', lang))}.</p>
+    <p class="intro">${esc(translate('hub_history_intro', lang))}</p>
+    <div>
+      ${cards.join('\n      ')}
+    </div>
+${empty ? `    <p class="meta">${esc(translate('station_no_data_note', lang))}</p>` : ''}
+    <h2>${esc(translate('hub_history_windows_heading', lang))}</h2>
     <ul class="plain">
-${links}
+${windowLinks(lang)}
+    </ul>
+    <h2>${esc(translate('arch_link_station', lang))}</h2>
+    <ul class="plain">
+${STATIC_STATIONS.map(
+  (s) =>
+    // The station routes localize, so the link's target language is the page's
+    // own — no lang/hreflang annotation, exactly as between two station pages.
+    `      <li>${linkTo(localizedPath(`/station/${encodeURIComponent(s.slug)}`, lang), stationName(s, lang), lang, lang)}</li>`,
+).join('\n')}
+    </ul>
+    <h2>${esc(translate('arch_link_line', lang))}</h2>
+    <ul class="plain">
+${CANONICAL_LINES.map((line) => `      <li>${linkTo(`/line/${encodeURIComponent(line)}`, translate('line_archive_href', lang, { line }), lang)}</li>`).join('\n')}
     </ul>`;
   return pageShell({
-    title: 'Disruption history — Øresund.live',
+    title: translate('hub_history_title', lang),
     description,
-    canonical: `${SITE_URL}/history`,
+    canonical: localizedUrl('/history', lang),
+    hreflangPath: '/history',
+    lang,
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
-        breadcrumb([{ name: 'History', url: `${SITE_URL}/history` }]),
+        breadcrumb([{ name: translate('hub_history_h1', lang), url: localizedUrl('/history', lang) }]),
         historyRangesItemList(),
+        {
+          '@type': 'ItemList',
+          numberOfItems: STATIC_STATIONS.length,
+          itemListElement: STATIC_STATIONS.map((s, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            name: stationName(s, lang),
+            url: localizedUrl(`/station/${encodeURIComponent(s.slug)}`, lang),
+          })),
+        },
+        {
+          '@type': 'ItemList',
+          numberOfItems: CANONICAL_LINES.length,
+          itemListElement: CANONICAL_LINES.map((line, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            name: translate('line_archive_href', lang, { line }),
+            url: `${SITE_URL}/line/${encodeURIComponent(line)}`,
+          })),
+        },
         siteIdentity,
       ],
     },

@@ -89,7 +89,8 @@ describe('renderMethodologyPage', () => {
       // …and the hubs that hold the data the page describes.
       expect(html, lang).toContain('href="/station"');
       expect(html, lang).toContain('href="/line"');
-      expect(html, lang).toContain('href="/history/30"');
+      // audit5 H2: /history localizes, so each variant links its own twin.
+      expect(html, lang).toContain(`href="/${lang === 'en' ? '' : `${lang}/`}history"`);
     }
   });
 });

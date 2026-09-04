@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CANONICAL_LINES,
-  renderHistoryIndex,
+  corridorTotals,
+  renderHistoryHub,
   renderHistoryPage,
   renderLineIndex,
   renderLinePage,
@@ -10,9 +11,11 @@ import {
   unionCanonicalLines,
   type ArchiveHistory,
   type ArchiveLineStats,
+  type ArchivePunctuality,
   type ArchiveStationStats,
 } from '../src/lib/archive';
 import { handleArchiveRequest } from '../src/lib/archive-http';
+import { STATIC_STATIONS } from '../src/lib/sitemap';
 import { translate } from '../src/i18n';
 
 /** A minimal valid history payload for the last 7 days. */
@@ -25,6 +28,29 @@ const history: ArchiveHistory = {
     { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
     { date: '2026-07-31', count: 1, cancellations: 1, delays: 0, alerts: 0, avg_delay: null },
   ],
+};
+
+/**
+ * A minimal corridor-wide punctuality payload — the /api/transit/punctuality
+ * shape the /history hub sums into its three headline numbers.
+ */
+const punctuality: ArchivePunctuality = {
+  days: 30,
+  date_from: '2026-07-08',
+  date_to: '2026-08-06',
+  daily: [
+    { date: '2026-08-06', total: 40, on_time: 37, delayed: 2, canceled: 1, on_time_pct: 92.5, avg_delay_seconds: 120 },
+    { date: '2026-08-05', total: 20, on_time: 18, delayed: 2, canceled: 0, on_time_pct: 90, avg_delay_seconds: 90 },
+  ],
+};
+
+/** The hub's other input: the 30-day disruption window. */
+const history30: ArchiveHistory = {
+  days: 30,
+  date_from: '2026-07-08',
+  date_to: '2026-08-06',
+  total_disruptions: 7,
+  daily: [{ date: '2026-08-06', count: 3, cancellations: 1, delays: 2, alerts: 0, avg_delay: 300 }],
 };
 
 /** A minimal valid line payload. */
@@ -138,12 +164,13 @@ function findNode(html: string, type: string): Record<string, unknown> | undefin
 
 describe('archive renderers', () => {
   it('every archive page emits the self-referencing hreflang set (en + x-default) in <head>', () => {
-    // Archive routes exist as ONE URL per page (no /sv/ or /da/ twins — the
-    // site is trilingual but only the static pages ship localized variants),
+    // Most archive routes exist as ONE URL per page (no /sv/ or /da/ twins),
     // so each must carry at least the en + x-default alternates pointing at
-    // itself. Mirrors the hreflang pattern of the static pages (seo.ts).
+    // itself. The station pages and the /history hub ship the FULL cluster
+    // instead — which still satisfies the minimum asserted here. Mirrors the
+    // hreflang pattern of the static pages (seo.ts).
     const pages: [string, string][] = [
-      [renderHistoryIndex(), 'https://oresund.live/history'],
+      [renderHistoryHub(punctuality, history30), 'https://oresund.live/history'],
       [renderHistoryPage(7, history), 'https://oresund.live/history/7'],
       [renderLineIndex([{ line: '804', disruptions: 40 }]), 'https://oresund.live/line'],
       [renderLinePage('804', lineStats, []), 'https://oresund.live/line/804'],
@@ -178,7 +205,7 @@ describe('archive renderers', () => {
 
   it('every archive page carries og:image (1200x630 og-card) + twitter:card=summary_large_image', () => {
     const pages = [
-      renderHistoryIndex(),
+      renderHistoryHub(punctuality, history30),
       renderHistoryPage(7, history),
       renderLineIndex([]),
       renderLinePage('804', lineStats, []),
@@ -199,7 +226,7 @@ describe('archive renderers', () => {
   });
 
   it('history index lists the day ranges', () => {
-    const html = renderHistoryIndex();
+    const html = renderHistoryHub(punctuality, history30);
     expect(html).toContain('<h1>Disruption history</h1>');
     for (const d of [7, 14, 30, 90]) expect(html).toContain(`href="/history/${d}"`);
   });
@@ -540,7 +567,7 @@ describe('Dataset JSON-LD on archive pages (SEO audit H4)', () => {
 
 describe('ItemList JSON-LD on history windows (SEO audit M9)', () => {
   it('the /history index lists every available window as an ItemList', () => {
-    const html = renderHistoryIndex();
+    const html = renderHistoryHub(punctuality, history30);
     const itemList = findNode(html, 'ItemList');
     expect(itemList).toBeDefined();
     const urls = (itemList?.itemListElement as { url?: string }[]).map((i) => i.url);
@@ -562,10 +589,131 @@ describe('ItemList JSON-LD on history windows (SEO audit M9)', () => {
   });
 });
 
+describe('the /history hub — aggregate archive page', () => {
+  it('keeps the <title> ≤ 60 chars and the meta description inside 120–155 in every language', () => {
+    for (const lang of ['en', 'sv', 'da'] as const) {
+      const html = renderHistoryHub(punctuality, history30, lang);
+      const title = /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? '';
+      expect(title.length, `${lang} title`).toBeLessThanOrEqual(60);
+      const desc = /<meta name="description" content="([^"]*)" \/>/.exec(html)?.[1] ?? '';
+      expect(desc.length, `${lang} description`).toBeGreaterThanOrEqual(120);
+      expect(desc.length, `${lang} description`).toBeLessThanOrEqual(155);
+    }
+  });
+
+  it('renders the whole page in each language, canonical following the prefix', () => {
+    const en = renderHistoryHub(punctuality, history30, 'en');
+    expect(en).toContain('<html lang="en">');
+    expect(en).toContain('<title>Disruption history — Øresund.live</title>');
+    expect(en).toContain('<h1>Disruption history</h1>');
+    expect(en).toContain('<link rel="canonical" href="https://oresund.live/history" />');
+    expect(en).toContain('over the last 30 days, 2026-07-08 to 2026-08-06');
+    expect(en).toContain('<b>91.7%</b>');
+
+    const sv = renderHistoryHub(punctuality, history30, 'sv');
+    expect(sv).toContain('<html lang="sv">');
+    expect(sv).toContain('<h1>Störningshistorik</h1>');
+    expect(sv).toContain('<link rel="canonical" href="https://oresund.live/sv/history" />');
+    // The localized page shows localized decimal separators and station names,
+    // and links the localized station routes.
+    expect(sv).toContain('<b>91,7%</b>');
+    expect(sv).toContain('<a href="/sv/station/kobenhavn-h">Köpenhamn H</a>');
+
+    const da = renderHistoryHub(punctuality, history30, 'da');
+    expect(da).toContain('<html lang="da">');
+    expect(da).toContain('<h1>Forstyrrelseshistorik</h1>');
+    expect(da).toContain('<link rel="canonical" href="https://oresund.live/da/history" />');
+    expect(da).toContain('<a href="/da/station/malmo-c">Malmö C</a>');
+  });
+
+  it('announces the full hreflang cluster, self-consistently, on all three variants', () => {
+    for (const lang of ['en', 'sv', 'da'] as const) {
+      const prefix = lang === 'en' ? '' : `/${lang}`;
+      const html = renderHistoryHub(punctuality, history30, lang);
+      const head = html.slice(0, html.indexOf('</head>'));
+      expect(head, `${lang} canonical`).toContain(
+        `<link rel="canonical" href="https://oresund.live${prefix}/history" />`,
+      );
+      for (const l of ['en', 'sv', 'da'] as const) {
+        const p = l === 'en' ? '' : `/${l}`;
+        expect(head, `${lang} -> ${l}`).toContain(
+          `<link rel="alternate" hreflang="${l}" href="https://oresund.live${p}/history" />`,
+        );
+      }
+      expect(head, `${lang} x-default`).toContain(
+        '<link rel="alternate" hreflang="x-default" href="https://oresund.live/history" />',
+      );
+      // og:locale + alternates — the twins exist, so they are advertised.
+      expect(html).toContain(`<meta property="og:locale" content="${lang === 'en' ? 'en_GB' : lang === 'sv' ? 'sv_SE' : 'da_DK'}" />`);
+      expect(html).toContain('og:locale:alternate');
+    }
+  });
+
+  it('links every window, every monitored station and every canonical line', () => {
+    const html = renderHistoryHub(punctuality, history30);
+    for (const d of [7, 14, 30, 90]) expect(html).toContain(`href="/history/${d}"`);
+    for (const s of STATIC_STATIONS) expect(html).toContain(`href="/station/${s.slug}"`);
+    for (const l of CANONICAL_LINES) expect(html).toContain(`href="/line/${encodeURIComponent(l)}"`);
+    // The window pages are English-only, so the hub annotates them (CodeRabbit
+    // PR53): hreflang="en" lang="en" on each window anchor.
+    for (const d of [7, 14, 30, 90]) {
+      expect(html).toContain(`<a href="/history/${d}" hreflang="en" lang="en">`);
+    }
+  });
+
+  it('annotates the English-only line archives on the localized variants, station links in its own language', () => {
+    const sv = renderHistoryHub(punctuality, history30, 'sv');
+    expect(sv).toContain('<a href="/line/804" lang="en" hreflang="en">Linje 804');
+    expect(sv).toContain('<a href="/sv/station/hyllie">Malmö Hyllie</a>');
+    expect(sv).not.toContain('<a href="/station/');
+  });
+
+  it('aggregates the daily rows into one weighted share, not an average of shares', () => {
+    // 55 of 60 on time → 91.7%, and a naive mean of the two daily percentages
+    // would have said 91.25 ≈ 91.3.
+    expect(corridorTotals(punctuality)).toEqual({
+      departures: 60,
+      onTime: 55,
+      delayed: 4,
+      canceled: 1,
+      onTimePct: 91.7,
+    });
+  });
+
+  it('stays honest when the corridor recorded no departures yet', () => {
+    // A brand-new deployment zero-fills the window: 0% would read as a
+    // catastrophic month, so the punctuality cards give way to the note while
+    // the disruption count — an independent dataset — still renders.
+    const empty: ArchivePunctuality = { ...punctuality, daily: [] };
+    expect(corridorTotals(empty).onTimePct).toBeNull();
+    const html = renderHistoryHub(empty, history30);
+    expect(html).not.toContain('<b>0%');
+    expect(html).toContain('No departures recorded since monitoring began');
+    expect(html).toContain('<b>7</b>');
+  });
+
+  it('describes its visible link lists as ItemLists, in the language of the page', () => {
+    const lists = graphNodes(renderHistoryHub(punctuality, history30, 'sv')).filter((n) => n['@type'] === 'ItemList');
+    expect(lists).toHaveLength(3); // windows, stations, lines
+    const stations = lists[1]!.itemListElement as { name: string; url: string }[];
+    expect(stations).toHaveLength(STATIC_STATIONS.length);
+    expect(stations.map((s) => s.url)).toEqual([
+      'https://oresund.live/sv/station/hyllie',
+      'https://oresund.live/sv/station/kobenhavn-h',
+      'https://oresund.live/sv/station/malmo-c',
+      'https://oresund.live/sv/station/kastrup',
+    ]);
+    const lines = lists[2]!.itemListElement as { url: string }[];
+    expect(lines).toHaveLength(CANONICAL_LINES.length);
+    // /line/* has no sv twins, so those entries stay English URLs.
+    expect(lines.every((l) => l.url.startsWith('https://oresund.live/line/'))).toBe(true);
+  });
+});
+
 describe('JSON-LD block structure (SEO audit M10)', () => {
   it('declares @context once at the block root — never nested inside @graph nodes', () => {
     const pages = [
-      renderHistoryIndex(),
+      renderHistoryHub(punctuality, history30),
       renderHistoryPage(7, history),
       renderLineIndex([{ line: '804', disruptions: 1 }]),
       renderLinePage('804', lineStats, []),
@@ -608,10 +756,40 @@ describe('handleArchiveRequest dispatch', () => {
     );
   }
 
-  it('renders /history as a 301 to /history/30 (H5 — one canonical window)', async () => {
+  it('renders /history as the aggregate hub from two collector calls', async () => {
+    const fetched: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        fetched.push(url);
+        if (url.includes('/api/transit/punctuality')) return jsonResponse(punctuality);
+        if (url.includes('/api/transit/history')) return jsonResponse(history30);
+        throw new Error(`no stub for ${url}`);
+      }),
+    );
     const res = await handleArchiveRequest('/history');
-    expect(res?.status).toBe(301);
-    expect(res?.headers.get('location')).toBe('/history/30');
+    expect(res?.status).toBe(200);
+    expect(res?.headers.get('cache-control')).toBe('public, max-age=300');
+    const html = await res?.text();
+    // The three headline numbers, aggregated across the corridor.
+    expect(html).toContain('<b>60</b>'); // departures
+    expect(html).toContain('<b>91.7%</b>'); // on-time share over both days
+    expect(html).toContain('<b>7</b>'); // disruptions
+    // Exactly the two calls the hub needs — no discovery fetches.
+    expect(fetched.sort()).toEqual([
+      'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit/history?days=30',
+      'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit/punctuality?days=30',
+    ]);
+  });
+
+  it('answers a collector failure on /history with the branded localized page', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
+    const res = await handleArchiveRequest('/history');
+    expect(res?.status).toBe(502);
+    expect(await res?.text()).toContain('Temporarily unavailable');
+    // The localized twins keep their own language on the error page too.
+    const sv = await handleArchiveRequest('/sv/history');
+    expect(await sv?.text()).toContain('Tillfälligt otillgänglig');
   });
 
   it('renders /history/30 from the collector', async () => {
@@ -897,10 +1075,14 @@ describe('station live section + localized routes (audit3 C1/H2)', () => {
     expect(renderStationPage(stationStats, stationStatsSlugList(), live, 'sv')).toContain(
       '<link rel="canonical" href="https://oresund.live/sv/station/hyllie" />',
     );
-    // Line and history pages stay single-URL: en + a self-referencing x-default.
+    // Line and history-window pages stay single-URL: en + a self-referencing
+    // x-default. The hub is the exception in the history family.
     const line = renderLinePage('804', lineStats, []);
     expect(line).toContain('<link rel="alternate" hreflang="en" href="https://oresund.live/line/804" />');
     expect(line).not.toContain('hreflang="sv"');
+    const window = renderHistoryPage(7, history);
+    expect(window).toContain('<link rel="alternate" hreflang="en" href="https://oresund.live/history/7" />');
+    expect(window).not.toContain('hreflang="sv"');
   });
 
   it('localizes the shell chrome (footer) with the page', () => {
@@ -946,7 +1128,7 @@ describe('station live section + localized routes (audit3 C1/H2)', () => {
     expect(html).toContain('Daily on-time performance');
   });
 
-  it('answers 404 for a localized non-station archive path (no sv/da twins exist)', async () => {
+  it('answers 404 for a localized archive path that has no twin (no sv/da pages exist)', async () => {
     stubFetch({ '/api/transit/history': history });
     expect(await handleArchiveRequest('/sv/history/30')).toBeNull();
     expect(await handleArchiveRequest('/da/line/804')).toBeNull();
@@ -998,7 +1180,7 @@ describe('station page TrainStation entity (audit3 M12)', () => {
 describe('archive page head: RSS autodiscovery + og:locale (audit3 M7/M10)', () => {
   it('links the feed via rel=alternate on every archive page family', () => {
     for (const html of [
-      renderHistoryIndex(),
+      renderHistoryHub(punctuality, history30),
       renderStationIndex(stationStatsSlugList()),
       renderLinePage('804', lineStats, []),
       renderStationPage(stationStats, stationStatsSlugList(), liveSnapshot, 'en'),

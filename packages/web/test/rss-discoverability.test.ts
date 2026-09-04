@@ -4,7 +4,7 @@ import { renderApp } from '../src/components/App';
 import { renderFooter } from '../src/components/Footer';
 import { translate } from '../src/i18n';
 import { createInitialState } from '../src/state';
-import { renderHistoryIndex, renderLineIndex, renderStationIndex, type ArchiveStation } from '../src/lib/archive';
+import { renderHistoryHub, renderLineIndex, renderStationIndex, type ArchivePunctuality, type ArchiveStation } from '../src/lib/archive';
 
 const stations: ArchiveStation[] = [
   { slug: 'hyllie', stop_id: '740001586', stop_name: 'Malmö Hyllie' },
@@ -12,6 +12,21 @@ const stations: ArchiveStation[] = [
   { slug: 'malmo-c', stop_id: '740000003', stop_name: 'Malmö C' },
   { slug: 'kastrup', stop_id: '860000858', stop_name: 'Københavns Lufthavn (Kastrup)' },
 ];
+
+/** Minimal /history hub payloads — only the shape the head assertions need. */
+const HUB_PUNCTUALITY: ArchivePunctuality = {
+  days: 30,
+  date_from: '2026-07-08',
+  date_to: '2026-08-06',
+  daily: [{ date: '2026-08-06', total: 40, on_time: 37, delayed: 2, canceled: 1, on_time_pct: 92.5, avg_delay_seconds: 120 }],
+};
+const HUB_HISTORY = {
+  days: 30,
+  date_from: '2026-07-08',
+  date_to: '2026-08-06',
+  total_disruptions: 7,
+  daily: [],
+};
 
 /**
  * How /feed.xml is discovered: a <link rel="alternate"> in the page <head>
@@ -53,7 +68,7 @@ describe('RSS feed discoverability', () => {
     // by pageShell did not, so the feed was undiscoverable there.
     const feedLink =
       '<link rel="alternate" type="application/rss+xml" title="Øresund.live disruptions" href="/feed.xml" />';
-    for (const html of [renderHistoryIndex(), renderStationIndex(stations), renderLineIndex([])]) {
+    for (const html of [renderHistoryHub(HUB_PUNCTUALITY, HUB_HISTORY), renderStationIndex(stations), renderLineIndex([])]) {
       expect(html).toContain(feedLink);
     }
   });

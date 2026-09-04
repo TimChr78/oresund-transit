@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import type { Departure, Disruption, LiveStatus } from '@oresund/shared';
 import {
   upsertDeparture,
@@ -8,6 +9,10 @@ import {
   queryDelayStats,
   queryPunctuality,
   queryRecentDepartures,
+  queryStationPunctuality,
+  MONITORED_STOP_IDS,
+  type D1Like,
+  type D1PreparedLike,
 } from '../src/db.js';
 import { FakeD1 } from './fake-d1.js';
 
@@ -298,8 +303,9 @@ describe('queryDelayStats', () => {
 });
 
 describe('queryPunctuality', () => {
-  const punctSql =
-    'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+  // C1 (audit5): the corridor query is bounded to the monitored stops, so the
+  // placeholder list is derived from MONITORED_STOP_IDS rather than restated.
+  const punctSql = `SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status`;
 
   it('returns one zero-filled row per calendar day with on_time_pct math', async () => {
     const db = new FakeD1();
@@ -346,8 +352,15 @@ describe('queryPunctuality', () => {
       on_time_pct: 80,
       avg_delay_seconds: 65,
     });
-    // the range bound is [date_from, date_to + 1 day)
-    expect(db.lastBindsFor('GROUP BY date(sched_time), status')).toEqual(['2026-07-31', '2026-08-07']);
+    // the range bound is [date_from, date_to + 1 day), and the stop filter
+    // binds the four monitored ids BEFORE the window (audit5 C1 — the corridor
+    // query used to bind nothing but the window, so superseded stop ids leaked
+    // into the /history hub's headline).
+    expect(db.lastBindsFor('GROUP BY date(sched_time), status')).toEqual([
+      ...MONITORED_STOP_IDS,
+      '2026-07-31',
+      '2026-08-07',
+    ]);
   });
 
   it('rounds on_time_pct to one decimal and weights avg delay by count', async () => {
@@ -369,6 +382,194 @@ describe('queryPunctuality', () => {
     expect(stats.daily).toHaveLength(30);
     expect(stats.date_from).toBe('2026-07-08');
     expect(stats.date_to).toBe('2026-08-06');
+  });
+});
+
+// ---- C1 (audit5): corridor vs per-station reconciliation ----
+
+/** The columns of `departures` the two punctuality queries read. */
+interface StoredDeparture {
+  stop_id: string;
+  sched_time: string;
+  status: string | null;
+  delay_seconds: number;
+}
+
+/**
+ * Evaluates the corridor and per-station punctuality SQL against ONE in-memory
+ * table. FakeD1 keys its stubs on the exact SQL string, which cannot express
+ * "the same rows seen through two different WHERE clauses" — and that shared
+ * table is the whole point: the reconciliation invariant only means something
+ * if both queries read the same data. The WHERE semantics (stop filter, the
+ * half-open [from, to) window, GROUP BY date + status, COUNT/AVG) are applied
+ * here so a query that loses its stop filter fails this test instead of
+ * passing it.
+ */
+class ReconciliationD1 implements D1Like {
+  constructor(readonly rows: StoredDeparture[]) {}
+
+  prepare(sql: string): D1PreparedLike {
+    return new ReconciliationPrepared(this, sql);
+  }
+}
+
+class ReconciliationPrepared implements D1PreparedLike {
+  private binds: unknown[] = [];
+
+  constructor(
+    private readonly fake: ReconciliationD1,
+    private readonly sql: string,
+  ) {}
+
+  bind(...values: unknown[]): D1PreparedLike {
+    this.binds = values;
+    return this;
+  }
+
+  async all<T>(): Promise<{ results: T[] }> {
+    if (!this.sql.includes('GROUP BY date(sched_time), status')) {
+      throw new Error(`ReconciliationD1 only evaluates the punctuality queries, got: ${this.sql}`);
+    }
+    // The corridor query binds its stop ids then the window; the station query
+    // binds one id then the window. Arity is derived from the SQL, so a query
+    // that stops binding stop ids cannot quietly degrade into "whole table".
+    let stopIds: string[];
+    let from: string;
+    let to: string;
+    if (this.sql.includes('stop_id IN (')) {
+      if (this.binds.length < 4) throw new Error(`corridor query bound no stop ids: ${this.binds.length} binds`);
+      const split = this.binds.length - 2;
+      stopIds = this.binds.slice(0, split).map(String);
+      from = String(this.binds[split]);
+      to = String(this.binds[split + 1]);
+    } else if (this.sql.includes('stop_id = ?')) {
+      if (this.binds.length !== 3) throw new Error(`station query expected 3 binds, got ${this.binds.length}`);
+      stopIds = [String(this.binds[0])];
+      from = String(this.binds[1]);
+      to = String(this.binds[2]);
+    } else {
+      throw new Error(`punctuality SQL has no stop filter (audit5 C1 regression): ${this.sql}`);
+    }
+
+    const groups = new Map<string, { date: string; status: string | null; count: number; sum: number }>();
+    for (const row of this.fake.rows) {
+      // TEXT comparison, as in SQLite — sched_time is stored as a naive local
+      // stamp, so the date prefix and the half-open window compare correctly.
+      if (!stopIds.includes(row.stop_id)) continue;
+      if (row.sched_time < from || row.sched_time >= to) continue;
+      const date = row.sched_time.slice(0, 10);
+      const key = `${date}|${row.status ?? ''}`;
+      const entry = groups.get(key) ?? { date, status: row.status, count: 0, sum: 0 };
+      entry.count += 1;
+      entry.sum += row.delay_seconds;
+      groups.set(key, entry);
+    }
+    const results = [...groups.values()]
+      .map((g) => ({
+        date: g.date,
+        status: g.status,
+        count: g.count,
+        avg_delay: g.count > 0 ? g.sum / g.count : null,
+      }))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.status ?? '') < (b.status ?? '') ? -1 : 1));
+    return { results: results as T[] };
+  }
+
+  async first<T>(): Promise<T | null> {
+    throw new Error('ReconciliationD1 does not implement first()');
+  }
+
+  async run(): Promise<{ meta?: { changes?: number } }> {
+    throw new Error('ReconciliationD1 does not implement run()');
+  }
+}
+
+describe('corridor vs station reconciliation (audit5 C1)', () => {
+  const NOW = new Date('2026-08-24T12:00:00Z');
+
+  /**
+   * Departures across the four monitored stops plus the two superseded ids the
+   * stop-id correction windows left behind. 840004349 is the old Kastrup id;
+   * 740000001 is Stockholm C, so those rows are a different station's traffic
+   * entirely and must never reach the corridor total.
+   */
+  const rows: StoredDeparture[] = [
+    // Malmö Hyllie 740001586
+    ...buildDay('740001586', '2026-08-20', 8, 1, 1),
+    ...buildDay('740001586', '2026-08-21', 6, 2, 0),
+    // København H 860000626
+    ...buildDay('860000626', '2026-08-20', 5, 1, 0),
+    ...buildDay('860000626', '2026-08-21', 7, 0, 1),
+    // Malmö C 740000003
+    ...buildDay('740000003', '2026-08-20', 4, 0, 0),
+    ...buildDay('740000003', '2026-08-21', 9, 1, 1),
+    // Kastrup 860000858
+    ...buildDay('860000858', '2026-08-20', 3, 1, 0),
+    // ghost rows — superseded ids, inside the same window
+    ...buildDay('840004349', '2026-08-20', 40, 10, 5),
+    ...buildDay('740000001', '2026-08-21', 55, 12, 3),
+    // ghost rows — outside the window, to prove the window bound still holds
+    ...buildDay('740001586', '2026-08-01', 30, 0, 0),
+  ];
+
+  /** One day at one stop: `onTime` on-time, `delayed` delayed, `canceled` canceled. */
+  function buildDay(stopId: string, date: string, onTime: number, delayed: number, canceled: number): StoredDeparture[] {
+    const out: StoredDeparture[] = [];
+    const push = (status: string | null, delay: number, slot: number) =>
+      out.push({ stop_id: stopId, sched_time: `${date}T06:${String(10 + slot).padStart(2, '0')}:00`, status, delay_seconds: delay });
+    for (let i = 0; i < onTime; i++) push('on_time', 0, i % 40);
+    for (let i = 0; i < delayed; i++) push('delayed', 300 + i * 10, (i + 1) % 40);
+    for (let i = 0; i < canceled; i++) push('canceled', 0, (i + 2) % 40);
+    return out;
+  }
+
+  it('aggregates the corridor to exactly the sum of the four stations', async () => {
+    const db = new ReconciliationD1(rows);
+
+    const corridor = await queryPunctuality(db, 7, NOW);
+    const stations = await Promise.all(MONITORED_STOP_IDS.map((id) => queryStationPunctuality(db, id, 7, NOW)));
+
+    const corridorTotal = corridor.daily.reduce((sum, day) => sum + day.total, 0);
+    const stationTotals = stations.map((s) => s.total_departures);
+
+    // The invariant the /history hub's headline rests on: the hub says "what
+    // the four monitored stations recorded together", so its number must be
+    // their sum — not the table's row count.
+    expect(corridorTotal).toBe(stationTotals.reduce((sum, n) => sum + n, 0));
+
+    // ...and per status, not just in aggregate.
+    const corridorStatus = (pick: (d: (typeof corridor.daily)[number]) => number) =>
+      corridor.daily.reduce((sum, day) => sum + pick(day), 0);
+    expect(corridorStatus((d) => d.on_time)).toBe(stations.reduce((sum, s) => sum + s.on_time_count, 0));
+    expect(corridorStatus((d) => d.delayed)).toBe(stations.reduce((sum, s) => sum + s.delayed_count, 0));
+    expect(corridorStatus((d) => d.canceled)).toBe(stations.reduce((sum, s) => sum + s.canceled_count, 0));
+
+    // 51 monitored departures in the window (42 on time / 6 delayed / 3
+    // canceled) — the 125 ghost rows at 840004349 + 740000001 and the
+    // out-of-window day at Hyllie add nothing.
+    expect(corridorTotal).toBe(51);
+    expect(stationTotals).toEqual([18, 14, 15, 4]);
+    expect(corridorStatus((d) => d.on_time)).toBe(42);
+  });
+
+  it('excludes rows at stop ids outside the monitored set', async () => {
+    const db = new ReconciliationD1(rows);
+    const corridor = await queryPunctuality(db, 7, NOW);
+    for (const day of corridor.daily) {
+      expect(day.total, day.date).toBeLessThanOrEqual(51);
+    }
+  });
+});
+
+describe('purge migration 0003 (audit5 C1)', () => {
+  const migration = readFileSync(new URL('../migrations/0003_purge_superseded_stop_ids.sql', import.meta.url), 'utf8');
+
+  it('deletes exactly the rows at stop ids outside the monitored set', () => {
+    const ids = [...migration.matchAll(/'(\d+)'/g)].map((m) => m[1]);
+    expect(migration).toMatch(/^DELETE FROM departures WHERE stop_id NOT IN/m);
+    // The purge and the read-side filter must name the same stops, or the
+    // historical window and the live aggregate disagree again.
+    expect([...new Set(ids)]).toEqual([...MONITORED_STOP_IDS]);
   });
 });
 

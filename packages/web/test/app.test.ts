@@ -64,7 +64,8 @@ describe('renderApp — archive hub links (audit3 C3)', () => {
     expect(html).toContain('History &amp; archives');
     expect(html).toContain('href="/station"');
     expect(html).toContain('href="/line"');
-    expect(html).toContain('href="/history/30"');
+    // audit5 H2: the hub's own URL, not the child window /history/30.
+    expect(html).toContain('href="/history"');
     // Each hub carries a one-line description, so the anchor is contextual.
     expect(html).toContain('Station archives</a> <span class="why">');
   });

@@ -4,7 +4,7 @@ import hyllieRaw from './fixtures/hyllie-raw.json';
 import kobenhavnHRaw from './fixtures/kobenhavn-h-raw.json';
 import type { TrafiklabDeparture } from '@oresund/shared';
 import { runScheduled, handleFetch, departureKey, type Env, type FetchLike } from '../src/index.js';
-import type { D1PreparedLike } from '../src/db.js';
+import { MONITORED_STOP_IDS, type D1PreparedLike } from '../src/db.js';
 import { FakeD1 } from './fake-d1.js';
 
 // Real fixture SiteIds (from the fixtures' query.query) — the same values the
@@ -653,8 +653,9 @@ describe('handleFetch — /api/transit/history', () => {
 });
 
 describe('handleFetch — /api/transit/punctuality', () => {
-  const PUNCT_SQL =
-    'SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status';
+  // audit5 C1: the corridor query is bounded to the monitored stops, so the
+  // placeholder list is derived from MONITORED_STOP_IDS rather than restated.
+  const PUNCT_SQL = `SELECT date(sched_time) AS date, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY date(sched_time), status`;
 
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -698,7 +699,7 @@ describe('handleFetch — /api/transit/punctuality', () => {
       on_time_pct: 81.8,
       avg_delay_seconds: 59,
     });
-    expect(db.lastBindsFor('GROUP BY date(sched_time), status')).toEqual(['2026-07-31', '2026-08-07']);
+    expect(db.lastBindsFor('GROUP BY date(sched_time), status')).toEqual([...MONITORED_STOP_IDS, '2026-07-31', '2026-08-07']);
   });
 
   it('defaults to 7 days when days is omitted', async () => {
