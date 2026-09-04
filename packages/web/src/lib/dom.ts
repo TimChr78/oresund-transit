@@ -33,13 +33,18 @@
  *     which is exactly when the announcement matters;
  *   - whatever a replacement tears the focus away from hands it back: the
  *     focused node's counterpart in the new markup is focused after the swap,
- *     so a keyboard user is not dumped to <body> for clicking a toggle.
+ *     so a keyboard user is not dumped to <body> for clicking a toggle. The
+ *     REMOVAL sweep gets the same treatment (audit6 M3) — a section that
+ *     contains the focus and is dropped entirely would otherwise lose it just
+ *     as surely as a replacement does.
  *
- * Inter-tag whitespace text nodes are neither matched nor removed. They cannot
- * accumulate (reconcile never adds or deletes one), multiple adjacent blanks
- * collapse to a single space under HTML whitespace rules, and a flex
- * container ignores whitespace-only children entirely — so leaving them where
- * the first paint put them is safe and costs nothing.
+ * Inter-tag whitespace text nodes: they are neither matched nor removed during
+ * the keyed walk, and the keyed walk never adds or deletes one. A live region
+ * whose children are too tangled to key IS rewritten node by node, and that
+ * branch moves whatever text nodes it finds (audit6 L14) — the earlier claim
+ * that none is ever touched was wrong. It is balanced, so nothing accumulates;
+ * adjacent blanks collapse to one space under HTML whitespace rules; and a
+ * flex container ignores whitespace-only children entirely.
  *
  * Zero dependencies: no virtual DOM, no library. The parser is the browser's
  * own via <template>, which never fetches whatever markup it parses. `parse`
@@ -132,6 +137,10 @@ export function reconcile(root: Element, html: string, parse: ParseHtml = templa
 
 /** Make parent's element children exactly `next`, reusing what matches. */
 function applyChildren(parent: Element, next: Element[], parse: ParseHtml): void {
+  // The focused element, read before anything moves: a removal below can drop
+  // the subtree holding it, and by then it is already back on <body>.
+  const active = typeof document === 'undefined' ? null : document.activeElement;
+  let focusAt = -1;
   // Live children by key. The map's leftover entries at the end are the ones
   // the new markup no longer contains.
   const live = new Map<string, Element[]>();
@@ -162,7 +171,35 @@ function applyChildren(parent: Element, next: Element[], parse: ParseHtml): void
     }
   }
 
-  for (const queue of live.values()) for (const el of queue) el.remove();
+  for (const queue of live.values()) {
+    for (const el of queue) {
+      if (focusAt === -1 && active !== null && containsNode(el, active)) {
+        // Where the removed node stood, so the focus can land on what replaced
+        // it — or on the nearest surviving neighbour when nothing did.
+        focusAt = Array.from(parent.children).indexOf(el);
+      }
+      el.remove();
+    }
+  }
+  if (focusAt !== -1) {
+    const children = Array.from(parent.children);
+    carryFocus(children[Math.min(focusAt, children.length - 1)] ?? parent);
+  }
+}
+
+/**
+ * True when `node` is `ancestor` or sits inside it.
+ *
+ * `document.activeElement` answers with the element itself, not the subtree —
+ * so a focused day-range button inside a removed <section> reads as "the
+ * button", and only a walk up the parents reveals it is going away with the
+ * section (audit6 M3).
+ */
+function containsNode(ancestor: Node, node: Node): boolean {
+  for (let cur: Node | null = node; cur; cur = cur.parentNode) {
+    if (cur === ancestor) return true;
+  }
+  return false;
 }
 
 /**
@@ -177,12 +214,16 @@ function isLiveRegion(el: Element): boolean {
 
 /** Bring `current`'s attributes exactly in line with `next`'s, in place. */
 function copyAttributes(current: Element, next: Element): void {
-  for (const name of Array.from(current.getAttributeNames())) {
-    if (next.getAttribute(name) === null) current.removeAttribute(name);
-  }
+  // Rebuilt in `next`'s order (audit6 L6): setAttribute on an attribute a node
+  // already has keeps its original position, so copying value-by-value
+  // preserved the CURRENT node's ordering. After the banner's first in-place
+  // band change its attributes no longer matched the freshly rendered markup's
+  // order, `current.outerHTML === next.outerHTML` could never be true again,
+  // and update()'s byte-identical fast path — the cheapest test in the module —
+  // was wasted on the one element that runs it most often.
+  for (const name of Array.from(current.getAttributeNames())) current.removeAttribute(name);
   for (const name of next.getAttributeNames()) {
-    const value = next.getAttribute(name);
-    if (current.getAttribute(name) !== value) current.setAttribute(name, value ?? '');
+    current.setAttribute(name, next.getAttribute(name) ?? '');
   }
 }
 

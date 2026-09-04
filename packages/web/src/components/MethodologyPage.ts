@@ -43,7 +43,9 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
   return `
   <div class="wrap privacy-wrap">
     <header class="topbar">
-      <div class="brand">${esc(dict.brand_name)}</div>
+      <!-- lang="da" (audit6 L9): the wordmark is Danish, and a screen reader
+           garbles the Ø without it. -->
+      <div class="brand" lang="da">${esc(dict.brand_name)}</div>
       <a class="privacy-back" href="${esc(localizedPath('/', lang))}">${esc(dict.privacy_back)}</a>
     </header>
     <main class="privacy">

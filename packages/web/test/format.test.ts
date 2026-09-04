@@ -201,6 +201,13 @@ describe('isValidLocalDate (audit5 M5)', () => {
     expect(isValidLocalDate('2026-02-30')).toBe(false); // common-year Feb
     expect(isValidLocalDate('2026-02-29')).toBe(false); // 2026 is not a leap year
     expect(isValidLocalDate('2100-02-29')).toBe(false); // century, not a leap year
+    // audit6 L18 — a plausibility floor and ceiling, so "no invented date" is
+    // exact: no year the corridor's sources could not have written passes.
+    expect(isValidLocalDate('0000-01-01')).toBe(false);
+    expect(isValidLocalDate('9999-12-31')).toBe(false);
+    expect(isValidLocalDate('1999-12-31')).toBe(false);
+    expect(isValidLocalDate('2000-01-01')).toBe(true);
+    expect(isValidLocalDate('2100-12-31')).toBe(true);
     expect(isValidLocalDate('2026-8-6')).toBe(false); // wrong shape
     expect(isValidLocalDate('not-a-date')).toBe(false);
     expect(isValidLocalDate(undefined)).toBe(false);
@@ -262,6 +269,10 @@ describe('isValidLocalTimestamp (the as_of guard)', () => {
     expect(isValidLocalTimestamp('2026-02-29T12:00:00')).toBe(false); // 2026 is not a leap year
     expect(isValidLocalTimestamp('2026-04-31T12:00:00')).toBe(false); // 30-day month
     expect(isValidLocalTimestamp('2100-02-29T12:00:00')).toBe(false); // century, not a leap year
+    // Same bound as isValidLocalDate (audit6 L18) — neither layer accepts what
+    // the other rejects.
+    expect(isValidLocalTimestamp('9999-12-31T23:59:59')).toBe(false);
+    expect(isValidLocalTimestamp('1999-12-31T23:59:59')).toBe(false);
     expect(isValidLocalTimestamp('2000-02-29T12:00:00')).toBe(true); // 400-year leap
   });
 });

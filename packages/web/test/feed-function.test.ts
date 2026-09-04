@@ -77,6 +77,71 @@ describe('functions/feed.xml.js', () => {
     expect(xml).toContain('<guid isPermaLink="false">https://oresund.live/disruption/1</guid>');
   });
 
+  it('keeps every item link inside the /line discovery set (audit6)', async () => {
+    // The collector stores any route.designation it accepted, so the feed can
+    // name a line /line/{line} would 404 on. The Function therefore reads the
+    // same discovery set the archive route guards with.
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url);
+        if (url.includes('/disruptions')) {
+          return jsonResponse({ disruptions: [disruptionRow(1), { ...disruptionRow(2), line: '999' }] });
+        }
+        return jsonResponse({ lines: [{ line: '999', disruptions: 3, last_seen: null }] });
+      }),
+    );
+
+    const mod = await loadFunction();
+    const res = await mod.onRequest({ request: new Request('https://oresund.live/feed.xml'), env: {} });
+    const xml = await res.text();
+
+    expect(urls.some((u) => u.endsWith('/api/transit/lines'))).toBe(true);
+    // The canonical line and the discovered one both deep-link.
+    expect(xml).toContain('<link>https://oresund.live/line/803</link>');
+    expect(xml).toContain('<link>https://oresund.live/line/999</link>');
+  });
+
+  it('keeps the channel link for a line the archive route has no page for', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/disruptions')) {
+          return jsonResponse({ disruptions: [{ ...disruptionRow(1), line: '777' }] });
+        }
+        return jsonResponse({ lines: [{ line: '999', disruptions: 3, last_seen: null }] });
+      }),
+    );
+
+    const mod = await loadFunction();
+    const xml = await (await mod.onRequest({ request: new Request('https://oresund.live/feed.xml'), env: {} })).text();
+    expect(xml).toContain('<link>https://oresund.live/</link>');
+    expect(xml).not.toContain('/line/777');
+  });
+
+  it('degrades to the canonical archive links when the discovery fetch fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/disruptions')) {
+          return jsonResponse({ disruptions: [disruptionRow(1), { ...disruptionRow(2), line: '777' }] });
+        }
+        throw new Error('lines endpoint down');
+      }),
+    );
+
+    const mod = await loadFunction();
+    const res = await mod.onRequest({ request: new Request('https://oresund.live/feed.xml'), env: {} });
+    // A discovery outage is not a feed outage: the feed still renders.
+    expect(res.status).toBe(200);
+    const xml = await res.text();
+    // Canonical pages exist without a discovery fetch; the unobserved line
+    // falls back to the board rather than to a 404.
+    expect(xml).toContain('<link>https://oresund.live/line/803</link>');
+    expect(xml).not.toContain('/line/777');
+  });
+
   it('returns a branded HTML 502 page when the collector fetch throws', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network down'); }));
 

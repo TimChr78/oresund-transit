@@ -429,20 +429,18 @@ describe('handleFetch — API paths', () => {
 
   it('GET /api/transit/delay-stats aggregates the departures table', async () => {
     const db = new FakeD1();
-    db.stubAll(
-      'SELECT status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY status',
-      [
-        { status: 'on_time', count: 9, avg_delay: 5 },
-        { status: 'delayed', count: 1, avg_delay: 650 },
-      ],
-    );
-    db.stubAll(
-      'SELECT line, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE sched_time >= ? AND sched_time < ? GROUP BY line, status',
-      [
-        { line: '804', status: 'on_time', count: 9, avg_delay: 5 },
-        { line: '804', status: 'delayed', count: 1, avg_delay: 650 },
-      ],
-    );
+    // audit6 M2: the aggregates are stop-filtered like every corridor query,
+    // so the stubs are keyed on the filtered shape.
+    const statusSql = `SELECT status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY status`;
+    const lineSql = `SELECT line, status, COUNT(*) AS count, AVG(delay_seconds) AS avg_delay FROM departures WHERE stop_id IN (${MONITORED_STOP_IDS.map(() => '?').join(', ')}) AND sched_time >= ? AND sched_time < ? GROUP BY line, status`;
+    db.stubAll(statusSql, [
+      { status: 'on_time', count: 9, avg_delay: 5 },
+      { status: 'delayed', count: 1, avg_delay: 650 },
+    ]);
+    db.stubAll(lineSql, [
+      { line: '804', status: 'on_time', count: 9, avg_delay: 5 },
+      { line: '804', status: 'delayed', count: 1, avg_delay: 650 },
+    ]);
 
     const res = await handleFetch(
       new Request('https://oresund.live/api/transit/delay-stats?from=2026-08-06&to=2026-08-07'),
@@ -452,6 +450,8 @@ describe('handleFetch — API paths', () => {
     const body = (await res.json()) as { total_departures: number; on_time_pct: number };
     expect(body.total_departures).toBe(10);
     expect(body.on_time_pct).toBe(90);
+    // The stop ids are bound, not assumed: the window is the last two binds.
+    expect(db.lastBindsFor('GROUP BY status')).toEqual([...MONITORED_STOP_IDS, '2026-08-06', '2026-08-07']);
   });
 
   it('GET /api/transit/delay-stats requires from and to', async () => {

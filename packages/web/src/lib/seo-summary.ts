@@ -64,16 +64,30 @@ export function summaryStatusKey(live: LiveStatus): Key {
   }
 }
 
-/** Normalize a naive timestamp ("T" or space form) to ISO-T, or null if garbage. */
-function normalizeTimestamp(timestamp: string | null | undefined): string | null {
+/**
+ * Normalize a naive timestamp ("T" or space form) to ISO-T, or null if it is
+ * not a real stamp in the window's past.
+ *
+ * `now` is the same corridor wall clock the buckets below are anchored on: a
+ * stamp must fall strictly before it to be counted (audit6 M9). Validation alone
+ * left the failure mode open in the other direction — any CALENDAR-VALID future
+ * stamp ("2099-01-01T00:00:00", "2078-12-31T23:59:59") passed
+ * isValidLocalTimestamp and satisfied `ts >= boundary`, so it was counted into
+ * "last 24h" exactly as the impossible "2026-99-99" used to be, and that count
+ * is baked into the no-JS home shell crawlers read.
+ */
+function normalizeTimestamp(timestamp: string | null | undefined, now: string): string | null {
   if (!timestamp) return null;
   const t = timestamp.replace(' ', 'T');
   // Validated, not just shaped (audit5 M5): "2026-99-99T12:00:00" passed a
   // digit-count check, and cancellationBuckets() then compares these strings
-  // LEXICOGRAPHICALLY — an impossible month sorts above every real date, so the
-  // row was counted into "last 24h" every time, and that count is baked into
-  // the no-JS home shell crawlers read.
-  return isValidLocalTimestamp(t) ? t : null;
+  // LEXICOGRAPHICALLY — an impossible month sorts above every real date.
+  if (!isValidLocalTimestamp(t)) return null;
+  // Exclusive upper bound: the window is [now-24h, now), and a cancellation
+  // stamped exactly `now` belongs to the bucket a LATER build computes —
+  // counting it here would let the same row be read as "last 24h" by this
+  // build and as the previous 24h by the next one.
+  return t < now ? t : null;
 }
 
 /**
@@ -90,11 +104,12 @@ export function cancellationBuckets(
   // collector returns a 48h window, so older rows must not leak into prev24.
   const boundary = naiveLocalStamp(new Date(now.getTime() - DAY_MS));
   const cutoff = naiveLocalStamp(new Date(now.getTime() - 2 * DAY_MS));
+  const nowStamp = naiveLocalStamp(now);
   let last24 = 0;
   let prev24 = 0;
   for (const d of disruptions) {
     if (d.type !== 'cancellation') continue;
-    const ts = normalizeTimestamp(d.timestamp);
+    const ts = normalizeTimestamp(d.timestamp, nowStamp);
     if (ts === null) continue;
     if (ts >= boundary) last24 += 1;
     else if (ts >= cutoff) prev24 += 1;

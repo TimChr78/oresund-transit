@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Disruption } from '@oresund/shared';
-import { renderRssFeed, type RssOptions } from '../src/lib/rss';
+import { CANONICAL_LINES } from '../src/lib/archive';
+import { knownArchiveLines, renderRssFeed, type RssOptions } from '../src/lib/rss';
 
 /** A full disruption row as served by /api/transit/disruptions. */
 function disruption(overrides: Partial<Disruption> = {}): Disruption {
@@ -112,6 +113,17 @@ describe('renderRssFeed', () => {
     expect(xml).toContain('<link>https://oresund.live/</link>');
   });
 
+  it('links each item at its own line archive instead of the homepage (audit6 L17)', () => {
+    const xml = renderRssFeed([disruption({ line: '803' }), disruption({ id: 2, line: null })], OPTS);
+    const links = [...xml.matchAll(/<link>([^<]*)<\/link>/g)].map((m) => m[1]!);
+    // <link> appears once for the channel and once per item.
+    expect(links[0]).toBe('https://oresund.live/');
+    expect(links[1]).toBe('https://oresund.live/line/803');
+    // A row with no line designation has nothing to deep-link to, so it keeps
+    // the channel URL.
+    expect(links[2]).toBe('https://oresund.live/');
+  });
+
   it('includes cause, severity, delay minutes and raw_text in the description', () => {
     const xml = renderRssFeed(
       [
@@ -186,5 +198,72 @@ describe('renderRssFeed', () => {
     const xml = renderRssFeed([disruption({ timestamp: 'not-a-date' })], OPTS);
     expect(xml).not.toContain('<pubDate>');
     assertWellFormedXml(xml);
+  });
+});
+
+describe('renderRssFeed — links stay inside the /line discovery set (audit6)', () => {
+  /**
+   * The collector stores whatever route.designation it accepted, but /line
+   * only answers for the canonical set plus the lines it reports. An item
+   * linking a line outside that set would hand a feed reader a 404.
+   */
+  const DISCOVERED = ['803', '999'];
+
+  it('deep-links a line the archive route answers for', () => {
+    const xml = renderRssFeed([disruption({ line: '999' })], { ...OPTS, knownLines: DISCOVERED });
+    expect(xml).toContain('<link>https://oresund.live/line/999</link>');
+  });
+
+  it('keeps the channel link for a line no archive page exists for', () => {
+    // '777' is neither canonical nor in the discovered set.
+    const xml = renderRssFeed([disruption({ line: '777' })], { ...OPTS, knownLines: DISCOVERED });
+    const links = [...xml.matchAll(/<link>([^<]*)<\/link>/g)].map((m) => m[1]!);
+    expect(links[0]).toBe('https://oresund.live/');
+    expect(links[1]).toBe('https://oresund.live/');
+    expect(xml).not.toContain('/line/777');
+  });
+
+  it('still deep-links a canonical line when the discovery fetch came back empty', () => {
+    // knownArchiveLines([]) is what the feed passes when /lines fails: the
+    // canonical pages exist without a fetch, so the outage costs the feed its
+    // discovered links only — not all of them.
+    const xml = renderRssFeed([disruption({ line: '803' }), disruption({ id: 2, line: '777' })], {
+      ...OPTS,
+      knownLines: knownArchiveLines([]),
+    });
+    expect(xml).toContain('<link>https://oresund.live/line/803</link>');
+    expect(xml).not.toContain('/line/777');
+  });
+
+  it('deep-links every line when the caller cannot know the discovery set', () => {
+    // No `knownLines`: the renderer has nothing to check against, which is the
+    // pre-audit6 behaviour the feed's own caller no longer relies on.
+    const xml = renderRssFeed([disruption({ line: '777' })], OPTS);
+    expect(xml).toContain('<link>https://oresund.live/line/777</link>');
+  });
+
+  it('still escapes the line it declines to link', () => {
+    const xml = renderRssFeed([disruption({ line: '8<0&3' })], { ...OPTS, knownLines: DISCOVERED });
+    expect(xml).toContain('<title>Line 8&lt;0&amp;3 delayed to Denmark</title>');
+    expect(xml).not.toContain('/line/8<0&3');
+    assertWellFormedXml(xml);
+  });
+});
+
+describe('knownArchiveLines', () => {
+  it('unions the canonical corridor lines with the lines the collector observed', () => {
+    const known = knownArchiveLines(['999', '804']);
+    for (const canonical of ['801', '802', '803', '804', '910']) {
+      expect(known).toContain(canonical);
+    }
+    expect(known).toContain('999');
+  });
+
+  it('de-duplicates a line the collector reports that is already canonical', () => {
+    expect(knownArchiveLines(['803', '803', '999']).filter((l) => l === '803')).toHaveLength(1);
+  });
+
+  it('is exactly the canonical set when the discovery list is empty', () => {
+    expect(knownArchiveLines([]).length).toBe(CANONICAL_LINES.length);
   });
 });

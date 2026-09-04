@@ -250,8 +250,11 @@ export function renderHistoryCharts(
     )
     .join('');
 
+  // data-key (audit6 L4): the day-range buttons live in this section, and the
+  // range toggle is what nulls the section's data — so the reconciler matches
+  // the section by key rather than by class when the swap comes.
   return `
-  <section class="history">
+  <section class="history" data-key="history-section">
     <header class="section-head">
       <h2 class="section-title">${translate('section_history', lang)}</h2>
       <span class="total-chip">${translate('hist_total', lang, { n: history.total_disruptions })}</span>

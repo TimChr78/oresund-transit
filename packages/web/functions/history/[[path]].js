@@ -1,12 +1,12 @@
 /**
- * Archive routes: paths under /history/* (/history, /history/{7|14|30|90})
- * are served by this Pages Function, server-rendered at request time from the
- * collector Worker (dynamic data). /history is the aggregate hub — the whole
- * corridor's numbers for the default 30-day window, plus the links into every
- * window, station and line archive; the {days} pages carry the day-by-day
- * tables. The localized twins /sv/history and /da/history are served by
- * functions/{sv,da}/history/[[path]].js. See src/lib/archive-http.ts for
- * dispatch + render logic and src/lib/archive.ts for the pure renderers.
+ * Archive routes: paths under /history/* are served by this Pages Function.
+ * Each archive page is server-rendered at request time from the collector
+ * Worker (dynamic data) — see src/lib/archive-http.ts for the dispatch +
+ * render logic and src/lib/archive.ts for the pure renderers.
+ *
+ * /history is the aggregate hub — the whole corridor's numbers for the default
+ * 30-day window, plus the links into every window, station and line archive;
+ * the {days} pages carry the day-by-day tables.
  *
  * NOT scoped by _routes.json, whatever the old comment claimed (audit5 M9):
  * public/_routes.json is include "/*", so this Function runs on every request.
@@ -15,11 +15,12 @@
  * through env.ASSETS.fetch(), which is where Cloudflare applies _headers.
  */
 import { handleArchiveRequest } from '../../src/lib/archive-http';
-import { notFoundResponse } from '../../src/lib/http-errors';
+import { notFoundPageResponse } from '../../src/lib/http-errors';
 
 export async function onRequest(context) {
+  const pathname = new URL(context.request.url).pathname;
   const result = await handleArchiveRequest(
-    new URL(context.request.url).pathname,
+    pathname,
     undefined,
     // Passed through for the branded 502 page (audit4 N-H4): an unprefixed
     // route negotiates its error-page language, a /sv or /da route keeps its own.
@@ -28,5 +29,5 @@ export async function onRequest(context) {
   if (result) {
     return result;
   }
-  return notFoundResponse('Not found', { 'Content-Type': 'text/plain; charset=utf-8' });
+  return notFoundPageResponse(pathname);
 }

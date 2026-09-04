@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { HistoryResponse } from '../src/api';
+import type { HistoryResponse, PunctualityResponse, StationResponse } from '../src/api';
 import { renderHistoryCharts } from '../src/components/HistoryCharts';
+import { renderStationDepartures } from '../src/components/StationDepartures';
 
 const HISTORY: HistoryResponse = {
   days: 7,
@@ -23,6 +24,53 @@ const HISTORY: HistoryResponse = {
   by_cause: [],
   by_hour: [],
 };
+
+const PUNCTUALITY: PunctualityResponse = {
+  days: 7,
+  date_from: '2026-07-31',
+  date_to: '2026-08-06',
+  daily: [
+    { date: '2026-08-05', total: 10, on_time: 9, delayed: 1, canceled: 0, on_time_pct: 90, avg_delay_seconds: 60 },
+    { date: '2026-08-06', total: 12, on_time: 11, delayed: 1, canceled: 0, on_time_pct: 91.7, avg_delay_seconds: 40 },
+  ],
+};
+
+describe('renderHistoryCharts — keyed section (audit6)', () => {
+  /**
+   * The day-range toggle nulls this section's data before refetching, so the
+   * reconciler matches it by key rather than by class. A key that varied with
+   * the window — or a section that rendered twice — would make the swap remove
+   * and reinsert the node the keyboard user is on.
+   */
+  it('renders exactly one history section, keyed for the reconciler', () => {
+    const html = renderHistoryCharts(HISTORY, PUNCTUALITY, 7, 'en');
+    expect((html.match(/data-key="history-section"/g) ?? [])).toHaveLength(1);
+    expect(html).toContain('<section class="history" data-key="history-section">');
+  });
+
+  it.each([7, 14, 30, 90] as const)('keeps the same key across the %s-day window', (days) => {
+    // With and without the punctuality chart: the second fetch lands
+    // independently, and either order has to leave the same key standing.
+    expect(renderHistoryCharts({ ...HISTORY, days }, null, days, 'en')).toContain('data-key="history-section"');
+    expect(renderHistoryCharts({ ...HISTORY, days }, PUNCTUALITY, days, 'en')).toContain('data-key="history-section"');
+  });
+
+  it('keeps the key and the toggles when the punctuality feed is empty', () => {
+    const html = renderHistoryCharts(HISTORY, { ...PUNCTUALITY, daily: [] }, 30, 'en');
+    expect(html).toContain('data-key="history-section"');
+    expect(html).toContain('data-action="set-days"');
+    // The range toggle is the reason the section is keyed at all.
+    expect(html).toContain('aria-pressed="true"');
+  });
+
+  it('re-renders the same keyed section with updated chart output', () => {
+    const before = renderHistoryCharts(HISTORY, PUNCTUALITY, 7, 'en');
+    const after = renderHistoryCharts({ ...HISTORY, total_disruptions: 99, daily: HISTORY.daily.map((d) => ({ ...d, count: d.count + 5 })) }, PUNCTUALITY, 7, 'en');
+    expect(after).toContain('data-key="history-section"');
+    expect(after).not.toBe(before);
+    expect(after).toContain('title="2026-08-06: 11"');
+  });
+});
 
 describe('renderHistoryCharts — external values in attributes (audit5 M8)', () => {
   it('escapes the collector-supplied date and count in the bar tooltip', () => {
@@ -403,5 +451,95 @@ describe('renderHistoryCharts — hbar structure (de-right-align)', () => {
       expect(row).toMatch(/hbar-track/);
       expect(row).toMatch(/hbar-count/);
     }
+  });
+});
+
+describe('renderHistoryCharts — reusable keyed section (PR56 review)', () => {
+  /**
+   * "Reusable" is more than the key being present in the string: the section's
+   * opening tag — element, class and key together — has to come out identical
+   * while the chart output inside it changes, so a reconciler that matches on
+   * `data-key` finds the same node shape it swapped away and can keep the
+   * section in place instead of replacing it.
+   */
+  const openingTag = (html: string): string => html.slice(0, html.indexOf('section-title">') + 'section-title">'.length);
+  const updated = renderHistoryCharts(
+    { ...HISTORY, total_disruptions: 99, daily: HISTORY.daily.map((d) => ({ ...d, count: d.count + 5 })) },
+    PUNCTUALITY,
+    7,
+    'en',
+  );
+
+  it('opens with the keyed section element itself, not just a key somewhere in the markup', () => {
+    expect(updated.trimStart().startsWith('<section class="history" data-key="history-section">')).toBe(true);
+    expect((updated.match(/data-key="history-section"/g) ?? [])).toHaveLength(1);
+    // One well-formed section node the reconciler can reuse wholesale.
+    expect(updated).toContain('</section>');
+  });
+
+  it('emits the same section opening tag across re-renders with different chart output', () => {
+    const quiet = renderHistoryCharts(HISTORY, null, 7, 'en');
+    const withPunctuality = renderHistoryCharts(HISTORY, PUNCTUALITY, 7, 'en');
+    expect(openingTag(withPunctuality)).toBe(openingTag(quiet));
+    expect(openingTag(updated)).toBe(openingTag(quiet));
+    // …and the output the node wraps did actually change underneath it.
+    expect(new Set([quiet, withPunctuality, updated]).size).toBe(3);
+  });
+});
+
+describe('renderHistoryCharts — punctuality share in the SVG titles (PR56 review)', () => {
+  /**
+   * The board renders PunctualityChart through this composition, so the
+   * per-dot tooltip contract is asserted on the composed string: every data
+   * day's circle carries a <title> with the share as the raw number the
+   * collector sent — `String(on_time_pct)`, not the locale formatting the
+   * tables use — so a hover reads "91.7" in every language.
+   */
+  it('gives every data day a punct-dot title with its numeric share', () => {
+    const html = renderHistoryCharts(HISTORY, PUNCTUALITY, 7, 'en');
+    for (const day of PUNCTUALITY.daily) {
+      expect(html).toContain(`<title>${day.date} — ${String(day.on_time_pct)}%</title>`);
+    }
+    expect((html.match(/class="punct-dot"/g) ?? [])).toHaveLength(PUNCTUALITY.daily.length);
+  });
+
+  it('keeps the share locale-independent in the title while the table localizes it', () => {
+    // sv/da format the fraction with a comma in the data table…
+    const sv = renderHistoryCharts(HISTORY, PUNCTUALITY, 7, 'sv');
+    expect(sv).toContain('<title>2026-08-06 — 91.7%</title>');
+    expect(sv).toContain('>91,7%</');
+    // …so the dot decimal in the title is the number, not a missed translation.
+    expect(sv).not.toContain('<title>2026-08-06 — 91,7%</title>');
+  });
+});
+
+describe('renderStationDepartures — station window note dates (PR56 review)', () => {
+  const STATION: StationResponse = {
+    slug: 'hyllie',
+    stop_id: '740001586',
+    stop_name: 'Malmö Hyllie',
+    days: 7,
+    date_from: '2026-08-28',
+    date_to: '2026-09-03',
+    total_departures: 486,
+    on_time_count: 385,
+    delayed_count: 97,
+    canceled_count: 4,
+    on_time_pct: 79.2,
+    avg_delay_seconds: 158,
+    recent: [],
+  };
+
+  it('localizes a valid window (da reorders to dd-mm-yyyy, en keeps ISO order)', () => {
+    expect(renderStationDepartures(STATION, 'en')).toContain('(2026-08-28–2026-09-03)');
+    expect(renderStationDepartures(STATION, 'da')).toContain('(28-08-2026–03-09-2026)');
+  });
+
+  it('keeps the raw window strings when the dates are not real dates', () => {
+    // formatDate returns '' for both, and the raw value is the fallback — the
+    // note names the window it covers instead of collapsing to "(–)".
+    const html = renderStationDepartures({ ...STATION, date_from: '2026-99-99', date_to: 'not-a-date' }, 'en');
+    expect(html).toContain('(2026-99-99–not-a-date)');
+    expect(html).not.toContain('(–)');
   });
 });

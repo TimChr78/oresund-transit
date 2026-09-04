@@ -1,5 +1,5 @@
 import type { DelayStats, Departure, Disruption, LiveStatus } from '@oresund/shared';
-import { isValidLocalTimestamp } from './i18n/format';
+import { isValidLocalDate, isValidLocalTimestamp } from './i18n/format';
 
 /**
  * API client for the collector Worker (Phase 3a). All paths are RELATIVE
@@ -111,7 +111,53 @@ export function fetchPunctuality(days: HistoryDays = 7): Promise<PunctualityResp
   return request('punctuality', parsePunctualityResponse, { days });
 }
 
-/** Guarded parse of the /api/transit/punctuality JSON shape. */
+/**
+ * One row of /api/transit/punctuality, checked field by field.
+ *
+ * The collector derives `total = on_time + delayed + canceled` and
+ * `on_time_pct` from those counts (0–100), so a row that breaks either
+ * invariant is not a measurement — it is a shape the chart would render as an
+ * impossible "101.0%" or a "NaN min". Validated here: a real calendar date,
+ * whole non-negative counts that sum to `total`, a share inside its declared
+ * 0–100 range, and an average delay that is either absent (null) or finite.
+ *
+ * Shared with the archive routes, which parse the same endpoint before
+ * aggregating it into the /history headline numbers (lib/archive-http.ts):
+ * one predicate, so the two paths cannot drift into accepting different rows.
+ */
+export function isValidPunctualityDay(row: unknown): boolean {
+  if (!row || typeof row !== 'object') return false;
+  const r = row as Partial<PunctualityDay>;
+  if (!isValidLocalDate(r.date)) return false;
+  const { total, on_time, delayed, canceled, on_time_pct, avg_delay_seconds } = r;
+  // Whole counts, not merely finite: a fractional count is a broken
+  // aggregation, and `total === sum` only means something at that granularity.
+  if (!isDepartureCount(total) || !isDepartureCount(on_time) || !isDepartureCount(delayed) || !isDepartureCount(canceled)) {
+    return false;
+  }
+  if (total !== on_time + delayed + canceled) return false;
+  if (typeof on_time_pct !== 'number' || !Number.isFinite(on_time_pct) || on_time_pct < 0 || on_time_pct > 100) {
+    return false;
+  }
+  // null is the declared "nothing measured"; anything unparsable is not 0.
+  return avg_delay_seconds === null || (typeof avg_delay_seconds === 'number' && Number.isFinite(avg_delay_seconds));
+}
+
+/** A non-negative whole number of departures — the only count a row may carry. */
+function isDepartureCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * Guarded parse of the /api/transit/punctuality JSON shape.
+ *
+ * Per-row validation (audit6 M8), mirroring the server-side parse the archive
+ * routes run over the same endpoint (archive-http.ts parsePunctuality). The
+ * board's chart interpolates `on_time_pct` into an SVG <title> and a legend
+ * <span>, and svgY() coerces with .toFixed(1) — so a string or a non-finite
+ * number reached the DOM without anything throwing. A row that fails is
+ * dropped, which under-reports rather than rendering a value nothing measured.
+ */
 export function parsePunctualityResponse(json: unknown): PunctualityResponse {
   const body = json as Partial<PunctualityResponse> | null;
   if (
@@ -124,7 +170,8 @@ export function parsePunctualityResponse(json: unknown): PunctualityResponse {
   ) {
     throw new TypeError('invalid /api/transit/punctuality response shape');
   }
-  return body as PunctualityResponse;
+  const daily = body.daily.filter(isValidPunctualityDay);
+  return { ...body, daily } as PunctualityResponse;
 }
 
 /** /api/transit/disruptions wraps its list in { disruptions: [...] }. */

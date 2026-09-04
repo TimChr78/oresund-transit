@@ -6,15 +6,18 @@
  *
  * Bounded to /line/* by the URL matching inside handleArchiveRequest, not by
  * _routes.json — that file is include "/*", so this Function runs on every
- * request (audit5 M9). A path outside the archive namespace (or an unknown
- * line, where the collector 404s) returns a clean 404 instead of the SPA shell.
+ * request (audit5 M9). A path outside the archive namespace returns a clean
+ * 404 instead of the SPA shell, and so does an unknown line (audit6 H1): the
+ * collector answers 200 with an empty archive for any string, so the route
+ * checks the canonical and discovered sets itself before rendering.
  */
 import { handleArchiveRequest } from '../../src/lib/archive-http';
-import { notFoundResponse } from '../../src/lib/http-errors';
+import { notFoundPageResponse } from '../../src/lib/http-errors';
 
 export async function onRequest(context) {
+  const pathname = new URL(context.request.url).pathname;
   const result = await handleArchiveRequest(
-    new URL(context.request.url).pathname,
+    pathname,
     undefined,
     // Passed through for the branded 502 page (audit4 N-H4): an unprefixed
     // route negotiates its error-page language, a /sv or /da route keeps its own.
@@ -23,5 +26,5 @@ export async function onRequest(context) {
   if (result) {
     return result;
   }
-  return notFoundResponse('Not found', { 'Content-Type': 'text/plain; charset=utf-8' });
+  return notFoundPageResponse(pathname);
 }

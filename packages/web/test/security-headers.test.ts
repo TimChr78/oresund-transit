@@ -198,7 +198,7 @@ describe('security headers on the remaining Function response shapes (audit5 H5)
     assertSet(res, '/assets/* 404');
   });
 
-  it('attaches the set to every archive route’s plain-text 404, in all three languages', async () => {
+  it('attaches the set to every archive route’s branded HTML 404, in all three languages', async () => {
     stubCollector404();
     const cases: [string, (c: unknown) => Promise<Response>][] = [
       ['/line/999', lineFunction],
@@ -212,8 +212,32 @@ describe('security headers on the remaining Function response shapes (audit5 H5)
     for (const [path, onRequest] of cases) {
       const res = await onRequest(ctx(path));
       expect(res.status, path).toBe(404);
-      expect(res.headers.get('Content-Type'), path).toBe('text/plain; charset=utf-8');
+      // audit6 M13/L10 — every archive Function answers with the same branded,
+      // localized HTML page the root catch-all serves, not a bare text line.
+      expect(res.headers.get('Content-Type'), path).toBe('text/html; charset=utf-8');
+      expect(res.headers.get('X-Robots-Tag'), path).toContain('noindex');
+      const body = await res.text();
+      expect(body, path).toContain('<html lang="');
       assertSet(res, path);
+    }
+    // The prefix decides the language: /sv/… renders Swedish copy, /da/… Danish.
+    const sv = await svHistoryFunction(ctx('/sv/history/gibberish'));
+    expect(await sv.text()).toContain('<html lang="sv">');
+    const da = await daHistoryFunction(ctx('/da/history/gibberish'));
+    expect(await da.text()).toContain('<html lang="da">');
+    const en = await lineFunction(ctx('/line/999'));
+    expect(await en.text()).toContain('<html lang="en">');
+  });
+
+  it('404s an unknown line that the collector would have answered 200 (audit6 H1)', async () => {
+    // The collector 404s here, but the guard fires before that matters: /line
+    // is a real page only for the canonical set or a line the collector has
+    // observed, so /line/999 is a page nobody ever had.
+    stubCollector404();
+    for (const path of ['/line/99999', '/line/gibberish']) {
+      const res = await lineFunction(ctx(path));
+      expect(res.status, path).toBe(404);
+      expect(res.headers.get('X-Robots-Tag'), path).toContain('noindex');
     }
   });
 });

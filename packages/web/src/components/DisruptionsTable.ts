@@ -165,7 +165,10 @@ function rowDate(d: Disruption): string {
 /** Label for a date-separator row: "Today" for the current local day, else a locale date. */
 function dateSepLabel(date: string, lang: Lang): string {
   if (date === localToday()) return translate('disruptions_today_sep', lang);
-  return formatDate(date, lang);
+  // The raw string is the fallback (audit6 L1): formatDate returns '' for an
+  // impossible date, and an empty interpolation here rendered a date-separator
+  // row with no text in it at all.
+  return formatDate(date, lang) || date;
 }
 
 /**

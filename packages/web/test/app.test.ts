@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderApp } from '../src/components/App';
-import { createInitialState } from '../src/state';
+import { createInitialState, type AppState } from '../src/state';
 import type { StationResponse } from '../src/api';
 import type { Disruption, LiveStatus } from '@oresund/shared';
 
@@ -334,6 +334,75 @@ describe('renderApp — station picker + board scope (audit3 C1, backlog A1)', (
     const html = renderApp({ ...createInitialState(), station: 'hyllie', stationState: 'error', stationError: 'boom' }, 'en');
     expect(html).toContain('data-action="retry-station"');
     expect(html).not.toContain('data-action="retry-disruptions"');
+  });
+});
+
+describe('renderApp — banner live region across /live states', () => {
+  const LIVE: LiveStatus = {
+    status: 'green',
+    status_text: 'Normal service',
+    timestamp: '2026-08-06T21:59:27',
+    time_short: '21:59',
+    disruption_count: 0,
+    departure_counts: { to_denmark: 7, to_sweden: 5, bus: 0 },
+    service_shutdown: false,
+    directions: { to_denmark: ['Østerport'], to_sweden: ['Malmö'], bus: [] },
+  };
+
+  const STATES: [string, Partial<AppState>][] = [
+    ['loading', { live: null, liveState: 'loading' }],
+    ['no data', { live: null, liveState: 'no_data' }],
+    ['error', { live: null, liveState: 'error', liveError: 'collector 503' }],
+    ['live data', { live: LIVE, liveState: 'ok' }],
+  ];
+
+  /** The keyed status section — the banner, whatever state it is showing. */
+  function bannerSlot(html: string): string {
+    const start = html.indexOf('<section data-key="status-banner"');
+    expect(start).toBeGreaterThan(-1);
+    return html.slice(start, html.indexOf('</section>', start));
+  }
+
+  it.each(STATES)('keeps the standing status region present in the %s state', (_label, overrides) => {
+    const html = renderApp({ ...createInitialState(), ...overrides }, 'en');
+    // The same keyed node every state renders through is what lets the
+    // reconciler keep the live region alive from loading to ok (audit6 M4).
+    const slot = bannerSlot(html);
+    expect(slot).toMatch(/^<section data-key="status-banner" class="status-/);
+    expect(slot).toContain('role="status"');
+    expect(slot).toContain('aria-live="polite"');
+  });
+
+  it.each(STATES)('holds exactly one status region in the %s state — no nested one', (_label, overrides) => {
+    const html = renderApp({ ...createInitialState(), ...overrides }, 'en');
+    // One role="status" is the section's own. A placeholder announcing inside
+    // it would make assistive tech read the state twice, or read only the
+    // inner node — the one the reconciler swaps out on the way back to ok.
+    expect((bannerSlot(html).match(/role="status"/g) ?? [])).toHaveLength(1);
+  });
+
+  it.each([
+    ['loading', 'Loading…'],
+    ['no data', 'No departures yet'],
+    ['error', 'Live data is unreachable right now.'],
+  ])('renders the %s placeholder inert inside the live region, copy intact', (label, copy) => {
+    const state = STATES.find(([name]) => name === label)![1]!;
+    const slot = bannerSlot(renderApp({ ...createInitialState(), ...state }, 'en'));
+    expect(slot).toContain(copy);
+    expect(slot).not.toContain('<div class="empty" role="status"');
+  });
+
+  it('keeps the live error retry reachable inside the slot', () => {
+    expect(bannerSlot(renderApp({ ...createInitialState(), liveState: 'error' }, 'en'))).toContain(
+      'data-action="retry-live"',
+    );
+  });
+
+  it('keeps the other sections announcing themselves — only the banner slot is inert', () => {
+    // A section outside the banner has no live region of its own to fall back
+    // on, so its loading and error blocks must keep role="status" (audit6 L15).
+    const html = renderApp({ ...createInitialState(), statsError: 'boom' }, 'en');
+    expect((html.match(/role="status"/g) ?? []).length).toBeGreaterThan(1);
   });
 });
 

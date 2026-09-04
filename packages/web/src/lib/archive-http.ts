@@ -14,10 +14,12 @@
  * stubbed global fetch.
  */
 import { type Lang } from '../i18n';
-import { isValidLocalTimestamp } from '../i18n/format';
+import { isValidLocalDate, isValidLocalTimestamp } from '../i18n/format';
 import type { LiveStatus } from '@oresund/shared';
+import { isValidPunctualityDay } from '../api';
 import { acceptLang, serviceUnavailableResponse, SECURITY_HEADERS, withSecurityHeaders } from './http-errors';
 import {
+  CANONICAL_LINES,
   DAY_RANGES,
   renderHistoryHub,
   renderHistoryPage,
@@ -40,6 +42,10 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 const HTML_HEADERS: Record<string, string> = {
   'Content-Type': 'text/html; charset=utf-8',
+  // max-age=300 is a deliberate trade (audit6 L16): a page cached just before
+  // Stockholm midnight shows the previous day's window for up to five minutes
+  // after it. Killing the cache for that one window was judged worse than a
+  // five-minute self-correcting staleness.
   'Cache-Control': 'public, max-age=300',
 };
 
@@ -93,14 +99,37 @@ function parseHistory(json: unknown): ArchiveHistory {
   if (
     !b ||
     typeof b.days !== 'number' ||
-    typeof b.date_from !== 'string' ||
-    typeof b.date_to !== 'string' ||
+    !isWindow(b.date_from, b.date_to) ||
     typeof b.total_disruptions !== 'number' ||
     !Array.isArray(b.daily)
   ) {
     throw new TypeError('invalid history shape');
   }
   return b as ArchiveHistory;
+}
+
+/**
+ * A real calendar window: both ends are dates that exist, and they run
+ * forwards. audit6 M7 — the boundaries were only `typeof`-checked at all four
+ * archive routes, so an impossible window from the collector reached the
+ * formatters intact and fmtDate's `Date.UTC` rollover turned "2026-99-99" into
+ * "7 Jun 2034", which then landed in a meta description. Rejected here the
+ * payload is garbage and the route answers its branded 502, like any other
+ * unparseable body.
+ *
+ * Both ends having passed isValidLocalDate they are plain "YYYY-MM-DD", so the
+ * ordering check is a string comparison — a reversed window ("from" after
+ * "to") would otherwise render its copy backwards while every formatter
+ * happily iterated an empty range.
+ */
+function isWindow(from: unknown, to: unknown): from is string {
+  return (
+    typeof from === 'string' &&
+    typeof to === 'string' &&
+    isValidLocalDate(from) &&
+    isValidLocalDate(to) &&
+    from <= to
+  );
 }
 
 /** A W3C date, the only shape a sitemap <lastmod> may carry. */
@@ -128,36 +157,15 @@ function parseLines(json: unknown): ArchiveLine[] {
  */
 function parsePunctuality(json: unknown): ArchivePunctuality {
   const b = json as Partial<ArchivePunctuality> | null;
-  if (
-    !b ||
-    typeof b.days !== 'number' ||
-    typeof b.date_from !== 'string' ||
-    typeof b.date_to !== 'string' ||
-    !Array.isArray(b.daily)
-  ) {
+  if (!b || typeof b.days !== 'number' || !isWindow(b.date_from, b.date_to) || !Array.isArray(b.daily)) {
     throw new TypeError('invalid punctuality shape');
   }
   // A row that is not a full punctuality day would poison the sums, so it is
   // dropped rather than partially trusted — the hub then under-reports instead
-  // of reporting a number nothing measured.
-  b.daily = b.daily.filter(
-    (r) =>
-      r &&
-      typeof r === 'object' &&
-      typeof r.date === 'string' &&
-      Number.isFinite(r.total) &&
-      Number.isFinite(r.on_time) &&
-      Number.isFinite(r.delayed) &&
-      Number.isFinite(r.canceled) &&
-      // CodeRabbit PR53: counts are non-negative and on_time cannot exceed
-      // total — a row like total=10/on_time=11 would render an impossible
-      // 110.0% against the declared 0-100 contract.
-      r.total >= 0 &&
-      r.on_time >= 0 &&
-      r.delayed >= 0 &&
-      r.canceled >= 0 &&
-      r.on_time <= r.total,
-  );
+  // of reporting a number nothing measured. The row predicate is the one the
+  // board's own client parses the same endpoint with (../api), so the hub and
+  // the chart can never disagree about what a day's numbers are.
+  b.daily = b.daily.filter(isValidPunctualityDay);
   return b as ArchivePunctuality;
 }
 
@@ -166,8 +174,7 @@ function parseLine(json: unknown): ArchiveLineStats {
   if (
     !b ||
     typeof b.days !== 'number' ||
-    typeof b.date_from !== 'string' ||
-    typeof b.date_to !== 'string' ||
+    !isWindow(b.date_from, b.date_to) ||
     typeof b.total_disruptions !== 'number' ||
     !Array.isArray(b.daily) ||
     !Array.isArray(b.by_cause) ||
@@ -190,13 +197,20 @@ function parseStations(json: unknown): ArchiveStation[] {
     .map((s) => ({ slug: s.slug as string, stop_id: s.stop_id as string, stop_name: s.stop_name as string }));
 }
 
+/**
+ * True for a line designation a real archive page exists for: the canonical
+ * set, or a line the collector has observed in the current window (audit6 H1).
+ */
+function isKnownLine(raw: string, lines: ArchiveLine[]): boolean {
+  return (CANONICAL_LINES as readonly string[]).includes(raw) || lines.some((l) => l.line === raw);
+}
+
 function parseStation(json: unknown): ArchiveStationStats {
   const b = json as Partial<ArchiveStationStats> | null;
   if (
     !b ||
     typeof b.days !== 'number' ||
-    typeof b.date_from !== 'string' ||
-    typeof b.date_to !== 'string' ||
+    !isWindow(b.date_from, b.date_to) ||
     typeof b.total_departures !== 'number' ||
     typeof b.slug !== 'string' ||
     !Array.isArray(b.daily) ||
@@ -327,6 +341,15 @@ export async function handleArchiveRequest(
         fetchJsonOrNull(`${COLLECTOR_BASE}/line/${enc(raw)}?days=30`, parseLine, fetchImpl),
         fetchJson(`${COLLECTOR_BASE}/lines`, parseLines, fetchImpl).catch(() => [] as ArchiveLine[]),
       ]);
+      // audit6 H1: /line is the one archive family that took any input at all.
+      // The collector's /line/{line} endpoint validates only that the segment
+      // is non-empty and answers 200 with an empty archive for any string, so
+      // `!stats` below never fired and /line/gibberish, /line/99999 and
+      // /line/%20 all rendered 200 with index,follow and a self-referencing
+      // canonical — an unbounded indexable URL space of one-page-per-input
+      // soft 404s. A line archive exists for the canonical set, or for a line
+      // the collector has actually observed; nothing else is a page.
+      if (!isKnownLine(raw, lines)) return null;
       if (!stats) return null; // unknown line → 404
       return html(renderLinePage(stats.line, stats, lines));
     }

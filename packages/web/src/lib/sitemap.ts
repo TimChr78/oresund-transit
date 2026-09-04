@@ -18,6 +18,7 @@ import {
   unionCanonicalLines,
   CANONICAL_LINES,
   isBusLine,
+  hasMonitoredEraData,
   type ArchiveLine,
   type ArchiveStation,
 } from './archive';
@@ -66,6 +67,17 @@ function w3cDate(value: string): string | null {
 }
 
 /**
+ * True when a line's archive is worth a sitemap entry: the collector has
+ * observed it, and its rows fall inside the monitored era. A line that reports
+ * a count but no date (an older collector) keeps the pre-audit6 behaviour —
+ * submitted, dated from the data window — because "no date" is a missing field,
+ * not evidence of no data.
+ */
+function hasSubmittableData(l: ArchiveLine): boolean {
+  return l.last_seen === undefined || l.last_seen === null ? l.disruptions > 0 : hasMonitoredEraData(l.last_seen);
+}
+
+/**
  * The hreflang xhtml:link cluster for a static page (its en canonical base
  * path, e.g. '/' or '/methodology'), pointing at every variant + x-default.
  * Required on each URL of a localized page so Google maps the variants.
@@ -94,7 +106,23 @@ function archiveAlternateLinks(url: string): string {
   ].join('\n');
 }
 
-export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], lastmod: SitemapLastmod): string {
+/** Options for buildSitemap. */
+export interface SitemapOptions {
+  /**
+   * The collector is unreachable, so nothing is known about any line's data.
+   * The canonical train lines are submitted whole (audit6 M10) — "unknown" is
+   * not "never seen" — minus the buses, whose archives predate monitoring and
+   * which the healthy sitemap omits (audit6 M6).
+   */
+  collectorUnknown?: boolean;
+}
+
+export function buildSitemap(
+  lines: ArchiveLine[],
+  stations: ArchiveStation[],
+  lastmod: SitemapLastmod,
+  opts: SitemapOptions = {},
+): string {
   const locs: string[] = [];
   const allLines = unionCanonicalLines(lines);
   // A lastmod source that is not a date contributes nothing rather than a
@@ -142,13 +170,28 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], l
 
   add(`${SITE_URL}/line`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/line`));
   for (const l of allLines) {
-    // audit5 M4: only the lines that have actually recorded a disruption are
-    // submitted. The canonical set is unioned in so its pages stay crawlable
-    // and linked, but 7 of the 12 had never seen a disruption — zero-content
-    // URLs telling the search engine "crawl me daily" — and an XML entry is a
-    // recommendation, not a directory listing. The /line index and the internal
-    // link graph still reach every page, so nothing becomes orphaned.
-    if (l.disruptions === 0 && !l.last_seen) continue;
+    // audit5 M4 / audit6 M6: only lines whose data falls inside the monitored
+    // era are submitted. The pages for the rest stay live and linked — the
+    // /line index, the hub and llms.txt still reach them — but they render a
+    // "no disruptions recorded" note and carry noindex, and an XML entry is a
+    // recommendation, not a directory listing. Two shapes are withheld:
+    //   - a line the collector has never observed (801, 807, 808, 809, 910) —
+    //     zero-content URLs telling the search engine "crawl me daily";
+    //   - a line whose only rows predate LIVE_DATA_SINCE (the buses 6 and 16,
+    //     last seen 2026-08-04 and 2026-08-02) — pages whose own <lastmod>
+    //     would say "this had content before this site existed".
+    //
+    // `collectorUnknown` (the outage path) submits the canonical TRAIN lines
+    // instead: there the collector said nothing at all, and unknown is not
+    // never-seen. It is a deliberate overlap with the noindex set — five
+    // wasted crawls during the outage — because the alternative is withdrawing
+    // the five line URLs that DO have data, and that is the damage M10 is
+    // about. The buses stay out here too.
+    if (opts.collectorUnknown) {
+      if (isBusLine(l.line)) continue;
+    } else if (!hasSubmittableData(l)) {
+      continue;
+    }
     const url = `${SITE_URL}/line/${encodeURIComponent(l.line)}`;
     // audit4 N-M3: a line page is only as fresh as the line's own data. The
     // last day that actually recorded a disruption is the honest <lastmod>;
@@ -264,6 +307,11 @@ const LLMS_STATION_DESC: Record<Lang, string> = {
  * links.
  */
 export function buildLlmsTxt(): string {
+  // llms.txt enumerates every line archive that exists, including the
+  // zero-data ones the sitemap withholds (audit6 L3): its job is to tell a
+  // reader which pages exist and what they are, not to recommend a crawl
+  // priority. The sitemap is the crawl surface, and it applies
+  // hasSubmittableData; the two documents measure different things.
   // The bus lines are named as buses here too (audit5 M4): llms.txt is the
   // index an LLM reads to decide what a page is about, so "Line 6" would file a
   // bus under the Øresundståg head terms.

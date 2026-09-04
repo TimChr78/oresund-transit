@@ -59,8 +59,10 @@ export function renderStationDepartures(data: StationResponse, lang: Lang): stri
   <p class="scope-meta">${esc(
     translate('station_sub', lang, {
       days: data.days,
-      from: formatDate(data.date_from, lang),
-      to: formatDate(data.date_to, lang),
+      // The raw string is the fallback (audit6 L1): an impossible date used to
+      // render as "(–)" in the window note.
+      from: formatDate(data.date_from, lang) || data.date_from,
+      to: formatDate(data.date_to, lang) || data.date_to,
     }),
   )}</p>
   ${
