@@ -7,6 +7,11 @@ import { esc } from '../lib/html';
  * The signature element: a departure-board strip. Full-width colored band,
  * status text in Space Grotesk, disruption count + timestamp in tabular
  * numerals. Static — it only changes when a fetch lands.
+ *
+ * The <section> carries a data-key so the keyed reconciler (lib/dom.ts) keeps
+ * matching it when the band class flips green→amber→red: a live region whose
+ * element is replaced does not announce, and the band change is exactly when
+ * the announcement matters (audit5 H3).
  */
 
 export interface BannerModel {
@@ -41,7 +46,7 @@ export function bannerModel(live: LiveStatus, lang: Lang): BannerModel {
 export function renderStatusBanner(live: LiveStatus, lang: Lang): string {
   const m = bannerModel(live, lang);
   return `
-  <section class="status-banner ${m.bandClass}" role="status" aria-live="polite">
+  <section data-key="status-banner" class="status-banner ${m.bandClass}" role="status" aria-live="polite">
     <span class="sb-text">${esc(m.text)}</span>
     <span class="sb-meta">
       ${m.count ? `<span class="sb-count">${esc(m.count)}</span>` : ''}

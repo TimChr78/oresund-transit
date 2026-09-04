@@ -349,16 +349,25 @@ describe('filterByDirection', () => {
 });
 
 describe('delayStatsRange', () => {
+  // Instants are built in UTC so the expected Stockholm wall clock holds on any
+  // machine — localToday() answers in corridor time (audit5 M6).
   it('returns [today, tomorrow) — the half-open API window', () => {
-    const { from, to } = delayStatsRange(new Date(2026, 7, 7, 12, 0, 0)); // 2026-08-07
+    const { from, to } = delayStatsRange(new Date(Date.UTC(2026, 7, 7, 10, 0, 0))); // 12:00 CEST
     expect(from).toBe('2026-08-07');
     expect(to).toBe('2026-08-08');
   });
 
-  it('rolls over the month boundary', () => {
-    const { from, to } = delayStatsRange(new Date(2026, 11, 31, 23, 59, 0)); // 2026-12-31
+  it('rolls over the month and year boundary', () => {
+    const { from, to } = delayStatsRange(new Date(Date.UTC(2026, 11, 31, 22, 59, 0))); // 23:59 CET
     expect(from).toBe('2026-12-31');
     expect(to).toBe('2027-01-01');
+  });
+
+  it('answers in the corridor zone, not the reader\'s', () => {
+    // 2026-08-07 22:30 UTC is already 2026-08-08 in Stockholm: the collector's
+    // rows are Stockholm wall clock, so "today" has to be too.
+    const { from } = delayStatsRange(new Date(Date.UTC(2026, 7, 7, 22, 30, 0)));
+    expect(from).toBe('2026-08-08');
   });
 
   it('from and to differ (never an empty range)', () => {

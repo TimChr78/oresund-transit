@@ -1,6 +1,6 @@
 import type { Disruption } from '@oresund/shared';
 import { causeLabel } from './causes';
-import { formatDelaySeconds } from '../i18n/format';
+import { formatDelaySeconds, stockholmWallClock } from '../i18n/format';
 
 /**
  * Pure RSS 2.0 feed renderer for /feed.xml.
@@ -42,31 +42,12 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /**
  * UTC offset of Europe/Stockholm (in minutes) at the given UTC instant.
- * +120 during CEST (summer), +60 during CET (winter). Uses only Intl — no
- * browser APIs, works in Node/Workers/Bun.
+ * +120 during CEST (summer), +60 during CET (winter). Reads the offset back
+ * from the shared wall-clock helper (i18n/format) so there is one
+ * implementation of "what does Stockholm say this instant is".
  */
 function stockholmOffsetMinutes(utcMs: number): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Europe/Stockholm',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(utcMs));
-  // Intl always emits every requested field for this locale/options combo.
-  const f: Record<string, string> = {};
-  for (const p of parts) {
-    if (p.type !== 'literal') f[p.type] = p.value;
-  }
-  const year = f.year!;
-  const month = f.month!;
-  const day = f.day!;
-  const hour = f.hour!;
-  const minute = f.minute!;
-  const second = f.second!;
+  const { year, month, day, hour, minute, second } = stockholmWallClock(new Date(utcMs));
   const asUtc = Date.UTC(+year, +month - 1, +day, +hour, +minute, +second);
   return (asUtc - utcMs) / 60_000;
 }

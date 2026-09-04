@@ -8,8 +8,11 @@
  * functions/{sv,da}/history/[[path]].js. See src/lib/archive-http.ts for
  * dispatch + render logic and src/lib/archive.ts for the pure renderers.
  *
- * Scoped to /history/* via _routes.json so every other route stays on the
- * free static tier.
+ * NOT scoped by _routes.json, whatever the old comment claimed (audit5 M9):
+ * public/_routes.json is include "/*", so this Function runs on every request.
+ * What bounds it to /history/* is the URL matching inside handleArchiveRequest —
+ * anything else falls through to its 404 — and static files are re-fetched
+ * through env.ASSETS.fetch(), which is where Cloudflare applies _headers.
  */
 import { handleArchiveRequest } from '../../src/lib/archive-http';
 import { notFoundResponse } from '../../src/lib/http-errors';

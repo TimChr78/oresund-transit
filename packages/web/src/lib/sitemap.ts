@@ -9,9 +9,18 @@
  *
  * Pure function — no I/O — so it is trivially testable.
  */
-import { translate, type Lang } from '../i18n';
+import { BRAND_NAME, translate, type Lang } from '../i18n';
+import { isValidLocalDate } from '../i18n/format';
 import { stationNameKey } from '../components/StationPicker';
-import { SITE_URL, DAY_RANGES, unionCanonicalLines, CANONICAL_LINES, type ArchiveLine, type ArchiveStation } from './archive';
+import {
+  SITE_URL,
+  DAY_RANGES,
+  unionCanonicalLines,
+  CANONICAL_LINES,
+  isBusLine,
+  type ArchiveLine,
+  type ArchiveStation,
+} from './archive';
 import { META, localizedPath } from './seo';
 
 /** changefreq hints — archives are stable enough for daily crawls. */
@@ -41,9 +50,19 @@ export interface SitemapLastmod {
   data: string;
 }
 
-/** Clamp a timestamp to the W3C date form the sitemap protocol expects. */
-function w3cDate(value: string): string {
-  return value.slice(0, 10);
+/** A W3C date, the only shape a sitemap <lastmod> may carry (audit5 M5/L11). */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The W3C date form the sitemap protocol expects, or null when the value is
+ * not one. VALIDATED, not clamped (audit5 L11): `slice(0, 10)` turned whatever
+ * string arrived — an ISO stamp, a collector field that is not a date at all —
+ * into something that merely looks like one, and `<lastmod>` is the one
+ * sitemap signal Google acts on. A null return drops the element: saying
+ * nothing about freshness is honest, a fabricated date is not.
+ */
+function w3cDate(value: string): string | null {
+  return DATE_RE.test(value) && isValidLocalDate(value) ? value : null;
 }
 
 /**
@@ -78,6 +97,8 @@ function archiveAlternateLinks(url: string): string {
 export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], lastmod: SitemapLastmod): string {
   const locs: string[] = [];
   const allLines = unionCanonicalLines(lines);
+  // A lastmod source that is not a date contributes nothing rather than a
+  // made-up value — see w3cDate.
   const deployed = w3cDate(lastmod.deployed);
   const data = w3cDate(lastmod.data);
 
@@ -92,9 +113,10 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], l
   // Static pages: one <url> per language, each carrying the full hreflang
   // cluster (en/sv/da/x-default).
   const addStatic = (basePath: string, changefreq: string): void => {
+    const lastmodTag = deployed ? `<lastmod>${deployed}</lastmod>` : '';
     for (const lang of LANGS) {
       const url = lang === 'en' ? `${SITE_URL}${basePath}` : `${SITE_URL}/${lang}${basePath}`;
-      locs.push(`  <url><loc>${url}</loc><lastmod>${deployed}</lastmod><changefreq>${changefreq}</changefreq>\n${hreflangLinks(basePath)}</url>`);
+      locs.push(`  <url><loc>${url}</loc>${lastmodTag}<changefreq>${changefreq}</changefreq>\n${hreflangLinks(basePath)}</url>`);
     }
   };
 
@@ -120,6 +142,13 @@ export function buildSitemap(lines: ArchiveLine[], stations: ArchiveStation[], l
 
   add(`${SITE_URL}/line`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/line`));
   for (const l of allLines) {
+    // audit5 M4: only the lines that have actually recorded a disruption are
+    // submitted. The canonical set is unioned in so its pages stay crawlable
+    // and linked, but 7 of the 12 had never seen a disruption — zero-content
+    // URLs telling the search engine "crawl me daily" — and an XML entry is a
+    // recommendation, not a directory listing. The /line index and the internal
+    // link graph still reach every page, so nothing becomes orphaned.
+    if (l.disruptions === 0 && !l.last_seen) continue;
     const url = `${SITE_URL}/line/${encodeURIComponent(l.line)}`;
     // audit4 N-M3: a line page is only as fresh as the line's own data. The
     // last day that actually recorded a disruption is the honest <lastmod>;
@@ -235,7 +264,12 @@ const LLMS_STATION_DESC: Record<Lang, string> = {
  * links.
  */
 export function buildLlmsTxt(): string {
-  const lines = CANONICAL_LINES.map((l) => `- [Line ${l}](/line/${encodeURIComponent(l)})`).join('\n');
+  // The bus lines are named as buses here too (audit5 M4): llms.txt is the
+  // index an LLM reads to decide what a page is about, so "Line 6" would file a
+  // bus under the Øresundståg head terms.
+  const lines = CANONICAL_LINES.map(
+    (l) => `- [${isBusLine(l) ? `Bus line ${l}` : `Line ${l}`}](/line/${encodeURIComponent(l)})`,
+  ).join('\n');
   const stations = STATIC_STATIONS.flatMap((s) =>
     (['en', 'sv', 'da'] as const).map((lang) => {
       // The name comes from the dictionary, not the collector's stop_name: the
@@ -246,9 +280,11 @@ export function buildLlmsTxt(): string {
       return `- [${name} — ${LLMS_LANG_LABEL[lang]}](${localizedPath(`/station/${encodeURIComponent(s.slug)}`, lang)}): ${desc}`;
     }),
   ).join('\n');
+  // Every window the archive serves — including /history/30, which used to be
+  // listed a second time as its own entry (audit5 L1).
   const windows = DAY_RANGES.map((d) => `- [Last ${d} days](/history/${d})`).join('\n');
 
-  return `# Øresund.live
+  return `# ${BRAND_NAME}
 
 > ${META.dashboard.en.description}
 
@@ -269,7 +305,6 @@ ${stations}
 ## History windows
 
 - [Disruption history](/history): the whole corridor for the last 30 days — departures, on-time share and disruptions across all four monitored stations (also in [svenska](/sv/history) and [dansk](/da/history)).
-- [Disruption history, last 30 days](/history/30): daily disruption totals
 ${windows}
 
 ## Methodology

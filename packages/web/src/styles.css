@@ -148,6 +148,11 @@ body::after {
   font-size: 22px;
   letter-spacing: 0.01em;
   margin: 0;
+  /* L4: the wordmark is a link home on every page — the archive shells and
+     the error pages always had it as one, the board shipped a div. An <a>
+     without these two declarations would inherit link blue and an underline. */
+  color: inherit;
+  text-decoration: none;
 }
 .brand-sub {
   color: var(--indigo-text);

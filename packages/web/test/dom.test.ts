@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { isPlainPrimaryClick, reconcile, type ParseHtml } from '../src/lib/dom';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { isPlainPrimaryClick, reconcile, refocusTarget, type ParseHtml } from '../src/lib/dom';
 
 /**
  * The suite runs in plain node (vite.config.ts: "Pure-logic tests only — no
@@ -16,6 +16,7 @@ import { isPlainPrimaryClick, reconcile, type ParseHtml } from '../src/lib/dom';
 let touched = 0;
 
 class FakeText {
+  parentNode: FakeElement | null = null;
   constructor(readonly text: string) {}
   get nodeType(): number {
     return 3;
@@ -44,6 +45,9 @@ class FakeElement {
   getAttributeNames(): string[] {
     return Object.keys(this.attrs);
   }
+  removeAttribute(name: string): void {
+    delete this.attrs[name];
+  }
   get children(): FakeElement[] {
     return this.childNodes.filter((n): n is FakeElement => n.nodeType === 1);
   }
@@ -62,10 +66,16 @@ class FakeElement {
     const open = Object.entries(this.attrs)
       .map(([k, v]) => ` ${k}="${v}"`)
       .join('');
-    const inner = this.childNodes
+    return `<${this.tagName}${open}>${this.inner}</${this.tagName}>`;
+  }
+  /** The children as markup, for the reconciler's whole-subtree rewrite. */
+  get innerHTML(): string {
+    return this.inner;
+  }
+  private get inner(): string {
+    return this.childNodes
       .map((n) => (n.nodeType === 1 ? (n as FakeElement).outerHTML : (n as FakeText).text))
       .join('');
-    return `<${this.tagName}${open}>${inner}</${this.tagName}>`;
   }
   /** The first-paint path reconcile() takes on an empty root. */
   set innerHTML(html: string) {
@@ -88,12 +98,32 @@ class FakeElement {
     this.parentNode?.insertBefore(node, this);
     this.remove();
   }
+  appendChild<T extends FakeElement | FakeText>(node: T): T {
+    detach(node as FakeElement);
+    this.childNodes.push(node);
+    node.parentNode = this;
+    touched++;
+    return node;
+  }
+  removeChild(node: FakeElement | FakeText): FakeElement | FakeText {
+    this.childNodes = this.childNodes.filter((n) => n !== node);
+    if (node.nodeType !== 3) (node as FakeElement).parentNode = null;
+    else (node as FakeText).parentNode = null;
+    touched++;
+    return node;
+  }
   remove(): void {
     const parent = this.parentNode;
     if (!parent) return;
     parent.childNodes = parent.childNodes.filter((n) => n !== this);
     this.parentNode = null;
+    // Removing the focused node — or anything above it — sends the caret to <body>.
+    if (active !== null && (active === this || contains(this, active))) active = BODY;
     touched++;
+  }
+  /** A no-op on anything not focusable, exactly as in a browser. */
+  focus(): void {
+    if (FOCUSABLE.has(this.tagName.toUpperCase()) || this.getAttribute('tabindex') !== null) active = this;
   }
 }
 
@@ -102,6 +132,33 @@ function detach(node: FakeElement): void {
     node.parentNode.childNodes = node.parentNode.childNodes.filter((n) => n !== node);
     node.parentNode = null;
   }
+}
+
+/**
+ * The focus model the focus-carrying tests run against: `<body>` is where a
+ * browser puts the caret when the focused node leaves the document, and only
+ * a naturally focusable element — or one handed `tabindex="-1"` — takes the
+ * focus back. Real enough to pin the guarantee, small enough to stay a stub.
+ */
+const BODY = new FakeElement('body');
+let active: FakeElement | null = null;
+
+/** A stand-in for the global `document` the reconciler reads the caret from. */
+const fakeDocument = {
+  get activeElement(): unknown {
+    return active;
+  },
+};
+
+/** Elements the browser focuses on their own; anything else needs a tabindex. */
+const FOCUSABLE = new Set(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY', 'IFRAME']);
+
+/** True when `ancestor` is `node` or sits above it. */
+function contains(ancestor: FakeElement, node: FakeElement): boolean {
+  for (let cur: FakeElement | null = node.parentNode; cur; cur = cur.parentNode) {
+    if (cur === ancestor) return true;
+  }
+  return false;
 }
 
 /**
@@ -144,7 +201,11 @@ function parse(html: string): FakeElement[] {
     const leaf = /^<(\w+)((?: [a-zA-Z-]+="[^"]*")*)>(.*)<\/\1>$/.exec(line);
     if (leaf) {
       const el = new FakeElement(leaf[1]!, attrsOf(leaf[2] ?? ''));
-      if (leaf[3]) el.childNodes.push(new FakeText(leaf[3]));
+      if (leaf[3]) {
+        const text = new FakeText(leaf[3]);
+        text.parentNode = el;
+        el.childNodes.push(text);
+      }
       attach(el);
     }
   }
@@ -278,6 +339,163 @@ describe('reconcile (audit4 N-H7) — keyed DOM reconciliation', () => {
     reconcile(root as unknown as Element, '<main>\n  <section class="hero">Active now</section>\n</main>\n', parseHtml);
     reconcile(root as unknown as Element, '<main>\n</main>\n', parseHtml);
     expect(root.children[0]!.children.length).toBe(0);
+  });
+});
+
+describe('live regions (audit5 H3) — the status banner is mutated, never replaced', () => {
+  // The banner exactly as StatusBanner.ts renders it: a keyed live region whose
+  // class is the corridor's band. Green→amber is the transition that has to
+  // announce "delays are affecting trains".
+  const banner = (band: string, text: string): string =>
+    `<main>\n  <section data-key="status-banner" class="status-banner ${band}" role="status" aria-live="polite">\n    <span class="sb-text">${text}</span>\n  </section>\n</main>\n`;
+
+  it('keeps the role=status element by identity across a band transition', () => {
+    const root = new FakeElement('div');
+    reconcile(root as unknown as Element, banner('status-green', 'Normal service'), parseHtml);
+    const region = root.children[0]!.children[0]!;
+    expect(region.getAttribute('role')).toBe('status');
+
+    reconcile(root as unknown as Element, banner('status-amber', 'Delays'), parseHtml);
+
+    expect(root.children[0]!.children[0]).toBe(region);
+    expect(region.getAttribute('class')).toBe('status-banner status-amber');
+    expect(region.children[0]!.textContent).toBe('Delays');
+  });
+
+  it('still keeps it when only the class changed and the text did not', () => {
+    const root = new FakeElement('div');
+    reconcile(root as unknown as Element, banner('status-green', 'Normal service'), parseHtml);
+    const region = root.children[0]!.children[0]!;
+
+    reconcile(root as unknown as Element, banner('status-red', 'Normal service'), parseHtml);
+
+    expect(root.children[0]!.children[0]).toBe(region);
+    expect(region.getAttribute('class')).toBe('status-banner status-red');
+    expect(region.children[0]!.textContent).toBe('Normal service');
+  });
+
+  it('keeps an aria-live element whose children are not keyable, rewriting their block', () => {
+    const root = new FakeElement('div');
+    reconcile(root as unknown as Element, '<main>\n  <p aria-live="polite">3 disruptions</p>\n</main>\n', parseHtml);
+    const live = root.children[0]!.children[0]!;
+
+    reconcile(root as unknown as Element, '<main>\n  <p aria-live="polite">4 disruptions</p>\n</main>\n', parseHtml);
+
+    expect(root.children[0]!.children[0]).toBe(live);
+    expect(live.textContent).toBe('4 disruptions');
+  });
+});
+
+describe('refocusTarget (audit5 H3) — a replacement hands the focus back', () => {
+  /** parse() returns a list of roots; these documents have exactly one. */
+  const doc = (html: string): FakeElement => parse(html)[0]!;
+  // The reconciler's own double, standing in for the real DOM types.
+  const asElement = (fake: unknown): Element => fake as unknown as Element;
+  const asNode = (fake: unknown): Node => fake as unknown as Node;
+  const refocus = (current: FakeElement, next: FakeElement, active: FakeElement | null): FakeElement | null =>
+    refocusTarget(asElement(current), asElement(next), asNode(active)) as FakeElement | null;
+
+  it('maps the focused control to its counterpart in the replacement', () => {
+    const current = doc('<div>\n  <button class="lang-btn active" aria-pressed="true">SV</button>\n  <button class="lang-btn">EN</button>\n</div>\n');
+    const next = doc('<div>\n  <button class="lang-btn" aria-pressed="false">SV</button>\n  <button class="lang-btn active" aria-pressed="true">EN</button>\n</div>\n');
+
+    expect(refocus(current, next, current.children[1]!)).toBe(next.children[1]!);
+  });
+
+  it('maps the replacement itself when the focused node was the replaced element', () => {
+    const current = doc('<div>\n  <a class="tab active">All</a>\n</div>\n');
+    const next = doc('<div>\n  <a class="tab">All</a>\n</div>\n');
+
+    expect(refocus(current, next, current)).toBe(next);
+  });
+
+  it('climbs to the nearest element when the focused node has no element counterpart', () => {
+    const current = doc('<div>\n  <ul>\n    <li data-key="a">\n      <button>A</button>\n    </li>\n  </ul>\n</div>\n');
+    const next = doc('<div>\n  <ul>\n    <li data-key="a">A</li>\n  </ul>\n</div>\n');
+    const button = current.children[0]!.children[0]!.children[0]!;
+    const li = next.children[0]!.children[0]!;
+
+    expect(refocus(current, next, button)).toBe(li);
+  });
+
+  it('falls back to the replacement when the focused position is gone entirely', () => {
+    const current = doc('<div>\n  <ul>\n    <li data-key="a">\n      <button>A</button>\n    </li>\n    <li data-key="b">\n      <button>B</button>\n    </li>\n  </ul>\n</div>\n');
+    const next = doc('<div>\n  <ul>\n    <li data-key="a">A</li>\n  </ul>\n</div>\n');
+    const button = current.children[0]!.children[1]!.children[0]!;
+
+    expect(refocus(current, next, button)).toBe(next);
+  });
+
+  it('returns null when nothing inside the replaced element has the focus', () => {
+    const current = doc('<div>\n  <button>A</button>\n</div>\n');
+    const next = doc('<div>\n  <button>A</button>\n</div>\n');
+
+    expect(refocus(current, next, null)).toBeNull();
+  });
+});
+
+describe('refocusTarget — the fallback is somewhere focus can actually land', () => {
+  beforeEach(() => {
+    globalThis.document = fakeDocument as unknown as Document;
+    active = null;
+  });
+  afterEach(() => {
+    delete (globalThis as { document?: unknown }).document;
+    active = null;
+  });
+
+  it('restores the focus when a focused retry button is replaced by a note', () => {
+    // The live error → loading transition: the error placeholder holds a
+    // retry <button> beside its message, the loading one is a bare <div>
+    // with text in it. That text makes the replacement un-keyable, so the
+    // whole block is replaced — and the focused button with it.
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(
+      asEl,
+      '<div class="empty">\n  <span>Something went wrong</span>\n  <button type="button" class="btn" data-action="retry-live">Retry</button>\n</div>\n',
+      parseHtml,
+    );
+    // The keyboard user is on the retry button when the refresh lands.
+    const button = root.children[0]!.children[1]!;
+    button.focus();
+    expect(active).toBe(button);
+
+    reconcile(asEl, '<div class="empty">Loading…</div>\n', parseHtml);
+
+    // The focused button went with the old block...
+    expect(root.children[0]!.getAttribute('data-action')).toBeNull();
+    // ...and the focus came back rather than staying on <body>. The
+    // replacement is a <div>, which cannot take the focus on its own — the
+    // tabindex it now carries is what let focus() land on it.
+    const fallback = root.children[0]!;
+    expect(active).toBe(fallback);
+    expect(fallback.getAttribute('tabindex')).toBe('-1');
+    expect(document.activeElement).toBe(fallback);
+  });
+
+  it('focuses a focusable counterpart without adding a tabindex to it', () => {
+    // The everyday swap: an error placeholder's button is re-rendered with a
+    // new label. Its counterpart is focusable in its own right, so the focus
+    // moves across with no synthetic tabindex and no tab stop added.
+    const root = new FakeElement('div');
+    const asEl = root as unknown as Element;
+    reconcile(
+      asEl,
+      '<div class="empty">\n  <span>Request failed</span>\n  <button type="button" class="btn" data-action="retry-live">Retry</button>\n</div>\n',
+      parseHtml,
+    );
+    root.children[0]!.children[1]!.focus();
+
+    reconcile(
+      asEl,
+      '<div class="empty">\n  <span>Still failing</span>\n  <button type="button" class="btn" data-action="retry-live">Try again</button>\n</div>\n',
+      parseHtml,
+    );
+
+    const counterpart = root.children[0]!.children[1]!;
+    expect(active).toBe(counterpart);
+    expect(counterpart.getAttribute('tabindex')).toBeNull();
   });
 });
 

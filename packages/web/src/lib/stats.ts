@@ -1,4 +1,5 @@
 import type { Disruption } from '@oresund/shared';
+import { nextLocalDate, stockholmWallClock } from '../i18n/format';
 
 /**
  * Pure chart/table math for the dashboard. Components stay thin: they call
@@ -425,16 +426,21 @@ export const BAND_BADGE_CLASS: Record<DelayBand, string> = {
  * day's departures live in [today, tomorrow). Returning `to` == `from`
  * (as the dashboard did at launch) yields an empty range and zero stats.
  */
-/** Local calendar date as YYYY-MM-DD (the timezone-correct "today"). */
+/**
+ * The corridor's calendar date as YYYY-MM-DD — the timezone-correct "today"
+ * (audit5 M6). Collector timestamps are naive Europe/Stockholm wall clock, so
+ * the day a row belongs to is a Stockholm day: `new Date()`'s getters answer
+ * with the visitor's zone, which put yesterday's rows under a "Today" heading
+ * and bounded the disruptions query with a day that still had hours to run for
+ * anyone west of the bridge. Derived from Intl, so it is the same in a browser,
+ * in Node and on the build machine.
+ */
 export function localToday(now: Date = new Date()): string {
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  const { year, month, day } = stockholmWallClock(now);
+  return `${year}-${month}-${day}`;
 }
 
 export function delayStatsRange(now: Date = new Date()): { from: string; to: string } {
-  const p = (n: number): string => String(n).padStart(2, '0');
   const from = localToday(now);
-  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const to = `${tomorrow.getFullYear()}-${p(tomorrow.getMonth() + 1)}-${p(tomorrow.getDate())}`;
-  return { from, to };
+  return { from, to: nextLocalDate(from) };
 }

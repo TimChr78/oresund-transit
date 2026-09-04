@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { buildSitemap, type SitemapLastmod } from '../src/lib/sitemap';
 import { CANONICAL_LINES } from '../src/lib/archive';
 
-/** Fixed dates so the lastmod assertions stay deterministic. */
-const LASTMOD: SitemapLastmod = { deployed: '2026-09-01T08:00:00Z', data: '2026-09-02' };
+/**
+ * Fixed dates so the lastmod assertions stay deterministic. Plain W3C dates:
+ * buildSitemap validates its lastmod sources instead of clamping them
+ * (audit5 L11), so a timestamp here would be dropped rather than sliced.
+ */
+const LASTMOD: SitemapLastmod = { deployed: '2026-09-01', data: '2026-09-02' };
 
 /**
  * The sitemap lists every indexable route so Google Search Console can
@@ -27,10 +31,11 @@ describe('buildSitemap', () => {
     expect(locs).toContain('https://oresund.live/line');
     expect(locs).toContain('https://oresund.live/station');
     for (const d of [7, 14, 30, 90]) expect(locs).toContain(`https://oresund.live/history/${d}`);
-    // Every canonical line archive is listed even though the collector
-    // returned no data — they must be crawlable whether or not they have
-    // disruptions in the current window.
-    for (const l of CANONICAL_LINES) expect(locs).toContain(`https://oresund.live/line/${encodeURIComponent(l)}`);
+    // audit5 M4: a line the collector has never seen is NOT submitted. The
+    // canonical union keeps those pages reachable from /line and the hub, but
+    // an XML entry is a crawl recommendation and 7 of the 12 were pages that
+    // read "no disruptions recorded" — nothing for a crawler to index.
+    expect(locs).not.toContain('https://oresund.live/line/801');
     // Stations remain discovery-only (no static station set).
     expect(locs).not.toContain('https://oresund.live/station/hyllie');
   });
@@ -167,21 +172,39 @@ describe('buildSitemap', () => {
     );
   });
 
-  it('omits <lastmod> from a line that has never recorded a disruption (audit4 N-M3)', () => {
-    // The canonical union keeps those pages crawlable, but a page whose content
-    // is "no disruptions recorded" must not tell Google it changes daily —
-    // that claim is unverifiable, and unverifiable dates get ignored.
+  it('omits a line that has never recorded a disruption from the sitemap (audit5 M4)', () => {
+    // audit4 N-M3 stopped those pages claiming a daily lastmod; audit5 M4 goes
+    // one further and stops submitting them — a zero-content URL in a sitemap
+    // is a crawl recommendation for a page with nothing to index. The /line
+    // index still carries its own date and still links every canonical line.
     const xml = buildSitemap([], [], LASTMOD);
     const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
     for (const line of CANONICAL_LINES) {
-      const block = entries.find((e) => e.includes(`<loc>https://oresund.live/line/${encodeURIComponent(line)}</loc>`));
-      expect(block, line).toBeDefined();
-      expect(block, line).not.toContain('<lastmod>');
-      // …while the /line index that lists them still carries one.
+      expect(
+        entries.find((e) => e.includes(`<loc>https://oresund.live/line/${encodeURIComponent(line)}</loc>`)),
+        line,
+      ).toBeUndefined();
     }
     expect(entries.find((e) => e.includes('<loc>https://oresund.live/line</loc>'))).toContain(
       '<lastmod>2026-09-02</lastmod>',
     );
+  });
+
+  it('drops a lastmod source that is not a date instead of clamping it (audit5 L11)', () => {
+    // slice(0, 10) made any string LOOK like a date — and <lastmod> is the one
+    // sitemap signal Google acts on. A timestamp is not a date; say nothing.
+    const xml = buildSitemap([{ line: '7085', disruptions: 3 }], [], {
+      deployed: '2026-09-01T08:00:00Z',
+      data: 'not-a-date',
+    });
+    const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
+    // The static family loses its date entirely…
+    expect(entries.find((e) => e.includes('<loc>https://oresund.live/</loc>'))).not.toContain('<lastmod>');
+    // …and the archive family falls back to nothing rather than to garbage.
+    expect(entries.find((e) => e.includes('<loc>https://oresund.live/line</loc>'))).not.toContain('<lastmod>');
+    // …and nothing that is not a date ever reaches the attribute.
+    expect(xml).not.toMatch(/<lastmod>[^<]*T[^<]*<\/lastmod>/);
+    expect(xml).not.toContain('<lastmod>not-a-date</lastmod>');
   });
 
   it('keeps a lastmod for a discovered line an older collector reports without a date', () => {

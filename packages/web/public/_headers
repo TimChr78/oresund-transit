@@ -15,6 +15,19 @@
 #
 # test/security-headers.test.ts pins this CSP string and asserts the Functions'
 # in-code copy of the set never drifts from it.
+#
+# audit5 M9 — how STATIC responses stay covered while a Function runs on every
+# request (public/_routes.json is include "/*", so no route is exempt): a
+# Function that handles a static path re-fetches the file through
+# env.ASSETS.fetch(), and Cloudflare applies THESE RULES inside that fetch. The
+# passthrough (`return asset;`) is the coverage — a Function that rebuilt the
+# Response instead of handing it on would strip the set. That dependency is
+# pinned by test/security-headers.test.ts.
+#
+# audit5 L14 — these rules are part of the cached response. A deploy that only
+# changes a header (as the wave-2 CSP fix did) leaves CDN nodes serving the old
+# value until the asset's TTL lapses; purge or cache-bust after header-only
+# deploys rather than waiting it out.
 /*
   Strict-Transport-Security: max-age=31536000
   Content-Security-Policy: default-src 'self'; script-src 'self' https://analytics.martechsignal.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://analytics.martechsignal.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'

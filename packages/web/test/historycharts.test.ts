@@ -24,6 +24,51 @@ const HISTORY: HistoryResponse = {
   by_hour: [],
 };
 
+describe('renderHistoryCharts — external values in attributes (audit5 M8)', () => {
+  it('escapes the collector-supplied date and count in the bar tooltip', () => {
+    // parseHistoryResponse only checks that `daily` is an array; the row
+    // members reach the renderer unchecked, so they are escaped like every
+    // other interpolation in this file.
+    const hostile = {
+      ...HISTORY,
+      daily: [{ date: '\"><svg onload=alert(1)>', count: 2, cancellations: 0, delays: 0, alerts: 0, avg_delay: null }],
+    } as HistoryResponse;
+    const html = renderHistoryCharts(hostile, null, 7, 'en');
+    expect(html).toContain('title="&quot;&gt;&lt;svg onload=alert(1)&gt;: 2"');
+    expect(html).not.toContain('onload=alert(1)>:');
+    expect(html).not.toMatch(/title="[^"]*<svg/);
+  });
+});
+
+describe('renderHistoryCharts — daily rows without a usable date', () => {
+  /**
+   * parseHistoryResponse checks only that `daily` IS an array, so a row can
+   * reach the renderer with no date at all — or one that is not a string.
+   * esc() would throw on it and take the whole board down.
+   */
+  const row = (date: unknown, count = 3): HistoryResponse['daily'][number] =>
+    ({ date, count, cancellations: 0, delays: count, alerts: 0, avg_delay: null }) as HistoryResponse['daily'][number];
+
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['not a string', 7],
+  ])('renders the bar with the no-data mark instead of throwing when the date is %s', (_label, date) => {
+    const html = renderHistoryCharts({ ...HISTORY, daily: [row(date)] }, null, 7, 'en');
+    expect(html).toContain('title="—: 3"');
+    // The screen-reader table carries the same mark rather than an empty cell.
+    expect(html).toContain('<th scope="row">—</th>');
+  });
+
+  it('keeps drawing the dated rows around a date-less one', () => {
+    const daily = [row('2026-08-03', 3), row(null, 6)];
+    const html = renderHistoryCharts({ ...HISTORY, daily }, null, 7, 'en');
+    expect(html).toContain('title="2026-08-03: 3"');
+    expect(html).toContain('title="—: 6"');
+    expect(html).not.toContain('title="null');
+  });
+});
+
 describe('renderHistoryCharts — trend overlay', () => {
   it('renders the 3-day moving-average polyline above the daily bars with a legend', () => {
     const html = renderHistoryCharts(HISTORY, null, 7, 'en');

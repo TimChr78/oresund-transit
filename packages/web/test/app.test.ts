@@ -239,7 +239,9 @@ describe('renderApp — descriptive H1 (SEO audit H3)', () => {
     const h1s = html.match(/<h1\b[^>]*>/g) ?? [];
     expect(h1s).toHaveLength(1);
     expect(h1s[0]).toContain('class="lead"');
-    expect(html).toContain('<div class="brand">');
+    // L4: the wordmark is a link home, exactly as the archive shells render it —
+    // and still not a heading.
+    expect(html).toContain('<a class="brand" href="/" lang="da">');
     expect(html).not.toContain('<h1 class="brand">');
   });
 });

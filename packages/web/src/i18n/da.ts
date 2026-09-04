@@ -1,9 +1,9 @@
-import type { Dict } from './keys';
+import { BRAND_NAME, type Dict } from './keys';
 
 /** Danish dictionary — plain commuter voice, no marketing. */
 export const da: Dict = {
   // Brand (identical across languages)
-  brand_name: 'Øresund.live',
+  brand_name: BRAND_NAME,
   // Status banner
   status_normal: 'Normal drift',
   status_delayed: 'Forsinkelser',
@@ -337,4 +337,39 @@ export const da: Dict = {
     'Datakilden svarede ikke, så siden kunne ikke bygges. Den er normalt tilbage inden for et par minutter — prøv igen om lidt.',
   err502_retry: 'Indlæs siden igen',
   err502_home: 'Til afgangstavlen',
+  // 404-siden (audit5 L2).
+  err404_title: 'Side ikke fundet',
+  err404_body: 'Siden du leder efter findes ikke eller er flyttet.',
+
+  // Lokaliseret struktureret data + social copy (audit5 M2) — og:image:alt,
+  // periodelistens navne og stationssidens Dataset-knude, som tidligere var
+  // engelske på /da- og /sv-varianterne.
+  og_image_alt: 'Øresund.live — Øresundståg-afgange over Øresund',
+  history_window_label: 'Seneste {days} dage',
+  dataset_station_name: '{name} rettidighedsarkiv',
+  var_departures_per_day: 'Afgange pr. dag',
+  var_on_time_per_day: 'Afgange til tiden pr. dag',
+  var_delayed_per_day: 'Forsinkede afgange pr. dag',
+  var_canceled_per_day: 'Aflyste afgange pr. dag',
+  var_on_time_pct_per_day: 'Andel til tiden pr. dag',
+  var_avg_delay_per_day: 'Gennemsnitlig forsinkelse pr. dag',
+
+  // Hubbens tre nøgletal (audit5 M3) — afgangstallet er observationer ved fire
+  // stoppesteder og forstyrrelsestallet en anden enhed, så begge angiver, hvad
+  // de tæller.
+  hub_stat_departures: 'Afgange observeret ved 4 stoppesteder',
+  hub_disruptions_note:
+    'Forstyrrelser tælles én gang pr. berørt afgang og dag i korridoren — ikke som summen af de fire stationssider.',
+
+  // Linjemodaliteter (audit5 M4) — linje 6 og 16 er busserne ved Hyllie.
+  line_mode_bus: 'bus',
+  bus_line_archive_href: 'Buslinje {line} — forsinkelser & historik',
+  line_archive_h1: 'Linje {line} — forstyrrelsesarkiv',
+  bus_line_archive_h1: 'Buslinje {line} — forstyrrelsesarkiv',
+  // Kortformen, delt af brødkrummen, metabeskrivelsen og Dataset-noden, så siden
+  // ikke kalder samme linje en bus i overskriften og et tog et element længere nede.
+  line_archive_label: 'Linje {line}',
+  bus_line_archive_label: 'Buslinje {line}',
+  line_bus_note:
+    'Buslinje {line} standser ved Malmö Hyllie, så dens forstyrrelser arkiveres her sammen med toglinjerne.',
 };

@@ -9,8 +9,12 @@ import {
   trendKeyFor,
 } from '../src/lib/seo-summary';
 
-/** A build-time fixture: 2026-08-21 12:00 local (deterministic, TZ-agnostic). */
-const NOW = new Date(2026, 7, 21, 12, 0, 0);
+/**
+ * A build-time fixture: 2026-08-21 12:00 corridor time. Built from a UTC
+ * instant so the expectation holds on any machine — the stamps naiveLocalStamp
+ * emits are Europe/Stockholm wall clock (audit5 M6), 10:00Z = 12:00 CEST.
+ */
+const NOW = new Date(Date.UTC(2026, 7, 21, 10, 0, 0));
 
 /** A live snapshot fixture (all required LiveStatus fields). */
 function mkLive(overrides: Partial<LiveStatus> = {}): LiveStatus {
@@ -53,17 +57,24 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe('naiveLocalStamp', () => {
-  it('formats a Date as naive local ISO with T separator', () => {
+  it('formats a Date as a naive corridor-time ISO stamp with T separator', () => {
     expect(naiveLocalStamp(NOW)).toBe('2026-08-21T12:00:00');
   });
 
   it('pads month/day/hour/minute/second to two digits', () => {
-    const d = new Date(2026, 0, 5, 3, 4, 5);
+    // 02:04:05Z = 03:04:05 CET in January.
+    const d = new Date(Date.UTC(2026, 0, 5, 2, 4, 5));
     expect(naiveLocalStamp(d)).toBe('2026-01-05T03:04:05');
   });
 
   it('supports the space separator used by the collector query bounds', () => {
     expect(naiveLocalStamp(NOW, ' ')).toBe('2026-08-21 12:00:00');
+  });
+
+  it('is the corridor wall clock, not the machine running the build', () => {
+    // 2026-08-21 22:30 UTC is already 2026-08-22 in Stockholm — the date a
+    // Stockholm-stamped row would compare against.
+    expect(naiveLocalStamp(new Date(Date.UTC(2026, 7, 21, 22, 30, 0)))).toBe('2026-08-22T00:30:00');
   });
 });
 

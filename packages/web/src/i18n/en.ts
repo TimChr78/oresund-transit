@@ -1,9 +1,9 @@
-import type { Dict } from './keys';
+import { BRAND_NAME, type Dict } from './keys';
 
 /** English dictionary — plain commuter voice, no marketing. */
 export const en: Dict = {
   // Brand (identical across languages)
-  brand_name: 'Øresund.live',
+  brand_name: BRAND_NAME,
   // Status banner
   status_normal: 'Normal service',
   status_delayed: 'Delays',
@@ -335,4 +335,41 @@ export const en: Dict = {
     'The data source did not answer, so this page could not be assembled. It is usually back within a few minutes — please try again shortly.',
   err502_retry: 'Reload the page',
   err502_home: 'Go to the live board',
+  // Soft-404 catch-all page (audit5 L2) — shared with the dictionaries rather
+  // than copied, so a correction cannot land in one and not the other.
+  err404_title: 'Page not found',
+  err404_body: 'The page you’re looking for doesn’t exist or has moved.',
+
+  // Localized structured data + social copy (audit5 M2) — og:image:alt, the
+  // history windows' ItemList names and the station page's Dataset node, which
+  // used to stay English on the /sv and /da twins.
+  og_image_alt: 'Øresund.live — Øresundståg departures across the Sound',
+  history_window_label: 'Last {days} days',
+  dataset_station_name: '{name} punctuality archive',
+  var_departures_per_day: 'Departures per day',
+  var_on_time_per_day: 'On-time departures per day',
+  var_delayed_per_day: 'Delayed departures per day',
+  var_canceled_per_day: 'Canceled departures per day',
+  var_on_time_pct_per_day: 'On-time percentage per day',
+  var_avg_delay_per_day: 'Average delay per day',
+
+  // The /history hub's headline cards (audit5 M3) — the departures count is
+  // observations at four stops and the disruption count is a different unit
+  // again, so both say what they count instead of reading as a contradiction.
+  hub_stat_departures: 'Departures observed at 4 stops',
+  hub_disruptions_note:
+    'Disruptions are counted once per affected departure and day across the corridor — not the sum of the four station pages.',
+
+  // Line modes (audit5 M4) — lines 6 and 16 are the buses that call at Hyllie.
+  line_mode_bus: 'bus',
+  bus_line_archive_href: 'Bus line {line} delays & history',
+  line_archive_h1: 'Line {line} — disruption archive',
+  bus_line_archive_h1: 'Bus line {line} — disruption archive',
+  // The short form, shared by the breadcrumb, the meta description and the
+  // Dataset node so the page does not call the same line a bus in its heading
+  // and a train one element over.
+  line_archive_label: 'Line {line}',
+  bus_line_archive_label: 'Bus line {line}',
+  line_bus_note:
+    'Bus line {line} calls at Malmö Hyllie, so its disruptions are archived here alongside the train lines.',
 };

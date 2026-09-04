@@ -292,9 +292,11 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
     expect(leadNode).toContain('Kastrup');
     expect(leadNode).toContain('København H');
     // descriptive-H1 pass: the keyword-bearing lead sentence is the page's H1;
-    // the brand wordmark is an un-semantic (non-heading) element.
+    // the brand wordmark is an un-semantic (non-heading) element — a link home
+    // labelled in its own language, so a screen reader does not garble the Ø
+    // on an English page (audit5 L3/L4).
     expect(shell).not.toContain('<h1 class="brand">');
-    expect(shell).toContain('<div class="brand">Øresund.live</div>');
+    expect(shell).toContain('<a class="brand" href="/" lang="da">Øresund.live</a>');
   });
 
   it('the home shell has exactly one H1 — the descriptive lead, never the bare brand', () => {
@@ -339,9 +341,9 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
       const h1s = html.match(/<h1\b[^>]*>/g) ?? [];
       expect(h1s).toHaveLength(1);
       expect(h1s[0]).toContain('class="privacy-title"');
-      // bare brand must never be a heading — the wordmark is a styled div.
+      // bare brand must never be a heading — the wordmark is a link.
       expect(html).not.toContain('<h1 class="brand">');
-      expect(html).toContain('<div class="brand">');
+      expect(html).toContain('class="brand"');
     }
   });
 });
@@ -480,6 +482,48 @@ describe('localized home shells (sv/, da/)', () => {
     expect(html).toContain('<title>Øresund.live — live train status across the Sound</title>');
     expect(html).toContain('hreflang="sv" href="https://oresund.live/sv/"');
     expect(html).toContain('hreflang="x-default" href="https://oresund.live/"');
+  });
+
+  it('sv/da home variants localize the shell footer, labels and URLs (audit5 H6)', () => {
+    for (const lang of LANGS) {
+      const html = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/'));
+      expect(html, lang).toContain(`<html lang="${lang}">`);
+      // Localized labels on localized URLs.
+      expect(html, lang).toContain(`<a href="/${lang}/history">${getDict(lang).nav_history}</a>`);
+      expect(html, lang).toContain(`<a href="/${lang}/methodology">${getDict(lang).nav_methodology}</a>`);
+      // The archive hubs have no localized twins: annotated as English targets.
+      expect(html, lang).toContain('<a href="/line" hreflang="en">');
+      expect(html, lang).toContain('<a href="/station" hreflang="en">');
+      // …and hreflang only — the anchor text is this page's own language (M1).
+      expect(html, lang).not.toContain('<a href="/line" lang="en"');
+      // The wordmark links the variant's own home.
+      expect(html, lang).toContain(`<a class="brand" href="/${lang}/" lang="da">`);
+      // No English footer copy survives the swap.
+      expect(html, lang).not.toContain('>Disruption history<');
+      expect(html, lang).not.toContain('>Methodology<');
+      // Exactly one footer, as before.
+      expect(html.match(/<footer class="site-footer">/g)).toHaveLength(1);
+    }
+  });
+
+  it('the shell footer language switcher offers the OTHER two languages (audit5 L7)', () => {
+    const footerOf = (lang: Lang): string =>
+      renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster('/')).match(
+        /<footer class="site-footer">[\s\S]*?<\/footer>/,
+      )?.[0] ?? '';
+    const sv = footerOf('sv');
+    // SV used to link to itself and there was no way back to English.
+    expect(sv).toContain('<a href="/" lang="en" hreflang="en">EN</a>');
+    expect(sv).toContain('<a href="/da/" lang="da" hreflang="da">DA</a>');
+    expect(sv).not.toContain('<a href="/sv/"');
+    const da = footerOf('da');
+    expect(da).toContain('<a href="/sv/" lang="sv" hreflang="sv">SV</a>');
+    expect(da).toContain('<a href="/" lang="en" hreflang="en">EN</a>');
+    expect(da).not.toContain('<a href="/da/"');
+    // English keeps the shell's own footer, where SV + DA is the full set.
+    const en = footerOf('en');
+    expect(en).toContain('<a href="/sv/" lang="sv" hreflang="sv">SV</a>');
+    expect(en).toContain('<a href="/da/" lang="da" hreflang="da">DA</a>');
   });
 
   it('sv/da home variants localize the static-shell lead (M2 — no verbatim English lead)', () => {

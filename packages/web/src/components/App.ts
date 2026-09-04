@@ -1,6 +1,7 @@
 import type { AppState } from '../state';
 import { translate, type Lang } from '../i18n';
 import { esc } from '../lib/html';
+import { localizedPath } from '../lib/seo';
 import { filterByDirection, sortNewestFirst } from '../lib/stats';
 import { renderArchiveHubLinks } from './ArchiveLinks';
 import { renderDirectionTabs } from './DirectionTabs';
@@ -134,7 +135,7 @@ export function renderApp(state: AppState, lang: Lang): string {
   return `
   <div class="wrap">
     <header class="topbar">
-      <div class="brand">${translate('brand_name', lang)}</div>
+      <a class="brand" href="${esc(localizedPath('/', lang))}" lang="da">${translate('brand_name', lang)}</a>
       <span class="board-label">${esc(stationScopeLabel(lang, state.station))}</span>
     </header>
     ${renderStationPicker(lang, state.station)}

@@ -12,12 +12,14 @@
  */
 import { renderRssFeed } from '../src/lib/rss';
 import { acceptLang, serviceUnavailableResponse, withSecurityHeaders } from '../src/lib/http-errors';
+import { RSS_TITLE } from '../src/i18n';
 
 const COLLECTOR_URL =
   'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit/disruptions?limit=50';
 
 const FEED_OPTS = {
-  title: 'Øresund.live — disruptions',
+  // The same string the pages' RSS autodiscovery <link> carries (audit5 L6).
+  title: RSS_TITLE,
   description: 'Recent disruptions across the Øresund (Öresundståg / Pågatåg), newest first.',
   link: 'https://oresund.live/',
 };
