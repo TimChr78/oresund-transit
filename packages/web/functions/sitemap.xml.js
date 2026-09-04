@@ -15,6 +15,14 @@ import { withSecurityHeaders } from '../src/lib/http-errors';
 
 const COLLECTOR_BASE = 'https://oresund-transit-collector.tchristensen78.workers.dev/api/transit';
 
+/** A W3C date, the only shape a sitemap <lastmod> may carry. */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The date part of a value that IS a date; null for anything else. */
+function asDate(value) {
+  return typeof value === 'string' && DATE_RE.test(value) ? value : null;
+}
+
 function parseLines(json) {
   const b = json ?? {};
   // audit4 N-M3: keep the per-line disruption count and its last-data date, so
@@ -27,7 +35,7 @@ function parseLines(json) {
         .map((l) => ({
           line: l.line,
           disruptions: l.disruptions,
-          last_seen: typeof l.last_seen === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(l.last_seen) ? l.last_seen : null,
+          last_seen: asDate(l.last_seen),
         }))
     : [];
 }
@@ -48,6 +56,11 @@ function today() {
  * ASSETS binding, so the static URLs' <lastmod> advances only on a real
  * deploy rather than on every request. Undefined when the binding is absent
  * (unit tests) or the asset is missing.
+ *
+ * The stamp is reduced to its date part and only kept when it really is one
+ * (audit5 L11): the sitemap no longer clamps whatever string arrives, so a
+ * malformed build stamp must degrade to `today()` rather than be sliced into
+ * something that looks like a date.
  */
 async function buildDate(context) {
   try {
@@ -55,7 +68,8 @@ async function buildDate(context) {
     const res = await context.env.ASSETS.fetch(new Request(`${origin}/build-meta.json`));
     if (res.ok) {
       const meta = await res.json();
-      if (meta && typeof meta.generated === 'string') return meta.generated;
+      const generated = meta && typeof meta.generated === 'string' ? meta.generated.slice(0, 10) : null;
+      if (asDate(generated)) return generated;
     }
   } catch {
     // No ASSETS binding / unreadable asset — the caller falls back.
@@ -105,8 +119,7 @@ export async function onRequest(context) {
       throw new Error('collector non-2xx');
     }
     const [linesJson, stationsJson] = await Promise.all([linesRes.json(), stationsRes.json()]);
-    const dataDate = historySettled?.date_to;
-    const lastmod = { deployed: fallback, data: typeof dataDate === 'string' ? dataDate : fallback };
+    const lastmod = { deployed: fallback, data: asDate(historySettled?.date_to) ?? fallback };
     res = buildSitemap(parseLines(linesJson), parseStations(stationsJson), lastmod);
   } catch {
     // Collector down — fall back to the static base rather than 502, so the

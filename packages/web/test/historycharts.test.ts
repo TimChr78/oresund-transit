@@ -24,6 +24,22 @@ const HISTORY: HistoryResponse = {
   by_hour: [],
 };
 
+describe('renderHistoryCharts — external values in attributes (audit5 M8)', () => {
+  it('escapes the collector-supplied date and count in the bar tooltip', () => {
+    // parseHistoryResponse only checks that `daily` is an array; the row
+    // members reach the renderer unchecked, so they are escaped like every
+    // other interpolation in this file.
+    const hostile = {
+      ...HISTORY,
+      daily: [{ date: '\"><svg onload=alert(1)>', count: 2, cancellations: 0, delays: 0, alerts: 0, avg_delay: null }],
+    } as HistoryResponse;
+    const html = renderHistoryCharts(hostile, null, 7, 'en');
+    expect(html).toContain('title="&quot;&gt;&lt;svg onload=alert(1)&gt;: 2"');
+    expect(html).not.toContain('onload=alert(1)>:');
+    expect(html).not.toMatch(/title="[^"]*<svg/);
+  });
+});
+
 describe('renderHistoryCharts — trend overlay', () => {
   it('renders the 3-day moving-average polyline above the daily bars with a legend', () => {
     const html = renderHistoryCharts(HISTORY, null, 7, 'en');

@@ -13,10 +13,11 @@
  * /privacy).
  */
 import type { Disruption, Departure, LiveStatus } from '@oresund/shared';
-import { getDict, translate, type Key, type Lang } from '../i18n';
+import { BRAND_NAME, getDict, RSS_TITLE, translate, type Key, type Lang } from '../i18n';
 import { formatDelaySeconds, formatExactDelay, formatDate, formatPct, formatTime } from '../i18n/format';
 import { bannerModel } from '../components/StatusBanner';
 import { stationNameKey, stationTitleName } from '../components/StationPicker';
+import { causeLabel } from './causes';
 import { BAND_BADGE_CLASS, delayBand, type DelayBand } from './stats';
 import { esc } from './html';
 import { hreflangCluster, localizedPath, localizedUrl, ogLocaleTags, OG_LOCALE, trainStationJsonLd } from './seo';
@@ -66,6 +67,30 @@ export const CANONICAL_LINES: readonly string[] = [
   '6',
   '16',
 ];
+
+/**
+ * The canonical set's bus lines (audit5 M4). Designations 6 and 16 are the
+ * Gottröra/Hyllie buses the corridor filter picks up at Hyllie
+ * (collector logic.ts isGottorpHyllieBus), not rail services — they reached the
+ * line family through the pre-Øresundståg-only era and their `last_seen`
+ * predates live monitoring. They are real archives with real rows, so they stay
+ * linked, but every surface that names them says they are buses.
+ */
+export const BUS_LINES: readonly string[] = ['6', '16'];
+
+/** True for a line designation the collector records as a bus, not a train. */
+export function isBusLine(line: string): boolean {
+  return BUS_LINES.includes(line);
+}
+
+/**
+ * The anchor-text key for one line archive. The bus lines label themselves as
+ * buses so a crawler reading "Line 6 — disruption archive" does not index a
+ * bus under the Øresundståg head terms.
+ */
+export function lineArchiveHrefKey(line: string): Key {
+  return isBusLine(line) ? 'bus_line_archive_href' : 'line_archive_href';
+}
 
 /**
  * Union a dynamically-discovered line list with the canonical set. Canonical
@@ -297,11 +322,11 @@ ${localeTags}
     <meta property="og:title" content="${attr(title)}" />
     <meta property="og:description" content="${attr(description)}" />
     <meta property="og:url" content="${attr(canonical)}" />
-    <meta property="og:site_name" content="Øresund.live" />
+    <meta property="og:site_name" content="${BRAND_NAME}" />
     <meta property="og:image" content="https://oresund.live/og-card.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Øresund.live — Øresundståg departures across the Sound" />
+    <meta property="og:image:alt" content="${attr(translate('og_image_alt', lang))}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${attr(title)}" />
     <meta name="twitter:description" content="${attr(description)}" />
@@ -325,7 +350,7 @@ ${hreflang}
     <!-- M7: RSS autodiscovery — the home shell has always linked /feed.xml
          this way; the archive pages were 27 of 31 URLs where the feed was
          undiscoverable to a reader or crawler. -->
-    <link rel="alternate" type="application/rss+xml" title="Øresund.live disruptions" href="/feed.xml" />
+    <link rel="alternate" type="application/rss+xml" title="${RSS_TITLE}" href="/feed.xml" />
     <meta name="robots" content="index,follow" />${ogTags}${jsonLdBlock}
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='32' cy='18' r='7' fill='%2310b981'/><circle cx='32' cy='32' r='7' fill='%23f59e0b'/><circle cx='32' cy='46' r='7' fill='%23ef4444'/></svg>" />
     <style>
@@ -393,7 +418,7 @@ ${hreflang}
     </style>
   </head>
   <body>
-    <header><a class="brand" href="${localizedPath('/', lang)}">Øresund.live</a></header>
+    <header><a class="brand" href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a></header>
     <main>${body}</main>
     <footer>
       <p>${esc(translate('archive_attribution', lang))} · <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a> · <a href="${localizedPath('/history', lang)}">${esc(translate('nav_history', lang))}</a> · <a href="${localizedPath('/methodology', lang)}">${esc(translate('nav_methodology', lang))}</a> · <a href="${localizedPath('/privacy', lang)}">${esc(translate('nav_privacy', lang))}</a></p>
@@ -414,7 +439,7 @@ function crumb(name: string, url: string, position: number): { '@type': 'ListIte
  * carry their own.
  */
 function breadcrumb(crumbs: { name: string; url: string }[]): unknown {
-  const items = [{ name: 'Øresund.live', url: `${SITE_URL}/` }, ...crumbs].map((c, i) =>
+  const items = [{ name: BRAND_NAME, url: `${SITE_URL}/` }, ...crumbs].map((c, i) =>
     crumb(c.name, c.url, i + 1),
   );
   return { '@type': 'BreadcrumbList', itemListElement: items };
@@ -424,7 +449,7 @@ function breadcrumb(crumbs: { name: string; url: string }[]): unknown {
 const siteIdentity = {
   '@type': 'WebSite',
   '@id': `${SITE_URL}/#website`,
-  name: 'Øresund.live',
+  name: BRAND_NAME,
   url: `${SITE_URL}/`,
 };
 
@@ -476,9 +501,12 @@ function dataset(opts: {
 /**
  * ItemList JSON-LD (audit M9) of the available history windows, mirroring the
  * visible range list on the page: all ranges on /history, the other ranges on
- * each /history/{days} page.
+ * each /history/{days} page. `lang` names the windows the way the visible list
+ * beside the node does (audit5 M2) — an English "Last 30 days" in the
+ * structured data of a page whose own list says "30 dagar" is the same
+ * mismatch as an English description.
  */
-function historyRangesItemList(exclude?: ArchiveDays): unknown {
+function historyRangesItemList(lang: Lang = 'en', exclude?: ArchiveDays): unknown {
   const ranges = DAY_RANGES.filter((d) => d !== exclude);
   return {
     '@type': 'ItemList',
@@ -486,7 +514,7 @@ function historyRangesItemList(exclude?: ArchiveDays): unknown {
     itemListElement: ranges.map((d, i) => ({
       '@type': 'ListItem',
       position: i + 1,
-      name: `Last ${d} days`,
+      name: translate('history_window_label', lang, { days: d }),
       url: `${SITE_URL}/history/${d}`,
     })),
   };
@@ -550,9 +578,10 @@ function dailyTable(rows: ArchiveHistory['daily']): string {
  */
 function windowLinks(lang: Lang): string {
   // The window pages (/history/{d}) are English-only — no localized twins —
-  // so on the sv/da hubs these anchors are annotated as English (CodeRabbit
-  // PR53) while keeping the localized days_* labels.
-  return DAY_RANGES.map((d) => `      <li><a href="/history/${d}" hreflang="en" lang="en">${esc(translate(`days_${d}` as Key, lang))}</a></li>`).join(
+  // so on the sv/da hubs each anchor carries hreflang="en" while keeping the
+  // localized days_* labels. hreflang only (audit5 M1): it names the target
+  // document, whereas lang would name this element's own — Swedish — text.
+  return DAY_RANGES.map((d) => `      <li><a href="/history/${d}" hreflang="en">${esc(translate(`days_${d}` as Key, lang))}</a></li>`).join(
     '\n',
   );
 }
@@ -582,13 +611,17 @@ export function renderHistoryHub(punctuality: ArchivePunctuality, history: Archi
   const cards = empty
     ? [stat(String(history.total_disruptions), 'stat_disruptions')]
     : [
-        stat(String(totals.departures), 'stat_departures'),
+        // The departures card names its unit (audit5 M3): the figure is a count
+        // of per-stop observations — the same through-train counted at Hyllie,
+        // Malmö C, Kastrup and København H — and a bare "Departures" invited
+        // reading it as trains.
+        stat(String(totals.departures), 'hub_stat_departures'),
         // departures > 0 here, so the share is a number — the ?? is unreachable.
         stat(esc(formatPct(totals.onTimePct ?? 0, lang)), 'stat_on_time'),
         stat(String(history.total_disruptions), 'stat_disruptions'),
       ];
   const body = `
-    <p class="crumb"><a href="${localizedPath('/', lang)}">Øresund.live</a> › ${esc(translate('hub_history_h1', lang))}</p>
+    <p class="crumb"><a href="${localizedPath('/', lang)}">${BRAND_NAME}</a> › ${esc(translate('hub_history_h1', lang))}</p>
     <h1>${esc(translate('hub_history_h1', lang))}</h1>
     <p class="sub">${esc(
       translate('hub_history_sub', lang, {
@@ -601,7 +634,7 @@ export function renderHistoryHub(punctuality: ArchivePunctuality, history: Archi
     <div>
       ${cards.join('\n      ')}
     </div>
-${empty ? `    <p class="meta">${esc(translate('station_no_data_note', lang))}</p>` : ''}
+${empty ? `    <p class="meta">${esc(translate('station_no_data_note', lang))}</p>` : `    <p class="meta">${esc(translate('hub_disruptions_note', lang))}</p>`}
     <h2>${esc(translate('hub_history_windows_heading', lang))}</h2>
     <ul class="plain">
 ${windowLinks(lang)}
@@ -611,13 +644,13 @@ ${windowLinks(lang)}
 ${STATIC_STATIONS.map(
   (s) =>
     // The station routes localize, so the link's target language is the page's
-    // own — no lang/hreflang annotation, exactly as between two station pages.
+    // own — no hreflang annotation, exactly as between two station pages.
     `      <li>${linkTo(localizedPath(`/station/${encodeURIComponent(s.slug)}`, lang), stationName(s, lang), lang, lang)}</li>`,
 ).join('\n')}
     </ul>
     <h2>${esc(translate('arch_link_line', lang))}</h2>
     <ul class="plain">
-${CANONICAL_LINES.map((line) => `      <li>${linkTo(`/line/${encodeURIComponent(line)}`, translate('line_archive_href', lang, { line }), lang)}</li>`).join('\n')}
+${CANONICAL_LINES.map((line) => `      <li>${linkTo(`/line/${encodeURIComponent(line)}`, translate(lineArchiveHrefKey(line), lang, { line }), lang)}</li>`).join('\n')}
     </ul>`;
   return pageShell({
     title: translate('hub_history_title', lang),
@@ -629,7 +662,7 @@ ${CANONICAL_LINES.map((line) => `      <li>${linkTo(`/line/${encodeURIComponent(
       '@context': 'https://schema.org',
       '@graph': [
         breadcrumb([{ name: translate('hub_history_h1', lang), url: localizedUrl('/history', lang) }]),
-        historyRangesItemList(),
+        historyRangesItemList(lang),
         {
           '@type': 'ItemList',
           numberOfItems: STATIC_STATIONS.length,
@@ -646,7 +679,7 @@ ${CANONICAL_LINES.map((line) => `      <li>${linkTo(`/line/${encodeURIComponent(
           itemListElement: CANONICAL_LINES.map((line, i) => ({
             '@type': 'ListItem',
             position: i + 1,
-            name: translate('line_archive_href', lang, { line }),
+            name: translate(lineArchiveHrefKey(line), lang, { line }),
             url: `${SITE_URL}/line/${encodeURIComponent(line)}`,
           })),
         },
@@ -661,7 +694,7 @@ ${CANONICAL_LINES.map((line) => `      <li>${linkTo(`/line/${encodeURIComponent(
 export function renderHistoryPage(days: ArchiveDays, history: ArchiveHistory): string {
   const description = `Archived disruption history for the Øresund crossing, last ${days} days — daily totals for cancellations, delays and alerts ${history.date_from} to ${history.date_to}.`;
   const body = `
-    <p class="crumb"><a href="/">Øresund.live</a> › <a href="/history">History</a> › ${days} days</p>
+    <p class="crumb"><a href="/">${BRAND_NAME}</a> › <a href="/history">History</a> › ${days} days</p>
     <h1>Disruption history — last ${days} days</h1>
     <p class="sub">${history.total_disruptions} disruptions between ${fmtDate(history.date_from)} and ${fmtDate(history.date_to)}. ${esc(translate('archive_attribution', 'en'))}.</p>
     <h2>Daily breakdown</h2>
@@ -671,7 +704,7 @@ export function renderHistoryPage(days: ArchiveDays, history: ArchiveHistory): s
 ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/${d}">Last ${d} days</a></li>`).join('\n')}
     </ul>`;
   return pageShell({
-    title: `Disruption history — last ${days} days — Øresund.live`,
+    title: `Disruption history — last ${days} days — ${BRAND_NAME}`,
     description,
     canonical: `${SITE_URL}/history/${days}`,
     jsonLd: {
@@ -696,7 +729,7 @@ ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/$
             'Average delay per day',
           ],
         }),
-        historyRangesItemList(days),
+        historyRangesItemList('en', days),
         siteIdentity,
       ],
     },
@@ -711,11 +744,11 @@ export function renderLineIndex(lines: ArchiveLine[]): string {
   const list = all
     .map(
       (l) =>
-        `<li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate('line_archive_href', 'en', { line: l.line }))}</a> <span class="meta">— ${l.disruptions} disruptions recorded</span></li>`,
+        `<li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate(lineArchiveHrefKey(l.line), 'en', { line: l.line }))}</a> <span class="meta">— ${l.disruptions} disruptions recorded</span></li>`,
     )
     .join('\n');
   const body = `
-    <p class="crumb"><a href="/">Øresund.live</a> › Lines</p>
+    <p class="crumb"><a href="/">${BRAND_NAME}</a> › Lines</p>
     <h1>Line archives</h1>
     <p class="sub">Historical disruption records for each service across the Øresund. ${esc(translate('archive_attribution', 'en'))}.</p>
     <p class="intro">${esc(translate('hub_line_intro', 'en'))}</p>
@@ -723,7 +756,7 @@ export function renderLineIndex(lines: ArchiveLine[]): string {
 ${list}
     </ul>`;
   return pageShell({
-    title: 'Line archives — Øresund.live',
+    title: `Line archives — ${BRAND_NAME}`,
     description,
     canonical: `${SITE_URL}/line`,
     jsonLd: {
@@ -736,7 +769,7 @@ ${list}
           itemListElement: all.map((l, i) => ({
             '@type': 'ListItem',
             position: i + 1,
-            name: `Line ${l.line}`,
+            name: translate(lineArchiveHrefKey(l.line), 'en', { line: l.line }),
             url: `${SITE_URL}/line/${encodeURIComponent(l.line)}`,
           })),
         },
@@ -754,10 +787,16 @@ export function renderLinePage(line: string, stats: ArchiveLineStats, allLines: 
   // M1: a line with no recorded disruptions collapses its zero-data sections
   // into one annotation instead of rendering empty <ul>/<table> blocks.
   const empty = stats.total_disruptions === 0;
+  // M4: the canonical set's bus lines are archived here because they call at a
+  // monitored stop — the H1 says which mode the page is about and the note says
+  // why a bus sits in a rail archive.
+  const bus = isBusLine(line);
+  const h1 = translate(bus ? 'bus_line_archive_h1' : 'line_archive_h1', 'en', { line });
   const body = `
-    <p class="crumb"><a href="/">Øresund.live</a> › <a href="/line">Lines</a> › Line ${esc(line)}</p>
-    <h1>Line ${esc(line)} — disruption archive</h1>
+    <p class="crumb"><a href="/">${BRAND_NAME}</a> › <a href="/line">Lines</a> › Line ${esc(line)}</p>
+    <h1>${esc(h1)}</h1>
     <p class="sub">${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)} (last ${stats.days} days). ${esc(translate('archive_attribution', 'en'))}.</p>
+${bus ? `    <p class="meta">${esc(translate('line_bus_note', 'en', { line }))}</p>` : ''}
 ${
     empty
       ? `    <p class="meta">${esc(translate('line_no_disruptions_note', 'en'))}</p>`
@@ -765,7 +804,7 @@ ${
 ${
         stats.by_cause.length
           ? `    <ul class="plain">
-${stats.by_cause.map((c) => `      <li>${esc(c.cause)} <span class="meta">— ${c.count}</span></li>`).join('\n')}
+${stats.by_cause.map((c) => `      <li>${esc(causeLabel(c.cause, 'en'))} <span class="meta">— ${esc(translate(c.count === 1 ? 'banner_disruptions_one' : 'banner_disruptions_many', 'en', { n: c.count }))}</span></li>`).join('\n')}
     </ul>`
           : ''
       }
@@ -775,16 +814,16 @@ ${
       }
     <h2>Recent disruptions</h2>
     <ul class="plain">
-${(stats.recent.length ? stats.recent : []).map(disruptionListItem).join('\n') || '      <li class="meta">None recorded in this range.</li>'}
+${(stats.recent.length ? stats.recent : []).map((d) => disruptionListItem(d, 'en')).join('\n') || '      <li class="meta">None recorded in this range.</li>'}
     </ul>`
   }
 ${lineStationsSection(stats.stops, 'en')}
     <h2>Other lines</h2>
     <ul class="plain">
-${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate('line_archive_href', 'en', { line: l.line }))}</a></li>`).join('\n')}
+${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${encodeURIComponent(l.line)}">${esc(translate(lineArchiveHrefKey(l.line), 'en', { line: l.line }))}</a></li>`).join('\n')}
     </ul>`;
   return pageShell({
-    title: `Line ${line} — disruption archive — Øresund.live`,
+    title: `${h1} — ${BRAND_NAME}`,
     description,
     canonical: `${SITE_URL}/line/${encodeURIComponent(line)}`,
     jsonLd: {
@@ -817,10 +856,13 @@ ${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${enco
   });
 }
 
-function disruptionListItem(d: Disruption): string {
+function disruptionListItem(d: Disruption, lang: Lang = 'en'): string {
   const dir = directionLabel(d.direction);
   const type = d.type ? TYPE_LABEL[d.type] ?? d.type : 'Disruption';
-  const when = d.timestamp ? ` <span class="meta">· ${esc(String(d.timestamp).replace('T', ' '))}</span>` : '';
+  // formatTime, not the raw stamp (audit5 L10): every other timestamp on these
+  // pages goes through a formatter, and "2026-08-21T17:42:10" among them read
+  // as machine output. An unparseable value falls back to the no-data mark.
+  const when = d.timestamp ? ` <span class="meta">· ${esc(formatTime(d.timestamp, lang) || NO_DATA_MARK)}</span>` : '';
   return `      <li>${esc(type)} on line ${esc(d.line ?? 'unknown')}${dir ? ` ${esc(dir)}` : ''}${when}</li>`;
 }
 
@@ -840,13 +882,17 @@ function stationName(station: { slug: string; stop_name: string }, lang: Lang = 
  * One <a>, tagged with the language of the page it leads to when that differs
  * from the page linking out (audit4 N-M4). Only the station family localizes —
  * /line/*, /history/* and the archive hubs are English-only — so a localized
- * station page links them unprefixed, and without `hreflang`/`lang` the
- * crawler would read a Swedish page pointing at a URL that looks like a
- * Swedish twin of an English one. Same attribute pair the home shell's footer
- * uses for its SV/DA links.
+ * station page links them unprefixed, and without `hreflang` the crawler would
+ * read a Swedish page pointing at a URL that looks like a Swedish twin of an
+ * English one.
+ *
+ * `hreflang` only: it describes the TARGET document, which is English. `lang`
+ * would describe THIS element's own content — the anchor text, which the
+ * renderers translate — so emitting it told a screen reader to read Swedish
+ * anchor text with English phonemes (audit5 M1).
  */
 function linkTo(href: string, label: string, pageLang: Lang, targetLang: Lang = 'en'): string {
-  const attrs = targetLang === pageLang ? '' : ` lang="${targetLang}" hreflang="${targetLang}"`;
+  const attrs = targetLang === pageLang ? '' : ` hreflang="${targetLang}"`;
   return `<a href="${esc(href)}"${attrs}>${esc(label)}</a>`;
 }
 
@@ -862,7 +908,7 @@ function stationLinesSection(lines: string[] | undefined, lang: Lang): string {
   if (!lines || lines.length === 0) return '';
   const items = lines
     .map((line) =>
-      `      <li>${linkTo(`/line/${encodeURIComponent(line)}`, translate('line_archive_href', lang, { line }), lang)}</li>`,
+      `      <li>${linkTo(`/line/${encodeURIComponent(line)}`, translate(lineArchiveHrefKey(line), lang, { line }), lang)}</li>`,
     )
     .join('\n');
   return `    <h2>${esc(translate('station_lines_heading', lang))}</h2>
@@ -894,7 +940,7 @@ ${items}
 export function renderStationIndex(stations: ArchiveStation[]): string {
   const description = 'Per-station punctuality archives for the Øresund crossing — on-time performance, cancellations and delays at every monitored stop.';
   const body = `
-    <p class="crumb"><a href="/">Øresund.live</a> › Stations</p>
+    <p class="crumb"><a href="/">${BRAND_NAME}</a> › Stations</p>
     <h1>Station archives</h1>
     <p class="sub">Historical on-time performance for each monitored stop on the Øresund crossing. ${esc(translate('archive_attribution', 'en'))}.</p>
     <p class="intro">${esc(translate('hub_station_intro', 'en'))}</p>
@@ -902,7 +948,7 @@ export function renderStationIndex(stations: ArchiveStation[]): string {
 ${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent(s.slug)}"><span class="lbl">Station</span><span class="num">${esc(stationName(s))}</span></a>`).join('\n')}
     </div>`;
   return pageShell({
-    title: 'Station archives — Øresund.live',
+    title: `Station archives — ${BRAND_NAME}`,
     description,
     canonical: `${SITE_URL}/station`,
     jsonLd: {
@@ -976,7 +1022,7 @@ export function renderStationPage(
   // The hub link stays on the unprefixed /station — the hub itself is not
   // localized, unlike the per-station pages this page links to below.
   const body = `
-    <p class="crumb"><a href="${localizedPath('/', lang)}">Øresund.live</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
+    <p class="crumb"><a href="${localizedPath('/', lang)}">${BRAND_NAME}</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
     <h1>${esc(translate('station_h1', lang, { name }))}</h1>
     <p class="sub">${esc(
       translate('station_sub', lang, {
@@ -993,7 +1039,7 @@ ${
       ? `    <p class="meta">${esc(translate('station_no_data_note', lang))}</p>`
       : `    <div>
       <span class="stat"><b>${stats.total_departures}</b><span>${esc(translate('stat_departures', lang))}</span></span>
-      <span class="stat"><b>${stats.on_time_pct}%</b><span>${esc(translate('stat_on_time', lang))}</span></span>
+      <span class="stat"><b>${esc(formatPct(stats.on_time_pct, lang))}</b><span>${esc(translate('stat_on_time', lang))}</span></span>
       <span class="stat"><b>${stats.canceled_count}</b><span>${esc(translate('th_canceled', lang))}</span></span>
       <span class="stat"><b>${formatDelaySeconds(stats.avg_delay_seconds, lang)}</b><span>${esc(translate('stat_avg_delay', lang))}</span></span>
     </div>
@@ -1066,21 +1112,27 @@ ${allStations
         ]),
         {
           ...dataset({
-            name: `${name} punctuality archive`,
+            // Structured data follows the page's language (audit5 M2) — a
+            // Swedish page publishing an English Dataset name and English
+            // variable names is the mismatch prerender.applySeo already fixed
+            // for the shell's description.
+            name: translate('dataset_station_name', lang, { name }),
             description,
             pageUrl: stationPageUrl,
             dateFrom: stats.date_from,
             dateTo: stats.date_to,
             // Punctuality only ever comes from live Trafiklab departures (no KoDa backfill).
             creators: [TRAFIKLAB_CREATOR],
-            variables: [
-              'Departures per day',
-              'On-time departures per day',
-              'Delayed departures per day',
-              'Canceled departures per day',
-              'On-time percentage per day',
-              'Average delay per day',
-            ],
+            variables: (
+              [
+                'var_departures_per_day',
+                'var_on_time_per_day',
+                'var_delayed_per_day',
+                'var_canceled_per_day',
+                'var_on_time_pct_per_day',
+                'var_avg_delay_per_day',
+              ] as Key[]
+            ).map((k) => translate(k, lang)),
           }),
           // M12: tie the measurements to the place they were measured at.
           about: { '@id': `${stationPageUrl}#station` },

@@ -17,6 +17,7 @@ import {
 import { handleArchiveRequest } from '../src/lib/archive-http';
 import { STATIC_STATIONS } from '../src/lib/sitemap';
 import { translate } from '../src/i18n';
+import { esc } from '../src/lib/html';
 
 /** A minimal valid history payload for the last 7 days. */
 const history: ArchiveHistory = {
@@ -654,18 +655,126 @@ describe('the /history hub — aggregate archive page', () => {
     for (const d of [7, 14, 30, 90]) expect(html).toContain(`href="/history/${d}"`);
     for (const s of STATIC_STATIONS) expect(html).toContain(`href="/station/${s.slug}"`);
     for (const l of CANONICAL_LINES) expect(html).toContain(`href="/line/${encodeURIComponent(l)}"`);
-    // The window pages are English-only, so the hub annotates them (CodeRabbit
-    // PR53): hreflang="en" lang="en" on each window anchor.
+    // The window pages are English-only, so the hub annotates them with
+    // hreflang="en" — hreflang only (audit5 M1): it names the target document,
+    // while lang would name this element's own Swedish/English anchor text.
     for (const d of [7, 14, 30, 90]) {
-      expect(html).toContain(`<a href="/history/${d}" hreflang="en" lang="en">`);
+      expect(html).toContain(`<a href="/history/${d}" hreflang="en">`);
+      expect(html).not.toContain(`<a href="/history/${d}" hreflang="en" lang="en">`);
+      expect(html).not.toContain(`<a href="/history/${d}" lang="en">`);
     }
   });
 
   it('annotates the English-only line archives on the localized variants, station links in its own language', () => {
     const sv = renderHistoryHub(punctuality, history30, 'sv');
-    expect(sv).toContain('<a href="/line/804" lang="en" hreflang="en">Linje 804');
+    expect(sv).toContain('<a href="/line/804" hreflang="en">Linje 804');
+    // No lang: the anchor text is Swedish and must be read as Swedish (audit5 M1).
+    expect(sv).not.toContain('<a href="/line/804" hreflang="en" lang="en">');
     expect(sv).toContain('<a href="/sv/station/hyllie">Malmö Hyllie</a>');
     expect(sv).not.toContain('<a href="/station/');
+  });
+
+  it('names the departures card\'s unit and says what one disruption counts (audit5 M3)', () => {
+    // Three cards, three denominators: the departures figure is per-stop
+    // observations, the share is of those observations, and the disruption
+    // count is deduped per affected departure and day. Unexplained, the page
+    // contradicts itself under a heading that says "recorded together".
+    for (const lang of ['en', 'sv', 'da'] as const) {
+      const html = renderHistoryHub(punctuality, history30, lang);
+      expect(html, lang).toContain(`<span>${esc(translate('hub_stat_departures', lang))}</span>`);
+      expect(html, lang).not.toContain(`>${esc(translate('stat_departures', lang))}</span>`);
+      expect(html, lang).toContain(esc(translate('hub_disruptions_note', lang)));
+    }
+    // The note does not appear on the empty-corridor variant, where the
+    // disruption card is the only one and the sentence would explain nothing.
+    const empty = renderHistoryHub({ ...punctuality, daily: [] }, history30, 'en');
+    expect(empty).not.toContain(esc(translate('hub_disruptions_note', 'en')));
+  });
+
+  it('localizes the structured data it shares with the visible page (audit5 M2)', () => {
+    for (const lang of ['sv', 'da'] as const) {
+      const html = renderHistoryHub(punctuality, history30, lang);
+      // og:image:alt followed the page's language.
+      expect(html, lang).toContain(`<meta property="og:image:alt" content="${translate('og_image_alt', lang)}" />`);
+      // The windows ItemList names its items the way the visible list does.
+      const lists = graphNodes(html).filter((n) => n['@type'] === 'ItemList');
+      const windows = lists[0]!.itemListElement as { name: string }[];
+      expect(windows.map((w) => w.name)).toEqual(
+        [7, 14, 30, 90].map((d) => translate('history_window_label', lang, { days: d })),
+      );
+      expect(html, lang).not.toContain('Last 30 days');
+    }
+  });
+
+  it('localizes the station Dataset name and its measured variables (audit5 M2)', () => {
+    const html = renderStationPage({ ...stationStats }, stationStatsSlugList(), null, 'sv');
+    const dataset = graphNodes(html).find((n) => n['@type'] === 'Dataset') as {
+      name: string;
+      variableMeasured: string[];
+    };
+    expect(dataset.name).toBe(translate('dataset_station_name', 'sv', { name: 'Malmö Hyllie' }));
+    expect(dataset.variableMeasured).toEqual(
+      (
+        [
+          'var_departures_per_day',
+          'var_on_time_per_day',
+          'var_delayed_per_day',
+          'var_canceled_per_day',
+          'var_on_time_pct_per_day',
+          'var_avg_delay_per_day',
+        ] as const
+      ).map((k) => translate(k, 'sv')),
+    );
+    // The English page keeps English structured data.
+    const en = graphNodes(renderStationPage({ ...stationStats }, stationStatsSlugList())).find(
+      (n) => n['@type'] === 'Dataset',
+    ) as { variableMeasured: string[] };
+    expect(en.variableMeasured).toContain('Departures per day');
+  });
+
+  it('renders the headline on-time share through formatPct (audit5 M7)', () => {
+    // 92.9 is the collector's one-decimal rounding; the localized pages must
+    // show it with their own separator, as the meta description and the daily
+    // table beside it already do.
+    const sv = renderStationPage({ ...stationStats }, stationStatsSlugList(), null, 'sv');
+    expect(sv).toContain('<b>92,9%</b>');
+    expect(sv).not.toMatch(/<b>92\.9%<\/b>/);
+    const da = renderStationPage({ ...stationStats }, stationStatsSlugList(), null, 'da');
+    expect(da).toContain('<b>92,9%</b>');
+    const en = renderStationPage({ ...stationStats }, stationStatsSlugList());
+    expect(en).toContain('<b>92.9%</b>');
+  });
+
+  it('labels the bus lines as buses wherever the line family is named (audit5 M4)', () => {
+    // Lines 6 and 16 are the Hyllie buses, archived because the stop is
+    // monitored — not train services, and not labelled as one.
+    for (const lang of ['en', 'sv', 'da'] as const) {
+      const hub = renderHistoryHub(punctuality, history30, lang);
+      expect(hub, lang).toContain(esc(translate('bus_line_archive_href', lang, { line: '6' })));
+      expect(hub, lang).not.toContain(esc(translate('line_archive_href', lang, { line: '6' })));
+      expect(hub, lang).toContain(esc(translate('line_archive_href', lang, { line: '804' })));
+    }
+    // The line page says so in its H1, and explains why a bus is archived at all.
+    const page = renderLinePage('6', { ...lineStats, line: '6', total_disruptions: 12 }, []);
+    expect(page).toContain('<h1>Bus line 6 — disruption archive</h1>');
+    expect(page).toContain(esc(translate('line_bus_note', 'en', { line: '6' })));
+    expect(page).toContain('<title>Bus line 6 — disruption archive — Øresund.live</title>');
+    // A train line keeps the unqualified heading.
+    const train = renderLinePage('804', { ...lineStats, line: '804' }, []);
+    expect(train).toContain('<h1>Line 804 — disruption archive</h1>');
+    expect(train).not.toContain(esc(translate('line_bus_note', 'en', { line: '804' })));
+  });
+
+  it('renders line-archive causes as a readable list, not raw enum keys (audit5 L13)', () => {
+    const page = renderLinePage('802', { ...lineStats, by_cause: [
+      { cause: 'unknown', count: 419 },
+      { cause: 'signal_failure', count: 89 },
+      { cause: 'vehicle', count: 1 },
+    ] }, []);
+    expect(page).toContain('<li>Unknown <span class="meta">— 419 disruptions</span></li>');
+    expect(page).toContain('<li>Signal failure <span class="meta">— 89 disruptions</span></li>');
+    expect(page).toContain('<li>Vehicle fault <span class="meta">— 1 disruption</span></li>');
+    expect(page).not.toContain('signal_failure');
   });
 
   it('aggregates the daily rows into one weighted share, not an average of shares', () => {
@@ -1188,7 +1297,7 @@ describe('archive page head: RSS autodiscovery + og:locale (audit3 M7/M10)', () 
       expect(
         html,
         html.slice(0, 80),
-      ).toContain('<link rel="alternate" type="application/rss+xml" title="Øresund.live disruptions" href="/feed.xml" />');
+      ).toContain('<link rel="alternate" type="application/rss+xml" title="Øresund.live — disruptions" href="/feed.xml" />');
     }
   });
 
@@ -1253,7 +1362,10 @@ describe('station ↔ line cross-links (audit4 N-M1)', () => {
     // /line/* ships no sv/da twins, so the link says so instead of reading as a
     // Swedish page pointing at a Swedish URL that does not exist.
     const html = renderStationPage({ ...stationStats, lines: ['804'] }, stationStatsSlugList(), null, 'sv');
-    expect(html).toContain('<a href="/line/804" lang="en" hreflang="en">Linje 804');
+    expect(html).toContain('<a href="/line/804" hreflang="en">Linje 804');
+    // No lang: the anchor text is Swedish (audit5 M1) — lang would tell the
+    // screen reader to pronounce Swedish text with English phonemes.
+    expect(html).not.toContain('<a href="/line/804" hreflang="en" lang="en">');
     // The English page needs no annotation of its own links.
     const en = renderStationPage({ ...stationStats, lines: ['804'] }, stationStatsSlugList());
     expect(en).toContain('<a href="/line/804">Line 804');
@@ -1358,13 +1470,13 @@ describe('localized station pages link their own language (audit4 N-M4)', () => 
 
   it('a localized station page keeps its localized board, methodology and privacy links', () => {
     const html = renderStationPage({ ...stationStats, lines: ['804'] }, stationStatsSlugList(), liveSnapshot, 'sv');
-    expect(html).toContain('<a class="brand" href="/sv/">Øresund.live</a>');
+    expect(html).toContain('<a class="brand" href="/sv/" lang="da">Øresund.live</a>');
     expect(html).toContain('<a href="/sv/">Live-tavlan</a>');
     expect(html).toContain('<a href="/sv/methodology">');
     expect(html).toContain('<a href="/sv/privacy">');
     // The English page keeps the unprefixed forms.
     const en = renderStationPage({ ...stationStats, lines: ['804'] }, stationStatsSlugList(), liveSnapshot, 'en');
-    expect(en).toContain('<a class="brand" href="/">Øresund.live</a>');
+    expect(en).toContain('<a class="brand" href="/" lang="da">Øresund.live</a>');
     expect(en).toContain('<a href="/methodology">');
     expect(en).toContain('<a href="/privacy">');
   });

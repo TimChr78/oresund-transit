@@ -4,9 +4,10 @@
  * Worker (dynamic data) — see src/lib/archive-http.ts for the dispatch +
  * render logic and src/lib/archive.ts for the pure renderers.
  *
- * Scoped to /line/* via _routes.json so every other route stays on the free
- * static tier. A path outside the archive namespace (or an unknown line,
- * where the collector 404s) returns a clean 404 instead of the SPA shell.
+ * Bounded to /line/* by the URL matching inside handleArchiveRequest, not by
+ * _routes.json — that file is include "/*", so this Function runs on every
+ * request (audit5 M9). A path outside the archive namespace (or an unknown
+ * line, where the collector 404s) returns a clean 404 instead of the SPA shell.
  */
 import { handleArchiveRequest } from '../../src/lib/archive-http';
 import { notFoundResponse } from '../../src/lib/http-errors';

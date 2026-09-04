@@ -7,7 +7,8 @@
  * This file serves the English (unprefixed) station pages; the localized twins
  * live in functions/{sv,da}/station/[[path]].js and render the same page in
  * Swedish and Danish (audit3 C1). Unknown stations return a clean 404 (the
- * collector 404s).
+ * collector 404s). Bounded to /station/* by handleArchiveRequest's URL
+ * matching — _routes.json is include "/*" and scopes nothing (audit5 M9).
  */
 import { handleArchiveRequest } from '../../src/lib/archive-http';
 import { notFoundResponse } from '../../src/lib/http-errors';

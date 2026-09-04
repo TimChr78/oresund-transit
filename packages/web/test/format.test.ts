@@ -6,6 +6,7 @@ import {
   formatExactDelay,
   formatPct,
   formatTime,
+  isValidLocalDate,
   isValidLocalTimestamp,
   normalizeTs,
 } from '../src/i18n/format';
@@ -181,6 +182,49 @@ describe('actualTime (backlog B1 — the expected departure)', () => {
   it('still accepts the boundary values a timetable can legitimately carry', () => {
     expect(actualTime('2026-08-06T23:59:59', 0, 'en')).toBe('23:59');
     expect(actualTime('2026-08-06T00:00:00', 60, 'en')).toBe('00:01');
+  });
+});
+
+describe('isValidLocalDate (audit5 M5)', () => {
+  it('accepts a real calendar date', () => {
+    expect(isValidLocalDate('2026-08-06')).toBe(true);
+    expect(isValidLocalDate('2024-02-29')).toBe(true); // leap year
+    expect(isValidLocalDate('2000-02-29')).toBe(true); // 400-year leap
+  });
+
+  it('rejects the shapes and ranges a digit check alone would pass', () => {
+    expect(isValidLocalDate('2026-99-99')).toBe(false); // the audit's example
+    expect(isValidLocalDate('2026-13-01')).toBe(false);
+    expect(isValidLocalDate('2026-00-10')).toBe(false);
+    expect(isValidLocalDate('2026-08-00')).toBe(false);
+    expect(isValidLocalDate('2026-08-32')).toBe(false);
+    expect(isValidLocalDate('2026-02-30')).toBe(false); // common-year Feb
+    expect(isValidLocalDate('2026-02-29')).toBe(false); // 2026 is not a leap year
+    expect(isValidLocalDate('2100-02-29')).toBe(false); // century, not a leap year
+    expect(isValidLocalDate('2026-8-6')).toBe(false); // wrong shape
+    expect(isValidLocalDate('not-a-date')).toBe(false);
+    expect(isValidLocalDate(undefined)).toBe(false);
+    expect(isValidLocalDate(null)).toBe(false);
+    expect(isValidLocalDate(20260806)).toBe(false);
+  });
+});
+
+describe('formatDate — impossible collector dates', () => {
+  it('returns empty for a date whose components are out of range', () => {
+    // A collector date of "2026-99-99" passed the digit-shape check and then
+    // rendered verbatim into visible copy and meta descriptions.
+    for (const lang of ['en', 'sv', 'da'] as const) {
+      expect(formatDate('2026-99-99', lang), lang).toBe('');
+      expect(formatDate('2026-02-30', lang), lang).toBe('');
+      expect(formatDate('garbage', lang), lang).toBe('');
+    }
+  });
+
+  it('still renders real dates, in every locale', () => {
+    expect(formatDate('2026-08-06', 'en')).toBe('2026-08-06');
+    expect(formatDate('2026-08-06', 'sv')).toBe('2026-08-06');
+    expect(formatDate('2026-08-06', 'da')).toBe('06-08-2026');
+    expect(formatDate('2026-08-06T21:59:27', 'da')).toBe('06-08-2026');
   });
 });
 

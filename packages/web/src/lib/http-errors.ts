@@ -10,7 +10,10 @@
  * all. SECURITY_HEADERS is the same set the _headers file applies, built once
  * here and merged into every error response this module builds;
  * test/security-headers.test.ts asserts the file and this object never drift.
- * (The archive 200/301 responses merge it too — see archive-http.ts.)
+ * The archive routes' 200 and 502 responses merge it too (archive-http.ts), and
+ * every 404 goes through notFoundResponse() below. There is no 301 in the tree
+ * to worry about: the /history → /history/30 redirect that comment used to
+ * describe was removed when the hub became a real page (audit4).
  *
  * N-H4 (audit4) — a collector outage used to answer every archive route with
  * a bare `502 text/plain` line. That is correct HTTP but a dead end for the
@@ -20,7 +23,7 @@
  * only the body became something a human can act on.
  */
 import { esc } from './html';
-import { translate, type Lang } from '../i18n';
+import { BRAND_NAME, translate, type Lang } from '../i18n';
 import { localizedPath } from './seo';
 
 /**
@@ -112,7 +115,7 @@ export function renderUnavailablePage(lang: Lang, route: string): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${esc(translate('err502_title', lang))} — Øresund.live</title>
+    <title>${esc(translate('err502_title', lang))} — ${BRAND_NAME}</title>
     <meta name="robots" content="noindex" />
     <style>
       :root { color-scheme: dark; }
@@ -130,7 +133,7 @@ export function renderUnavailablePage(lang: Lang, route: string): string {
   </head>
   <body>
     <main>
-      <a class="brand" href="${esc(localizedPath('/', lang))}">Øresund.live</a>
+      <a class="brand" href="${esc(localizedPath('/', lang))}" lang="da">${BRAND_NAME}</a>
       <span class="code">502 · ${esc(route)}</span>
       <h1>${esc(translate('err502_title', lang))}</h1>
       <p>${esc(translate('err502_body', lang))}</p>

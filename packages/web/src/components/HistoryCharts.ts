@@ -18,8 +18,8 @@ import {
 import { renderPunctualityChart } from './PunctualityChart';
 import { renderInsightCards } from './InsightCards';
 import { renderSrTable } from '../lib/sr-table';
-import { formatDate, formatDelaySeconds, formatPct } from '../i18n/format';
 import { esc } from '../lib/html';
+import { formatDate, formatDelaySeconds, formatPct } from '../i18n/format';
 
 /** Static line → route label map (Øresundståg cross-border services). */
 const LINE_ROUTES: Record<string, string> = {
@@ -148,9 +148,12 @@ export function renderHistoryCharts(
       // same stride as the x-labels so long ranges never crowd. 0 renders
       // nothing.
       const showValue = d.count > 0 && (dayRange <= 14 || labelTexts.has(i));
+      // Both values are external (parseHistoryResponse only checks that `daily`
+      // is an array), so they are escaped like every other interpolation here —
+      // an attribute is the one place a quote still breaks out (audit5 M8).
       return `
-    <div class="bar-group" title="${d.date}: ${d.count}">
-      ${showValue ? `<span class="bar-value">${d.count}</span>` : ''}
+    <div class="bar-group" title="${esc(d.date)}: ${esc(String(d.count))}">
+      ${showValue ? `<span class="bar-value">${esc(String(d.count))}</span>` : ''}
       <div class="bar-stack" style="height:${stackHeight.toFixed(1)}%">
         <span class="seg seg-cancel" style="height:${segHeightPct(seg.cancellations, dayFrac).toFixed(1)}%"></span>
         <span class="seg seg-delay" style="height:${segHeightPct(seg.delays, dayFrac).toFixed(1)}%"></span>

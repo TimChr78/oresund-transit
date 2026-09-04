@@ -24,6 +24,17 @@
  * That is what bounds the work: leaves that carry data are replaced while every
  * unchanged branch above them survives.
  *
+ * Two nodes are exempt from replacement (audit5 H3):
+ *
+ *   - a live region (role="status" / aria-live) is mutated in place however
+ *     much of it changed. A region inserted already holding its text does not
+ *     announce in most screen readers — the region has to pre-exist and be
+ *     rewritten — and the banner's class changes on every band transition,
+ *     which is exactly when the announcement matters;
+ *   - whatever a replacement tears the focus away from hands it back: the
+ *     focused node's counterpart in the new markup is focused after the swap,
+ *     so a keyboard user is not dumped to <body> for clicking a toggle.
+ *
  * Inter-tag whitespace text nodes are neither matched nor removed. They cannot
  * accumulate (reconcile never adds or deletes one), multiple adjacent blanks
  * collapse to a single space under HTML whitespace rules, and a flex
@@ -87,9 +98,18 @@ function keyable(el: Element): boolean {
  * row rather than deleted and rebuilt. Keys may repeat — one <tr> per row of
  * the same shape — so matches are consumed in order and stay positional
  * within a key.
+ *
+ * Where a renderer declares a `data-key`, that key IS the identity and the
+ * class is not part of it (audit5 H3): the status banner re-colours itself by
+ * swapping `status-green` for `status-amber`, and a class-keyed match would
+ * read that as one node out and a different one in — replacing the live region
+ * that has to survive to announce the change.
  */
 function keyOf(el: Element): string {
-  return `${el.tagName}#${el.getAttribute('id') ?? ''}.${el.getAttribute('class') ?? ''}@${el.getAttribute('data-key') ?? ''}`;
+  const id = el.getAttribute('id') ?? '';
+  const dataKey = el.getAttribute('data-key');
+  if (dataKey !== null) return `${el.tagName}#${id}@${dataKey}`;
+  return `${el.tagName}#${id}.${el.getAttribute('class') ?? ''}@`;
 }
 
 function sameAttributes(a: Element, b: Element): boolean {
@@ -145,14 +165,100 @@ function applyChildren(parent: Element, next: Element[], parse: ParseHtml): void
   for (const queue of live.values()) for (const el of queue) el.remove();
 }
 
+/**
+ * True for a live region — the element a screen reader is already listening
+ * to. Replacing one destroys the announcement: a region that enters the tree
+ * already holding its text reads as "nothing changed" in most screen readers,
+ * so the region must pre-exist and be rewritten in place.
+ */
+function isLiveRegion(el: Element): boolean {
+  return el.getAttribute('role') === 'status' || el.getAttribute('aria-live') !== null;
+}
+
+/** Bring `current`'s attributes exactly in line with `next`'s, in place. */
+function copyAttributes(current: Element, next: Element): void {
+  for (const name of Array.from(current.getAttributeNames())) {
+    if (next.getAttribute(name) === null) current.removeAttribute(name);
+  }
+  for (const name of next.getAttributeNames()) {
+    const value = next.getAttribute(name);
+    if (current.getAttribute(name) !== value) current.setAttribute(name, value ?? '');
+  }
+}
+
+/**
+ * The node in `next` that corresponds to `active` inside `current`, or null
+ * when `active` is not inside `current` (or there is none).
+ *
+ * replaceWith throws the caret to <body> and a keyboard or screen-reader user
+ * back to the top of the document, because the node they were on is gone. The
+ * language, mode and day-range buttons all change class and aria-pressed when
+ * activated — which is what triggers the swap — so the activated control's
+ * counterpart in the new markup is found by walking its child-index path over
+ * and handed back for focus. A path that no longer exists falls back to the
+ * replacement itself, the nearest thing to where the user was.
+ */
+export function refocusTarget(current: Element, next: Element, active: Node | null): Element | null {
+  if (!active) return null;
+  const path: number[] = [];
+  let node: Node | null = active;
+  while (node && node !== current) {
+    const parent: Node | null = node.parentNode;
+    if (!parent) return null;
+    path.unshift(Array.from(parent.childNodes).indexOf(node as ChildNode));
+    node = parent;
+  }
+  if (node !== current) return null;
+  let target: Node | null = next;
+  for (const index of path) {
+    target = target.childNodes[index] ?? null;
+    if (!target) return next;
+  }
+  // A focused text node has no focus() of its own; the nearest enclosing
+  // element does, and if the position is gone entirely the replacement is the
+  // closest thing to where the user was.
+  while (target && target.nodeType !== 1) target = target.parentNode;
+  return (target as Element | null) ?? next;
+}
+
+/** replaceWith, with the focus carried across to the replacement. */
+function replaceFocused(current: Element, next: Element): void {
+  const active = typeof document === 'undefined' ? null : document.activeElement;
+  const target = refocusTarget(current, next, active);
+  current.replaceWith(next);
+  if (target) (target as HTMLElement).focus?.();
+}
+
 /** Reuse `current` where it can, replace it where it cannot. */
 function update(current: Element, next: Element, parse: ParseHtml): void {
   // Byte-identical: the common case, and the cheapest test in the module.
   if (current.outerHTML === next.outerHTML) return;
+  const keyableBoth = keyable(current) && keyable(next);
+  // A live region is mutated, never replaced (audit5 H3) — see isLiveRegion.
+  // Its attributes are applied in place and its children reconciled as usual;
+  // children too tangled to key (text mixed with elements) are rewritten as a
+  // block, which still leaves the region itself standing.
+  if (isLiveRegion(current)) {
+    if (!sameAttributes(current, next)) copyAttributes(current, next);
+    if (keyableBoth) applyChildren(current, Array.from(next.children), parse);
+    else {
+      // Children too tangled to key (text mixed with elements): adopt the
+      // replacement's nodes wholesale. The region itself stays in the tree,
+      // which is the part the screen reader is listening to.
+      let child = current.firstChild;
+      while (child) {
+        const nextSibling = child.nextSibling;
+        current.removeChild(child);
+        child = nextSibling;
+      }
+      for (const node of Array.from(next.childNodes)) current.appendChild(node);
+    }
+    return;
+  }
   // Attributes differ, or the children are text-bearing leaves — either way
   // there is nothing to key on below this node.
-  if (!sameAttributes(current, next) || !keyable(current) || !keyable(next)) {
-    current.replaceWith(next);
+  if (!sameAttributes(current, next) || !keyableBoth) {
+    replaceFocused(current, next);
     return;
   }
   applyChildren(current, Array.from(next.children), parse);

@@ -16,6 +16,10 @@ export function formatDate(value: string, lang: Lang): string {
   const month = m?.[2];
   const day = m?.[3];
   if (!year || !month || !day) return '';
+  // Range check (audit5 M5): the digit shape alone let an impossible collector
+  // date such as "2026-99-99" through every guarded parser and into visible
+  // copy, meta descriptions and chart labels. No date beats an invented one.
+  if (!isValidLocalDate(`${year}-${month}-${day}`)) return '';
   return lang === 'da' ? `${day}-${month}-${year}` : `${year}-${month}-${day}`;
 }
 
@@ -37,6 +41,23 @@ const LOCAL_STAMP_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 function daysInMonth(year: number, month: number): number {
   const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   return [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 0;
+}
+
+/**
+ * True for a real calendar DATE — "2026-08-06", month 1–12, day 1–31 and a day
+ * that exists in that month ("2026-02-30" is not a date). Shape-only checks
+ * pass "2026-99-99", and a caller that renders it or compares it
+ * lexicographically against real dates produces a plausible-looking lie.
+ */
+export function isValidLocalDate(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12) return false;
+  return day >= 1 && day <= daysInMonth(year, month);
 }
 
 /**
@@ -151,4 +172,60 @@ export function formatPct(value: number, lang: Lang): string {
   if (!Number.isFinite(value)) return '—';
   const sep = lang === 'en' ? '.' : ',';
   return `${value.toFixed(1).replace('.', sep)}%`;
+}
+
+/** The Europe/Stockholm wall clock for an instant, component by component. */
+export interface WallClock {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
+  second: string;
+}
+
+/**
+ * The CORRIDOR's wall clock for an instant (audit5 M6).
+ *
+ * The collector stores naive local timestamps — Europe/Stockholm wall clock, as
+ * stated above — so "which day is it" is a question about Stockholm, not about
+ * whoever happens to be reading or building. `Intl.DateTimeFormat` is the one
+ * offset source that works in a browser, in Node and in a Worker with no
+ * dependencies; rss.ts used the same technique for the feed's dates before this
+ * became the shared helper.
+ */
+export function stockholmWallClock(d: Date): WallClock {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Stockholm',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d);
+  // Intl always emits every requested field for this locale/options combo.
+  const f: Partial<Record<Intl.DateTimeFormatPartTypes, string>> = {};
+  for (const p of parts) {
+    if (p.type !== 'literal') f[p.type] = p.value;
+  }
+  return {
+    year: f.year ?? '',
+    month: f.month ?? '',
+    day: f.day ?? '',
+    hour: f.hour ?? '',
+    minute: f.minute ?? '',
+    second: f.second ?? '',
+  };
+}
+
+/**
+ * The calendar day after a W3C date. Date arithmetic runs in UTC, where days
+ * are always 24 hours — adding a day to a local Date would fold at a Swedish
+ * DST boundary and produce a `to` equal to `from`, i.e. an empty query window.
+ */
+export function nextLocalDate(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + 1)).toISOString().slice(0, 10);
 }

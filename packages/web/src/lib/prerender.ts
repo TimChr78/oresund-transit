@@ -3,7 +3,7 @@ import { translate } from '../i18n';
 import { renderHomeAbout } from '../components/HomeAbout';
 import { renderStationPicker, stationScopeLabel } from '../components/StationPicker';
 import type { PageMeta } from './seo';
-import { ogLocaleTags } from './seo';
+import { localizedPath, ogLocaleTags } from './seo';
 import { esc } from './html';
 import type { HomeSummary } from './seo-summary';
 
@@ -89,8 +89,52 @@ export function renderLocalizedHome(shell: string, lang: Lang, meta: PageMeta, h
     // /da/ home variants get their own wording and their own station routes
     // instead of the shell's English paragraph block.
     html = html.replace(/<section class="home-about">[\s\S]*?<\/section>/, () => renderHomeAbout(lang));
+    // H6 (audit5): the shell's footer was passed through untouched — English
+    // labels AND English URLs on a `<html lang="sv">` document, pointing at
+    // /methodology when /sv/methodology exists. This is the no-JS/crawler copy,
+    // so the JS-rendered footer's fix (audit4 N-M4) never reached the variant
+    // that matters more for search.
+    html = html.replace(/<footer class="site-footer">[\s\S]*?<\/footer>/, () => shellFooterHtml(lang));
+    // The wordmark links home, so on a localized variant it links THAT home.
+    // (The shell anchor already carries lang="da" for the slashed Ø — L3.)
+    html = html.replace(
+      /(<a class="brand") href="\/"/,
+      `$1 href="${localizedPath('/', lang)}"`,
+    );
   }
   return html;
+}
+
+/**
+ * The shell's static footer, in the page's language.
+ *
+ * Localized targets go through localizedPath; the archive hubs have no
+ * localized twins, so those anchors carry hreflang="en" — hreflang ONLY
+ * (audit5 M1), because it describes the target document while `lang` would
+ * describe this element's own translated text. The language switcher offers
+ * the OTHER two languages: index.html's SV/DA pair meant a Swedish page whose
+ * "SV" link pointed at itself and no way back to English (audit5 L7). English
+ * keeps the shell's own footer verbatim, where SV + DA is already the full set.
+ */
+export function shellFooterHtml(lang: Lang): string {
+  const sep = `\n      <span class="sep" aria-hidden="true">·</span>`;
+  const link = (href: string, label: string, attrs = ''): string =>
+    `      <a href="${esc(href)}"${attrs}>${esc(label)}</a>`;
+  const items = [
+    link(localizedPath('/history', lang), translate('nav_history', lang)),
+    link('/line', translate('arch_link_line', lang), ' hreflang="en"'),
+    link('/station', translate('arch_link_station', lang), ' hreflang="en"'),
+    link(localizedPath('/methodology', lang), translate('nav_methodology', lang)),
+    // The other two languages, each named and labelled in its own language.
+    ...(['sv', 'da', 'en'] as const)
+      .filter((l) => l !== lang)
+      .map((l) => link(localizedPath('/', l), l.toUpperCase(), ` lang="${l}" hreflang="${l}"`)),
+  ];
+  return `<footer class="site-footer">
+  <nav aria-label="${esc(translate('nav_site_sections', lang))}">
+${items.join(sep)}
+  </nav>
+</footer>`;
 }
 
 /**

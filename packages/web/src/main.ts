@@ -141,7 +141,7 @@ function bootStaticPage(
   document.documentElement.lang = lang;
 
   const render = (): void => {
-    document.title = `${translate(page.titleKey, lang)} — Øresund.live`;
+    document.title = `${translate(page.titleKey, lang)} — ${translate('brand_name', lang)}`;
     root.innerHTML = page.render(lang, getDict(lang));
   };
   render();
@@ -298,10 +298,14 @@ export function boot(): void {
   };
 
   const refreshStats = async (): Promise<void> => {
+    // Read the window BEFORE registering the request (audit5 L9) — the order
+    // every sibling uses. Reading it after STATS_START meant a day-range change
+    // dispatched between START and the read was captured by the old request,
+    // whose id had already claimed the reply slot.
+    const { from, to } = delayStatsRange();
     const id = nextRequestId();
     dispatch({ type: 'STATS_START', id });
     try {
-      const { from, to } = delayStatsRange();
       const stats = await fetchDelayStats(from, to);
       dispatch({ type: 'STATS_OK', id, stats });
     } catch (err) {

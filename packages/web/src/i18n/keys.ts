@@ -2,6 +2,28 @@
 export type Lang = 'sv' | 'da' | 'en';
 
 /**
+ * The wordmark, in one place (audit5 L5).
+ *
+ * #52 normalized every display string to "Øresund.live" — the slashed Ø, the
+ * capital O, the .live TLD spelled out — but left a dozen hardcoded copies in
+ * renderers that a later edit could drift away from the dictionary again. The
+ * `brand_name` entries are the localized surface; this is the same literal for
+ * the contexts that have no language in hand (a JSON-LD name, a <title>
+ * suffix, a feed channel title). index.html is the one place it cannot reach:
+ * that file is static HTML, written before any module runs.
+ */
+export const BRAND_NAME = 'Øresund.live';
+
+/**
+ * The RSS channel title — the same string the pages' autodiscovery <link>
+ * carries, so a reader subscribing from a page and a reader opening /feed.xml
+ * see one name (audit5 L6). Lives beside BRAND_NAME because it is built from
+ * it and because keys.ts depends on nothing, so the feed Function can use it
+ * without importing the archive renderers.
+ */
+export const RSS_TITLE = `${BRAND_NAME} — disruptions`;
+
+/**
  * The full translation surface. All three dictionaries (sv/da/en) MUST have
  * exactly these keys — enforced by test/i18n.test.ts.
  */
@@ -342,6 +364,50 @@ export interface Dict {
   err502_body: string;
   err502_retry: string;
   err502_home: string;
+  /**
+   * The catch-all 404 page (audit5 L2). It carried its own private
+   * en/sv/da copy, where a typo survived after the same string had been fixed
+   * in the dictionary — one source, three languages, no drift.
+   */
+  err404_title: string;
+  err404_body: string;
+
+  /**
+   * Localized structured data + social copy (audit5 M2). The archive shell's
+   * og:image:alt, the history windows' ItemList names and the station page's
+   * Dataset node used to stay English on the /sv and /da twins — the same
+   * defect prerender.applySeo fixed for the home shell's JSON-LD description.
+   * `history_window_label` and `dataset_station_name` take {days} / {name}.
+   */
+  og_image_alt: string;
+  history_window_label: string;
+  dataset_station_name: string;
+  var_departures_per_day: string;
+  var_on_time_per_day: string;
+  var_delayed_per_day: string;
+  var_canceled_per_day: string;
+  var_on_time_pct_per_day: string;
+  var_avg_delay_per_day: string;
+  /**
+   * The /history hub's headline cards (audit5 M3): the departures card's unit,
+   * and the one-line note defining what one disruption counts — the three
+   * numbers use three different denominators, and unexplained they read as a
+   * contradiction under a heading that says they were recorded together.
+   */
+  hub_stat_departures: string;
+  hub_disruptions_note: string;
+  /**
+   * Line modes (audit5 M4). Lines 6 and 16 in the canonical set are the buses
+   * that call at Hyllie, not train services, so they are labelled as one.
+   * `bus_line_archive_href` takes {line}; `line_bus_note` explains why a bus
+   * sits in a rail archive at all.
+   */
+  line_mode_bus: string;
+  bus_line_archive_href: string;
+  /** The <h1> of a line archive (audit5 M4) — the bus lines say so. Takes {line}. */
+  line_archive_h1: string;
+  bus_line_archive_h1: string;
+  line_bus_note: string;
 }
 
 /** Union of every translation key. */

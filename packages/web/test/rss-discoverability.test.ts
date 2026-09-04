@@ -37,10 +37,12 @@ const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8'
 const routesJson = JSON.parse(readFileSync(new URL('../public/_routes.json', import.meta.url), 'utf8'));
 
 describe('RSS feed discoverability', () => {
-  it('index.html <head> links the feed via rel=alternate', () => {
+  it('index.html <head> links the feed via rel=alternate, titled like the channel', () => {
+    // The autodiscovery title used to differ from /feed.xml's channel title by
+    // a dash, so a subscriber saw two names for one feed (audit5 L6).
     const head = indexHtml.slice(0, indexHtml.indexOf('</head>'));
     expect(head).toMatch(
-      /<link\s+rel="alternate"\s+type="application\/rss\+xml"\s+title="Øresund\.live disruptions"\s+href="\/feed\.xml"\s*\/>/,
+      /<link\s+rel="alternate"\s+type="application\/rss\+xml"\s+title="Øresund\.live — disruptions"\s+href="\/feed\.xml"\s*\/>/,
     );
   });
 
@@ -67,7 +69,7 @@ describe('RSS feed discoverability', () => {
     // M2/M7: the home shell always linked the feed; the 27 archive URLs built
     // by pageShell did not, so the feed was undiscoverable there.
     const feedLink =
-      '<link rel="alternate" type="application/rss+xml" title="Øresund.live disruptions" href="/feed.xml" />';
+      '<link rel="alternate" type="application/rss+xml" title="Øresund.live — disruptions" href="/feed.xml" />';
     for (const html of [renderHistoryHub(HUB_PUNCTUALITY, HUB_HISTORY), renderStationIndex(stations), renderLineIndex([])]) {
       expect(html).toContain(feedLink);
     }

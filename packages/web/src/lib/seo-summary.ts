@@ -14,14 +14,14 @@
  * build — the home page just ships its plain lead instead.
  *
  * Timestamp convention: the collector stores naive local timestamps
- * ("YYYY-MM-DD HH:MM:SS"), so the 24h window is computed with naive local
- * stamps derived from `now` (built with the same local getters). The two
- * windows shift together under any timezone offset, so the trend line is
- * exact; only the wall-clock boundary of "last 24h" is approximate — fine
- * for an SEO snapshot, and deterministic for tests.
+ * ("YYYY-MM-DD HH:MM:SS", Europe/Stockholm wall clock), so the 24h window is
+ * computed with naive stamps in the SAME zone — derived from `now` with Intl
+ * rather than the build machine's local getters (audit5 M6). The boundary is
+ * now corridor-exact, and the output no longer depends on where the build ran.
  */
 import type { Disruption, LiveStatus } from '@oresund/shared';
 import type { Key } from '../i18n';
+import { isValidLocalTimestamp, stockholmWallClock } from '../i18n/format';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -38,13 +38,15 @@ export interface HomeSummary {
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 /**
- * Format a Date as a naive local timestamp ("YYYY-MM-DDTHH:MM:SS", or with a
- * space separator for the collector's query bounds — stored rows use the
- * space form, so strings compare lexicographically).
+ * Format a Date as a naive timestamp in the corridor's own wall clock
+ * ("YYYY-MM-DDTHH:MM:SS", or with a space separator for the collector's query
+ * bounds — stored rows use the space form, so strings compare
+ * lexicographically). Europe/Stockholm, not the build machine's zone: the
+ * result has to be comparable with the stamps the collector writes (audit5 M6).
  */
 export function naiveLocalStamp(d: Date, sep: 'T' | ' ' = 'T'): string {
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}${sep}${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  const { year, month, day, hour, minute, second } = stockholmWallClock(d);
+  return `${year}-${month}-${day}${sep}${hour}:${minute}:${second}`;
 }
 
 /** Map a live snapshot to the status sentence key (shutdown always wins). */
@@ -66,7 +68,12 @@ export function summaryStatusKey(live: LiveStatus): Key {
 function normalizeTimestamp(timestamp: string | null | undefined): string | null {
   if (!timestamp) return null;
   const t = timestamp.replace(' ', 'T');
-  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(t) ? t : null;
+  // Validated, not just shaped (audit5 M5): "2026-99-99T12:00:00" passed a
+  // digit-count check, and cancellationBuckets() then compares these strings
+  // LEXICOGRAPHICALLY — an impossible month sorts above every real date, so the
+  // row was counted into "last 24h" every time, and that count is baked into
+  // the no-JS home shell crawlers read.
+  return isValidLocalTimestamp(t) ? t : null;
 }
 
 /**

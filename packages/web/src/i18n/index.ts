@@ -4,6 +4,7 @@ import { en } from './en';
 import { sv } from './sv';
 
 export type { Dict, Key, Lang } from './keys';
+export { BRAND_NAME, RSS_TITLE } from './keys';
 
 /** localStorage key for the saved language choice. */
 export const LANG_STORAGE_KEY = 'oresund-lang';

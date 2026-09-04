@@ -31,8 +31,11 @@ describe('llms.txt (M7)', () => {
   it('lists the live board and every canonical line + monitored station archive', () => {
     expect(txt).toMatch(/\[Live departure board\]\(\//);
     expect(txt).toContain('[Line archives](/line)');
+    // Every canonical line is listed, but the two buses are named as buses
+    // (audit5 M4) — "Line 6" would file a Hyllie bus under the train head terms.
     for (const l of CANONICAL_LINES) {
-      expect(txt).toContain(`[Line ${l}](/line/${encodeURIComponent(l)})`);
+      const label = l === '6' || l === '16' ? `Bus line ${l}` : `Line ${l}`;
+      expect(txt).toContain(`[${label}](/line/${encodeURIComponent(l)})`);
     }
     expect(txt).toContain('[Station archives](/station)');
   });
@@ -88,7 +91,10 @@ describe('llms.txt (M7)', () => {
     // an LLM can pick the Swedish or Danish page without a second hop.
     expect(txt).toContain('](/sv/history)');
     expect(txt).toContain('](/da/history)');
-    expect(txt).toContain('[Disruption history, last 30 days](/history/30)');
+    // /history/30 is listed once, as one of the windows — it used to appear a
+    // second time as its own entry (audit5 L1).
+    expect(txt.match(/\(\/history\/30\)/g)).toHaveLength(1);
+    expect(txt).toContain('[Last 30 days](/history/30)');
     for (const d of DAY_RANGES) {
       expect(txt).toContain(`[Last ${d} days](/history/${d})`);
     }

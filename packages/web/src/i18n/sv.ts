@@ -1,9 +1,9 @@
-import type { Dict } from './keys';
+import { BRAND_NAME, type Dict } from './keys';
 
 /** Swedish dictionary — plain commuter voice, no marketing. */
 export const sv: Dict = {
   // Brand (identical across languages)
-  brand_name: 'Øresund.live',
+  brand_name: BRAND_NAME,
   // Status banner
   status_normal: 'Normal trafik',
   status_delayed: 'Förseningar',
@@ -134,7 +134,7 @@ export const sv: Dict = {
   weekday_sun: 'Sön',
   // Insight cards
   insight_wow: 'Vecka mot vecka',
-  insight_wow_delta: '{pct} vs föregående vecka',
+  insight_wow_delta: '{pct} mot föregående vecka',
   insight_wow_counts: '{prev} → {curr} störningar',
   insight_avg_delay: 'Snittförsening: {a} → {b}',
   insight_peak: 'Rusningstid',
@@ -336,4 +336,34 @@ export const sv: Dict = {
     'Datakällan svarade inte, så sidan kunde inte byggas. Den brukar vara tillbaka inom några minuter — försök igen om en stund.',
   err502_retry: 'Ladda om sidan',
   err502_home: 'Till avgångstavlan',
+  // 404-sidan (audit5 L2).
+  err404_title: 'Sidan hittades inte',
+  err404_body: 'Sidan du letar efter finns inte eller har flyttats.',
+
+  // Lokaliserad strukturerad data + social copy (audit5 M2) — og:image:alt,
+  // fönsterlistans namn och stationssidans Dataset-nod, som tidigare var
+  // engelska på /sv- och /da-varianterna.
+  og_image_alt: 'Øresund.live — Øresundståg-avgångar över Öresund',
+  history_window_label: 'Senaste {days} dagarna',
+  dataset_station_name: '{name} punktlighetsarkiv',
+  var_departures_per_day: 'Avgångar per dag',
+  var_on_time_per_day: 'Avgångar i tid per dag',
+  var_delayed_per_day: 'Försenade avgångar per dag',
+  var_canceled_per_day: 'Inställda avgångar per dag',
+  var_on_time_pct_per_day: 'Andel i tid per dag',
+  var_avg_delay_per_day: 'Snittförsening per dag',
+
+  // Hubbens tre nyttokort (audit5 M3) — avgångstalet är observationer vid fyra
+  // hållplatser och störningstalet en annan enhet, så båda anger vad de räknar.
+  hub_stat_departures: 'Avgångar observerade vid 4 hållplatser',
+  hub_disruptions_note:
+    'Störningar räknas en gång per berörd avgång och dag i korridoren — inte som summan av de fyra stationssidorna.',
+
+  // Linjemodaliteter (audit5 M4) — linje 6 och 16 är bussarna vid Hyllie.
+  line_mode_bus: 'buss',
+  bus_line_archive_href: 'Busslinje {line} — förseningar & historik',
+  line_archive_h1: 'Linje {line} — störningsarkiv',
+  bus_line_archive_h1: 'Busslinje {line} — störningsarkiv',
+  line_bus_note:
+    'Busslinje {line} stannar vid Malmö Hyllie, så dess störningar arkiveras här tillsammans med tåglinjerna.',
 };

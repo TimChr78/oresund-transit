@@ -217,3 +217,52 @@ describe('security headers on the remaining Function response shapes (audit5 H5)
     }
   });
 });
+
+/**
+ * audit5 M9 — several Functions claimed to be "scoped to /x/* via
+ * _routes.json so every other route stays on the free static tier". That file
+ * is include "/*": a Function runs on every request, static assets included,
+ * and the whole static-header guarantee rests on the passthrough re-fetching
+ * each file through env.ASSETS.fetch (where Cloudflare applies _headers).
+ * Nothing in the repo noticed when the comments went false; these pin it.
+ */
+describe('_routes.json and the ASSETS.fetch passthrough (audit5 M9)', () => {
+  const routes = JSON.parse(readFileSync(new URL('../public/_routes.json', import.meta.url), 'utf8'));
+
+  it('scopes nothing: a Function runs on every request', () => {
+    // If this ever becomes a real per-route scoping, the comments that were
+    // rewritten to match it must be revisited with it — and so must the
+    // assumption that every static asset reaches the header rules through a
+    // Function's ASSETS.fetch.
+    expect(routes).toEqual({ version: 1, include: ['/*'], exclude: [] });
+  });
+
+  it('says in _headers that static coverage flows through the passthrough', () => {
+    expect(headers).toMatch(/ASSETS\.fetch/);
+    expect(headers).toMatch(/_routes\.json/);
+  });
+
+  it('hands a static asset on with the headers the binding applied', async () => {
+    // The Response below is what env.ASSETS.fetch returns on the real edge:
+    // the file's content-type plus the _headers set Cloudflare merged in. The
+    // Function must return it as-is — rebuilding it would drop the set and
+    // strip protection from every /assets/* URL.
+    const fromAssets = new Response('console.log(1)', {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        ...SECURITY_HEADERS,
+      },
+    });
+    const res = await assetsNotFound({
+      request: new Request('https://oresund.live/assets/index-a1b2c3.js'),
+      env: { ASSETS: { fetch: async () => fromAssets } },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('application/javascript; charset=utf-8');
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+      expect(res.headers.get(name), name).toBe(value);
+    }
+  });
+});

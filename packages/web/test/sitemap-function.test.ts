@@ -7,21 +7,16 @@ import { onRequest } from '../functions/sitemap.xml.js';
  * pin the fetch → build → respond wiring and the collector-failure fallback.
  */
 
-/** A line URL the collector has never observed — the only <lastmod>-less family (audit4 N-M3). */
-const UNSEEN_LINE_ENTRIES = ['801','802','803','804','805','806','807','808','809','910','6','16'];
-
-function assertDatedExceptUnseenLines(xml: string): void {
+/**
+ * Every URL that IS submitted carries a date at day precision (audit3 H4).
+ * Lines the collector has never observed are not submitted at all any more
+ * (audit5 M4), so there is no <lastmod>-less line family left to special-case.
+ */
+function assertEveryUrlDated(xml: string): void {
   const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
   expect(entries.length).toBeGreaterThan(0);
   for (const entry of entries) {
-    const isUnseenLine = UNSEEN_LINE_ENTRIES.some(
-      (l) => !entry.includes('<lastmod>') && entry.includes(`<loc>https://oresund.live/line/${l}</loc>`),
-    );
-    if (isUnseenLine) {
-      expect(entry, entry).not.toMatch(/<lastmod>/);
-    } else {
-      expect(entry, entry).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
-    }
+    expect(entry, entry).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
   }
 }
 
@@ -68,14 +63,15 @@ describe('functions/sitemap.xml.js', () => {
     expect(res.status).toBe(200);
     const xml = await res.text();
     expect(xml).toContain('https://oresund.live/');
-    // Canonical lines are always listed, even when the collector is unreachable.
-    expect(xml).toContain('https://oresund.live/line/804');
+    // audit5 M4: with no collector data the sitemap has no line pages to offer —
+    // the never-observed canonical set is no longer submitted just to exist.
+    expect(xml).not.toContain('https://oresund.live/line/804');
+    // The /line index itself is still offered, and dated.
+    expect(xml).toContain('https://oresund.live/line</loc>');
     // Stations remain discovery-only — no static station set.
     expect(xml).not.toContain('https://oresund.live/station/hyllie');
-    // audit3 H4 — every URL with data carries a lastmod. The canonical lines the
-    // collector never observed are the exception (audit4 N-M3): a page with no
-    // data behind it must not claim a fresh daily lastmod, so they ship none.
-    assertDatedExceptUnseenLines(xml);
+    // audit3 H4 — every URL carries a lastmod.
+    assertEveryUrlDated(xml);
   });
 
   it('keeps the archive URLs when only the history endpoint fails (the date degrades instead)', async () => {
@@ -93,7 +89,7 @@ describe('functions/sitemap.xml.js', () => {
     expect(xml).toContain('https://oresund.live/line/804');
     // Every URL with data still carries a lastmod — just not a data-derived one
     // for the discovered line (its own date is unknown to this payload).
-    assertDatedExceptUnseenLines(xml);
+    assertEveryUrlDated(xml);
     expect(xml).toMatch(/<loc>https:\/\/oresund\.live\/line\/804<\/loc><lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
   });
 
@@ -141,6 +137,6 @@ describe('functions/sitemap.xml.js', () => {
     expect(xml).toContain('https://oresund.live/station/kastrup');
     // ...with lastmod present (fallback date) on every URL that has data.
     expect(xml).toContain('<lastmod>');
-    assertDatedExceptUnseenLines(xml);
+    assertEveryUrlDated(xml);
   });
 });

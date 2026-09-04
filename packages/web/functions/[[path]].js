@@ -3,11 +3,12 @@
  *
  * Unknown routes currently fall through the SPA shell (`/* → /index.html 200`
  * in _redirects) and answer 200 with homepage content — Google treats that as
- * a soft-404. This root catch-all, scoped via "/*" in _routes.json, intercepts
- * any path not claimed by a more-specific Function (the archive routes
- * /line/*, /station/*, /history/* and the assets/sitemap/feed Functions win by
- * route specificity and never reach here) and answers a real 404 for paths
- * that are neither a real static asset nor a known prerendered page.
+ * a soft-404. This root catch-all answers a real 404 for paths that are
+ * neither a real static asset nor a known prerendered page. Cloudflare routes
+ * a request to the most specific Function — the archive routes (/line/*,
+ * /station/*, /history/*) and the assets/sitemap/feed Functions win by URL
+ * specificity and never reach here — while _routes.json (include "/*") only
+ * decides that SOME Function runs on every request (audit5 M9).
  *
  * Determination is done through the ASSETS binding (which serves pretty paths
  * and applies header/redirect rules — see the assets Function for the same
@@ -27,24 +28,20 @@
 import { STATIC_PAGE_PATHS } from '../src/lib/static-pages';
 import { localizedPath } from '../src/lib/seo';
 import { notFoundResponse } from '../src/lib/http-errors';
+import { BRAND_NAME, translate } from '../src/i18n';
+import { esc } from '../src/lib/html';
 
 const SPA_PAGES = new Set(['/index.html', ...STATIC_PAGE_PATHS]);
 
-const NOT_FOUND_I18N = {
-  en: { h1: 'Page not found', body: 'The page you\u2019re looking for doesn\u2019t exist or has moved.', nav: 'Site sections', home: 'Live board', history: 'Disruption history', lines: 'Line archives', stations: 'Station archives' },
-  sv: { h1: 'Sidan hittades inte', body: 'Sidan du letar efter finns inte eller har flyttats.', nav: 'Webbplatsavdelningar', home: 'Livetavla', history: 'St\u00f6rningshistorik', lines: 'Linjearkiv', stations: 'Stationsarkiv' },
-  da: { h1: 'Side ikke fundet', body: 'Siden du leder efter findes ikke eller er flyttet.', nav: 'Sektioner p\u00e5 webstedet', home: 'Live-tavle', history: 'Forstyrrelseshistorik', lines: 'Linjearkiv', stations: 'Stationsarkiver' },
-};
-
 function notFoundHtml(pathname) {
   const lang = pathname.startsWith('/sv/') ? 'sv' : pathname.startsWith('/da/') ? 'da' : 'en';
-  const t = NOT_FOUND_I18N[lang];
+  const title = translate('err404_title', lang);
   return `<!doctype html>
 <html lang="${lang}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${t.h1} — Øresund.live</title>
+    <title>${esc(title)} — ${BRAND_NAME}</title>
     <meta name="robots" content="noindex" />
     <style>
       :root { color-scheme: dark; }
@@ -61,14 +58,14 @@ function notFoundHtml(pathname) {
   </head>
   <body>
     <main>
-      <a class="brand" href="${localizedPath('/', lang)}">Øresund.live</a>
-      <h1>${t.h1}</h1>
-      <p>${t.body}</p>
-      <nav aria-label="${t.nav}">
-        <a href="${localizedPath('/', lang)}">${t.home}</a>
-        <a href="${localizedPath('/history', lang)}">${t.history}</a>
-        <a href="/line" lang="en" hreflang="en">${t.lines}</a>
-        <a href="/station" lang="en" hreflang="en">${t.stations}</a>
+      <a class="brand" href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a>
+      <h1>${esc(title)}</h1>
+      <p>${esc(translate('err404_body', lang))}</p>
+      <nav aria-label="${esc(translate('nav_site_sections', lang))}">
+        <a href="${localizedPath('/', lang)}">${esc(translate('nav_board', lang))}</a>
+        <a href="${localizedPath('/history', lang)}">${esc(translate('nav_history', lang))}</a>
+        <a href="/line" hreflang="en">${esc(translate('arch_link_line', lang))}</a>
+        <a href="/station" hreflang="en">${esc(translate('arch_link_station', lang))}</a>
       </nav>
     </main>
   </body>
