@@ -343,7 +343,23 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
       expect(h1s[0]).toContain('class="privacy-title"');
       // bare brand must never be a heading — the wordmark is a link.
       expect(html).not.toContain('<h1 class="brand">');
-      expect(html).toContain('class="brand"');
+      expect(html).toContain('<a class="brand" href="/" lang="da">');
+      expect(html).not.toContain('<div class="brand"');
+    }
+  });
+
+  it('the static pages’ wordmark is a link home in every language (audit7 L3)', () => {
+    // styles.css claims "the wordmark is a link home on every page"; these two
+    // pages were the ones still rendering the brand as an inert <div>, so a
+    // reader on /privacy had no way back to their own home page from the
+    // header. Every other surface — shell, archive shells, both error pages —
+    // already shipped the <a>.
+    for (const lang of ['en', 'sv', 'da'] as const) {
+      const expectedHref = lang === 'en' ? 'href="/"' : `href="/${lang}/"`;
+      for (const page of [renderMethodologyPage(lang, getDict(lang)), renderPrivacyPage(lang, getDict(lang))]) {
+        expect(page).toContain(`<a class="brand" ${expectedHref} lang="da">Øresund.live</a>`);
+        expect(page).not.toMatch(/<div class="brand"/);
+      }
     }
   });
 });

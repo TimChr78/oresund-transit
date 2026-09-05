@@ -44,7 +44,7 @@ import {
   type DepartureInput,
   type DisruptionInput,
 } from './db.js';
-import { MONITORED_STOPS as MONITORED_STOP_DATA } from './stops.js';
+import { MONITORED_STOPS as MONITORED_STOP_DATA, type MonitoredStopSlug } from './stops.js';
 
 export interface Env {
   DB: D1Like;
@@ -67,24 +67,43 @@ const DEFAULT_BASE_URL = 'https://realtime-api.trafiklab.se/v1/departures';
  * requests/month of the Trafiklab key quota; each added or removed stop
  * moves that needle by ~8.6k requests/month.
  *
- * Filters are Øresundståg-scoped (audit6 M5): the corridor monitors the
- * cross-border train service, so every stop's filter rejects Pågatåg, SJ and
- * buses. `crossborder: false` on Malmö C is a narrower claim — its filter
- * (isOresundTrain) sees only through trains, but purely local Øresundståg
- * turns cannot attest cross-border service — so the service-shutdown detector
- * counts only the three crossborder stops (Hyllie, København H, Kastrup
- * Lufthavn).
+ * The filters are mode- and destination-scoped, not agency-scoped (audit7
+ * N-M3). Each one rejects a departure whose transport mode is not TRAIN/RAIL —
+ * which is what keeps buses out — and then selects on the departure's own
+ * strings: a destination keyword (a Denmark-bound keyword at Hyllie, a
+ * Sweden-bound one at København H and Kastrup) or, at Malmö C, an 8xx
+ * designation or the Øresundståg operator id. They do NOT read an operator or
+ * line-list field, so they separate Øresundståg from Pågatåg, SJ and
+ * Snälltåget only by where the train is going and what it is numbered — a
+ * non-Øresundståg train whose destination string names a corridor city would
+ * be counted. Measured effect today is none (the live by_line is pure 8xx),
+ * but the claim is the heuristic, not an operator filter.
+ *
+ * `crossborder: false` on Malmö C is a separate, narrower claim: its filter
+ * (isOresundTrain) is the strictest of the four, but purely local Øresundståg
+ * turns call there and cannot attest that the crossing is running, so the
+ * service-shutdown detector counts only the three crossborder stops (Hyllie,
+ * København H, Kastrup Lufthavn).
+ *
+ * `satisfies Record<MonitoredStopSlug, …>` rather than a `Record<string, …>`
+ * annotation (audit7 L1): the target names every slug MONITORED_STOPS defines
+ * and nothing else, so a stop added to stops.ts without a filter here — or a
+ * key misspelled here — is a compile error instead of an `undefined` filter
+ * thrown on the first departure of a runScheduled pass, which would abort the
+ * whole poll: no departures upserted and no live_status written. It also makes
+ * `STOP_FILTERS[stop.slug]` below a total index, so the `!` that used to
+ * assert it is gone rather than suppressed.
  */
-const STOP_FILTERS: Record<string, (dep: TrafiklabDeparture) => boolean> = {
+const STOP_FILTERS = {
   hyllie: isCrossborderTrain,
   'kobenhavn-h': isSwedenBoundTrain,
   'malmo-c': isOresundTrain,
   kastrup: isSwedenBoundTrain,
-};
+} satisfies Record<MonitoredStopSlug, (dep: TrafiklabDeparture) => boolean>;
 
 const MONITORED_STOPS = MONITORED_STOP_DATA.map((stop) => ({
   ...stop,
-  filter: STOP_FILTERS[stop.slug]!,
+  filter: STOP_FILTERS[stop.slug],
 }));
 
 /** The stable archive URL slug for a monitored stop (ASCII, URL-safe). */
@@ -416,6 +435,10 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
     if (!from || !to) {
       return json({ error: 'from and to query parameters are required (ISO date/datetime)' }, 400);
     }
+    if (!isValidQueryBound(from) || !isValidQueryBound(to)) return badWindowResponse();
+    // Same guard the web's archive boundary applies: a reversed window is a
+    // caller error, not an empty result worth a 200.
+    if (from > to) return json({ error: 'from must not be after to' }, 400);
     return json(await queryDelayStats(env.DB, from, to));
   }
 
@@ -428,8 +451,17 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
     const opts: { limit: number; from?: string; to?: string } = { limit: Math.min(limit, 200) };
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');
-    if (from !== null) opts.from = from;
-    if (to !== null) opts.to = to;
+    if (from !== null) {
+      if (!isValidQueryBound(from)) return badWindowResponse();
+      opts.from = from;
+    }
+    if (to !== null) {
+      if (!isValidQueryBound(to)) return badWindowResponse();
+      opts.to = to;
+    }
+    if (opts.from !== undefined && opts.to !== undefined && opts.from > opts.to) {
+      return json({ error: 'from must not be after to' }, 400);
+    }
     return json({ disruptions: await queryRecentDisruptions(env.DB, opts) });
   }
 
@@ -466,7 +498,9 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
   }
 
   if (url.pathname.startsWith('/api/transit/line/')) {
-    const line = decodeURIComponent(url.pathname.slice('/api/transit/line/'.length));
+    const rawSegment = url.pathname.slice('/api/transit/line/'.length);
+    const line = decodeSegment(rawSegment);
+    if (line === null) return json({ error: 'line must be valid percent-encoded UTF-8' }, 400);
     if (!line) return json({ error: 'line is required' }, 400);
     const days = parseDays(url);
     // N-M1: the monitored stops the line was actually observed at, so the
@@ -479,7 +513,9 @@ export async function handleFetch(request: Request, env: Env): Promise<Response>
   }
 
   if (url.pathname.startsWith('/api/transit/station/')) {
-    const slug = decodeURIComponent(url.pathname.slice('/api/transit/station/'.length));
+    const rawSegment = url.pathname.slice('/api/transit/station/'.length);
+    const slug = decodeSegment(rawSegment);
+    if (slug === null) return json({ error: 'station slug must be valid percent-encoded UTF-8' }, 400);
     const stop = STATIONS.find((s) => s.slug === slug);
     if (!stop) return json({ error: 'unknown station' }, 404);
     const days = parseDays(url);
@@ -512,6 +548,74 @@ function parseDays(url: URL): number {
   const n = url.searchParams.get('days');
   const value = n === null ? 30 : Number(n);
   return value === 7 || value === 14 || value === 30 || value === 90 ? value : 30;
+}
+
+// ---- Query-param validation (audit7 L4) ----
+//
+// The archive boundaries on the web side validate their window before it is
+// compared against anything; the collector's own endpoints did not, so a
+// free-text bound ("banana", "2026-99-99") went into the SQL string comparison
+// as-is and came back as a 200 whose echo said the window was the nonsense the
+// caller sent. Nothing on the site sends a user-controlled bound here, so no
+// page was wrong — but the endpoint is public and the values are compared
+// lexicographically against stored stamps, which is exactly the input a
+// boundary should check.
+
+/** The years a real bound can carry — the collector has no data outside them. */
+const MIN_YEAR = 2020;
+const MAX_YEAR = 2100;
+
+const QUERY_BOUND_RE = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2}))?$/;
+
+/** Days in a month, leap years included (proleptic Gregorian, string math). */
+function daysInMonth(year: number, month: number): number {
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  return [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 0;
+}
+
+/**
+ * True for a real calendar date ("2026-08-06") or that date with a complete
+ * naive local time ("2026-08-06T21:59:27") — the two shapes the columns these
+ * bounds are compared against actually carry. REJECTED, not clamped: a bound
+ * that is not a real instant is a caller error, and answering 400 says so
+ * where echoing "date_from": "banana" would bless it.
+ */
+export function isValidQueryBound(value: string): boolean {
+  const m = QUERY_BOUND_RE.exec(value);
+  if (!m) return false;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (year < MIN_YEAR || year > MAX_YEAR) return false;
+  if (m[4] !== undefined) {
+    const hour = Number(m[4]);
+    const minute = Number(m[5]);
+    const second = Number(m[6]);
+    if (hour > 23 || minute > 59 || second > 59) return false;
+  }
+  if (month < 1 || month > 12) return false;
+  return day >= 1 && day <= daysInMonth(year, month);
+}
+
+/** The 400 a malformed window bound earns, naming what the endpoint accepts. */
+function badWindowResponse(): Response {
+  return json(
+    { error: 'from and to must be a real calendar date or local stamp: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS' },
+    400,
+  );
+}
+
+/**
+ * Decode a URL path segment, or null when it is not valid percent-encoded
+ * UTF-8 (audit7 L4): `/api/transit/line/%` threw a bare URIError out of
+ * decodeURIComponent and answered a 500 for what is a malformed request.
+ */
+function decodeSegment(raw: string): string | null {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
 }
 
 export default {

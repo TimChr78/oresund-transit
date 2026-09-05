@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import type { Departure, Disruption, LiveStatus } from '@oresund/shared';
 import {
   upsertDeparture,
@@ -643,15 +643,79 @@ describe('corridor vs station reconciliation (audit5 C1)', () => {
   });
 });
 
-describe('purge migration 0003 (audit5 C1)', () => {
-  const migration = readFileSync(new URL('../migrations/0003_purge_superseded_stop_ids.sql', import.meta.url), 'utf8');
+/**
+ * Every purge migration, discovered from the directory rather than named (L10):
+ * the 0003 assertion read `0003_purge_superseded_stop_ids.sql` literally, so the
+ * next purge — the `disruptions` one audit7 needed — would have shipped with no
+ * coverage at all and 144 tests green. A migration is now covered by being
+ * present.
+ */
+const MIGRATIONS = readdirSync(new URL('../migrations/', import.meta.url))
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
 
-  it('deletes exactly the rows at stop ids outside the monitored set', () => {
-    const ids = [...migration.matchAll(/'(\d+)'/g)].map((m) => m[1]);
-    expect(migration).toMatch(/^DELETE FROM departures WHERE stop_id NOT IN/m);
+/** What a purge may cut a table down to. */
+const MONITORING_START = '2026-08-06';
+
+/**
+ * The executable statements of a migration file — its `--` comment lines are
+ * stripped first, because those legitimately quote the same dates and ids the
+ * prose is explaining, and the invariant below is about what the migration
+ * *does*, not what it says.
+ */
+function statementsOf(sql: string): string[] {
+  return sql
+    .split('\n')
+    .filter((line) => !line.trimStart().startsWith('--'))
+    .join('\n')
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+describe('purge migrations', () => {
+  it('covers every file in migrations/ (L10: the glob, not a filename)', () => {
+    // Pinned by name so deleting a migration silently drops its assertion
+    // instead of passing an empty sweep.
+    expect(MIGRATIONS).toEqual(['0001_initial.sql', '0002_live_status.sql', '0003_purge_superseded_stop_ids.sql', '0004_purge_stale_disruptions.sql']);
+  });
+
+  it('0003 deletes exactly the departures at stop ids outside the monitored set', () => {
+    const sql = statementsOf(readFileSync(new URL('../migrations/0003_purge_superseded_stop_ids.sql', import.meta.url), 'utf8')).join('\n');
+    expect(sql).toMatch(/^DELETE FROM departures WHERE stop_id NOT IN/m);
+    const ids = [...sql.matchAll(/'(\d+)'/g)].map((m) => m[1]);
     // The purge and the read-side filter must name the same stops, or the
     // historical window and the live aggregate disagree again.
     expect([...new Set(ids)]).toEqual([...MONITORED_STOP_IDS]);
+  });
+
+  it('0004 deletes exactly the disruptions dated before the monitoring start (audit7 N-M1)', () => {
+    const sql = statementsOf(readFileSync(new URL('../migrations/0004_purge_stale_disruptions.sql', import.meta.url), 'utf8')).join('\n');
+    // Strict `<` on the calendar date: 2026-08-06 itself is the first monitored
+    // day and must survive. date() is the extraction every disruption window
+    // query in src/db.ts applies to this column, and the bound is a quoted
+    // string literal in the same form 0003 uses for its stop ids — not a bare
+    // numeric, which would be a different comparison type.
+    expect(sql).toMatch(/^DELETE FROM disruptions WHERE date\(timestamp\) < '(\d{4}-\d{2}-\d{2})'$/m);
+    expect([...sql.matchAll(/'(\d{4}-\d{2}-\d{2})'/g)].map((m) => m[1])).toEqual([MONITORING_START]);
+  });
+
+  it('purges every table by the monitored set or the monitored era, so a new one cannot slip in untested', () => {
+    for (const file of MIGRATIONS) {
+      const sql = statementsOf(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8')).join('\n');
+      for (const statement of sql.match(/^DELETE FROM \w+[^\n]*$/gm) ?? []) {
+        if (statement.startsWith('DELETE FROM departures')) {
+          // Stop-scoped table: the survivor set is exactly the monitored ids.
+          const ids = [...statement.matchAll(/'(\d{6,})'/g)].map((m) => m[1]);
+          expect([...new Set(ids)], file).toEqual([...MONITORED_STOP_IDS]);
+        } else {
+          // Everything else (disruptions today) is purged on the monitoring
+          // era: one date, the monitoring start, quoted like 0003's ids.
+          const dates = [...statement.matchAll(/'(\d{4}-\d{2}-\d{2})'/g)].map((m) => m[1]);
+          expect(dates, `${file}: ${statement}`).toEqual([MONITORING_START]);
+        }
+      }
+    }
   });
 
   // audit6 M11: the id list used to live twice — here and in index.ts's

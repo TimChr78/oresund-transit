@@ -320,6 +320,70 @@ describe('archive renderers', () => {
     expect(withData).not.toContain('noindex');
   });
 
+  it('decides indexing from the line’s all-time last_seen, the sitemap’s own input (audit7 L9)', () => {
+    // The page used to measure its rolling 30-day window and the sitemap
+    // measured all-time `last_seen`. They agreed only while the monitoring
+    // start sat inside that window; from 2026-09-05 a line last seen in the
+    // era's first days would have stayed submitted while its page answered
+    // noindex. Both now read `linePageIndexable`.
+    const quietWindow: ArchiveLineStats = {
+      ...lineStats,
+      total_disruptions: 0,
+      by_cause: [],
+      recent: [],
+      last_seen: '2026-08-10',
+    };
+    // Nothing in this 30-day window, but the line has monitored-era data: the
+    // page is a real archive and stays indexable, exactly as the sitemap
+    // submits it.
+    const quiet = renderLinePage('802', quietWindow, []);
+    expect(quiet).toContain('<meta name="robots" content="index,follow" />');
+    // The zero-data sections still collapse on the window count — only the
+    // robots directive reads the era.
+    expect(quiet).toContain('No disruptions recorded since monitoring began 2026-08-06.');
+
+    // The mirror case: data in the window but the line's rows all predate
+    // monitoring (bus 6, last seen 2026-08-02). noindex, as the sitemap omits.
+    const preEra = renderLinePage('6', { ...lineStats, line: '6', last_seen: '2026-08-02' }, []);
+    expect(preEra).toContain('<meta name="robots" content="noindex,follow" />');
+
+    // Never observed at all.
+    const neverSeen = renderLinePage('801', { ...lineStats, line: '801', total_disruptions: 0, by_cause: [], recent: [], last_seen: null }, []);
+    expect(neverSeen).toContain('<meta name="robots" content="noindex,follow" />');
+  });
+
+  it('falls back to the window count when the payload predates last_seen (older collector)', () => {
+    // Spread-omitted, not `last_seen: undefined` — exactOptionalPropertyTypes
+    // keeps that honest at the call site too.
+    const noEraField: ArchiveLineStats = { ...lineStats };
+    delete noEraField.last_seen;
+    expect(renderLinePage('802', noEraField, [])).toContain('<meta name="robots" content="index,follow" />');
+
+    const emptyNoEraField: ArchiveLineStats = { ...lineStats, line: '801', total_disruptions: 0, by_cause: [], recent: [] };
+    delete emptyNoEraField.last_seen;
+    expect(renderLinePage('801', emptyNoEraField, [])).toContain('<meta name="robots" content="noindex,follow" />');
+  });
+
+  it('drops a last_seen the collector mangled instead of comparing it (audit7 L9)', async () => {
+    // last_seen feeds a lexicographic comparison against LIVE_DATA_SINCE, so
+    // the parse boundary holds it to the same standard as the /lines row's own
+    // last_seen: a plain, real calendar date, or absent.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/api/transit/lines')) return jsonResponse({ lines: [{ line: '804', disruptions: 4 }] });
+        if (url.includes('/api/transit/line/804')) {
+          return jsonResponse({ ...lineStats, total_disruptions: 0, by_cause: [], recent: [], last_seen: '2026-99-99' });
+        }
+        throw new Error(`no stub for ${url}`);
+      }),
+    );
+    // "2026-99-99" sorts above every real date, so an unvalidated compare would
+    // have indexed the page as monitored-era. Dropped, it is a no-data line.
+    const res = await handleArchiveRequest('/line/804');
+    expect(await res?.text()).toContain('<meta name="robots" content="noindex,follow" />');
+  });
+
   it('never formats an impossible collector date into a plausible one (audit6 M7)', () => {
     // fmtDate is the English archive formatter audit5 M5 left alone: Date.UTC
     // rolls over, so "2026-99-99" became "7 Jun 2034" and "2026-02-30" became
@@ -336,6 +400,22 @@ describe('archive renderers', () => {
     expect(html).not.toContain('2027');
     expect(html).not.toContain('Mar 2026');
     expect(html).toContain('content="Disruption history for Line 804 on the Øresund crossing — 4 disruptions between 2026-99-99 and 2026-02-30."');
+  });
+
+  it('escapes the identity-on-garbage fallback fmtDate returns (audit7 L7)', () => {
+    // fmtDate's contract changed with M7: an invalid date now comes back as
+    // itself rather than as a formatted one. Every other fallback in the module
+    // is escaped on the way out, and this one is interpolated three times —
+    // into a <p class="sub"> and into a meta description — so the boundary
+    // validators must not be the only thing between a collector string and the
+    // DOM.
+    const hostile: ArchiveHistory = { ...history, date_from: '<script>', date_to: '"onmouseover=' };
+    const hub = renderHistoryPage(30, hostile);
+    expect(hub).not.toContain('<script>');
+    expect(hub).toContain('between &lt;script&gt; and &quot;onmouseover=');
+    expect(hub).toContain(
+      'content="Archived disruption history for the Øresund crossing, last 30 days — daily totals for cancellations, delays and alerts &lt;script&gt; to &quot;onmouseover=."',
+    );
   });
 
 
@@ -1056,6 +1136,59 @@ describe('handleArchiveRequest dispatch', () => {
     expect(res).toBeNull();
   });
 
+  it('degrades a /lines discovery failure to the canonical set instead of an empty one (audit7 N-M4)', async () => {
+    // Discovery used to `.catch(() => [])`, so a collector that was merely
+    // unwell made the H1 guard run against an empty set and the rendered page
+    // lose its whole sibling list — "collector unhealthy" read as "no such
+    // page", the conflation audit6's M10 was about.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/api/transit/lines')) throw new Error('collector unwell');
+        if (url.includes('/api/transit/line/804')) return jsonResponse(lineStats);
+        throw new Error(`no stub for ${url}`);
+      }),
+    );
+    const res = await handleArchiveRequest('/line/804');
+    expect(res?.status).toBe(200);
+    const html = await res?.text();
+    // The guard still passes on the canonical set…
+    expect(html).toContain('Line 804 — disruption archive');
+    // …and the page keeps the sibling links an empty discovery set would have
+    // dropped.
+    expect(html).toContain('href="/line/801"');
+    expect(html).toContain('href="/line/806"');
+
+    // Every failure shape the old `.catch(() => [])` flattened gets the same
+    // degradation — non-2xx and unparseable JSON included.
+    for (const fail of [async () => new Response('nope', { status: 503 }), async () => new Response('not json')]) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+          if (url.includes('/api/transit/lines')) return fail();
+          if (url.includes('/api/transit/line/804')) return jsonResponse(lineStats);
+          throw new Error(`no stub for ${url}`);
+        }),
+      );
+      expect((await handleArchiveRequest('/line/804'))?.status).toBe(200);
+    }
+  });
+
+  it('does not let the discovery fallback vouch for a line the collector never named', async () => {    // The fallback is the canonical set, not the collector's authority: a
+    // designation outside it still needs /lines to name it, or it is a 404 —
+    // that is the soft-404 hole audit6 H1 closed.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/api/transit/lines')) throw new Error('collector unwell');
+        // The /line/{line} endpoint answers 200 for ANY string.
+        if (url.includes('/api/transit/line/99999')) return jsonResponse({ ...lineStats, line: '99999' });
+        throw new Error(`no stub for ${url}`);
+      }),
+    );
+    expect(await handleArchiveRequest('/line/99999')).toBeNull();
+  });
+
   it('renders /station and /station/{slug}', async () => {
     stubFetch({
       '/api/transit/stations': { stations: stationStatsSlugList() },
@@ -1451,6 +1584,53 @@ describe('station ↔ line cross-links (audit4 N-M1)', () => {
     expect(html).toContain('<h2>Lines serving this station</h2>');
     expect(html).toContain('<li><a href="/line/803">Line 803 delays &amp; history</a></li>');
     expect(html).toContain('<li><a href="/line/804">Line 804 delays &amp; history</a></li>');
+  });
+
+  it('drops a station line cross-link the /line route would 404 (audit7 L8)', () => {
+    // The station's list is read out of `departures`; the route's accept set is
+    // CANONICAL_LINES ∪ /lines, and /lines is read out of `disruptions`. A line
+    // running at the stop that has not yet recorded a disruption was linkable
+    // here and answered 404 — the other half of the cross-link pair the feed's
+    // item links got fixed in audit6.
+    const html = renderStationPage(
+      { ...stationStats, lines: ['804', '805', '742'] },
+      stationStatsSlugList(),
+      null,
+      'en',
+      ['805'], // what /lines reports: 805 observed, 742 not
+    );
+    expect(html).toContain('<li><a href="/line/804">Line 804 delays &amp; history</a></li>');
+    expect(html).toContain('<li><a href="/line/805">Line 805 delays &amp; history</a></li>');
+    expect(html).not.toContain('href="/line/742"');
+    // A line outside the accept set does not silently empty the section.
+    expect(html).toContain('<h2>Lines serving this station</h2>');
+  });
+
+  it('falls back to the canonical set for station cross-links when discovery is unavailable', () => {
+    // The route degrades a /lines failure to CANONICAL_LINES (audit7 N-M4), so
+    // an outage leaves the canonical cross-links in place and only the
+    // not-yet-canonical designations unlinked.
+    const html = renderStationPage(
+      { ...stationStats, lines: ['804', '742'] },
+      stationStatsSlugList(),
+      null,
+      'en',
+      [],
+    );
+    expect(html).toContain('<li><a href="/line/804">Line 804 delays &amp; history</a></li>');
+    expect(html).not.toContain('href="/line/742"');
+  });
+
+  it('serves station cross-links bounded by the discovery set through the route', async () => {
+    stubFetch({
+      '/api/transit/stations': { stations: stationStatsSlugList() },
+      '/api/transit/station/hyllie': { ...stationStats, lines: ['804', '742'] },
+      '/api/transit/live': liveSnapshot,
+      '/api/transit/lines': { lines: [{ line: '804', disruptions: 4 }] },
+    });
+    const html = await (await handleArchiveRequest('/station/hyllie'))?.text();
+    expect(html).toContain('<li><a href="/line/804">Line 804 delays &amp; history</a></li>');
+    expect(html).not.toContain('href="/line/742"');
   });
 
   it('the line page links the station pages the collector observed the line at', () => {

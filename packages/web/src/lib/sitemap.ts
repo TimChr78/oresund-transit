@@ -18,7 +18,7 @@ import {
   unionCanonicalLines,
   CANONICAL_LINES,
   isBusLine,
-  hasMonitoredEraData,
+  linePageIndexable,
   type ArchiveLine,
   type ArchiveStation,
 } from './archive';
@@ -67,15 +67,17 @@ function w3cDate(value: string): string | null {
 }
 
 /**
- * True when a line's archive is worth a sitemap entry: the collector has
- * observed it, and its rows fall inside the monitored era. A line that reports
- * a count but no date (an older collector) keeps the pre-audit6 behaviour —
- * submitted, dated from the data window — because "no date" is a missing field,
- * not evidence of no data.
+ * True when a line's archive is worth a sitemap entry. This IS the page's
+ * robots rule (audit7 L9), not a second one: `linePageIndexable` in ./archive
+ * decides both, from the same all-time `last_seen` the collector reports to
+ * each. Until audit7 the sitemap measured `last_seen` while the line page
+ * measured its own rolling 30-day window — two windows that agreed only while
+ * the monitoring start sat inside the page's window, and that would have left a
+ * line submitted in the sitemap whose page answered `noindex,follow`, with
+ * archive.ts's comment still claiming the page applied "the same rule the
+ * sitemap applies".
  */
-function hasSubmittableData(l: ArchiveLine): boolean {
-  return l.last_seen === undefined || l.last_seen === null ? l.disruptions > 0 : hasMonitoredEraData(l.last_seen);
-}
+const hasSubmittableData = (l: ArchiveLine): boolean => linePageIndexable(l.last_seen, l.disruptions);
 
 /**
  * The hreflang xhtml:link cluster for a static page (its en canonical base

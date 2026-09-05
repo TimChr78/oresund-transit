@@ -27,13 +27,22 @@ export interface MonitoredStop {
   slug: string;
   /**
    * Whether departures at this stop attest cross-border service. Malmö C is
-   * false: its all-trains filter also sees purely local traffic, so it must
-   * not mask a service shutdown.
+   * false not because its filter is the loose one — isOresundTrain is in fact
+   * the narrowest of the four — but because purely local Øresundståg turns
+   * call there: trains that never cross the bridge cannot attest that the
+   * crossing is running, so they must not mask a service shutdown.
    */
   crossborder: boolean;
 }
 
-export const MONITORED_STOPS: readonly MonitoredStop[] = [
+/**
+ * `as const` (not a plain annotation) so the slugs stay a literal union instead
+ * of widening to `string`. index.ts keys its per-stop filter table by that
+ * union — `STOP_FILTERS satisfies Record<MonitoredStopSlug, …>` — so a stop
+ * added here without a filter fails `tsc` rather than throwing inside
+ * runScheduled and aborting the whole poll (audit7 L1).
+ */
+export const MONITORED_STOPS = [
   {
     // Hyllie 740001586 and København H 860000626 are verified live SiteIds
     // (they come from the real fixtures' query.query): Hyllie monitors
@@ -70,7 +79,10 @@ export const MONITORED_STOPS: readonly MonitoredStop[] = [
     slug: 'kastrup',
     crossborder: true,
   },
-];
+] as const satisfies readonly MonitoredStop[];
+
+/** The URL slugs of the monitored stops, as a literal union (see MONITORED_STOPS). */
+export type MonitoredStopSlug = (typeof MONITORED_STOPS)[number]['slug'];
 
 /**
  * The stop ids, in monitoring order — the bind list of every corridor-wide

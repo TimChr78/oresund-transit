@@ -317,12 +317,22 @@ export function isAnyTrain(dep: TrafiklabDeparture): boolean {
  * OR any 8xx-series designation. This is the ONLY train family the user
  * wants at Malmö C — not Pågatåg (12xx/13xx/14xx/15xx/17xx/19xx), not SJ,
  * not Snälltåget.
+ *
+ * The agency test is a SUFFIX match (audit7 L2): Trafiklab/ResRobot agency ids
+ * are the 18-digit form — "500000000000000110" for VR Sverige, "505000000000000012"
+ * for Skånetrafiken — so the bare `agency === '110'` this used to compare never
+ * fired, and the branch existed only to look like an operator check. An
+ * Øresundståg departure at Malmö C whose designation was missing or non-8xx was
+ * silently dropped from the punctuality KPI on the strength of a comparison that
+ * could not succeed. Still a heuristic, not an operator filter: it matches any
+ * agency whose id ends in 110, and it is the designation that does the real
+ * work.
  */
 export function isOresundTrain(dep: TrafiklabDeparture): boolean {
   const mode = (dep.route?.transport_mode ?? '').toUpperCase();
   if (!mode.includes('TRAIN') && !mode.includes('RAIL')) return false;
   const agency = String(dep.agency?.id ?? '');
-  if (agency === '110') return true;
+  if (agency.endsWith('110')) return true;
   const line = String(dep.route?.designation ?? '');
   return /^8\d{2}$/.test(line);
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildSitemap, type SitemapLastmod } from '../src/lib/sitemap';
-import { CANONICAL_LINES } from '../src/lib/archive';
+import { CANONICAL_LINES, renderLinePage, type ArchiveLineStats } from '../src/lib/archive';
+import { parseLines } from '../src/lib/archive-http';
 
 /**
  * Fixed dates so the lastmod assertions stay deterministic. Plain W3C dates:
@@ -8,6 +9,24 @@ import { CANONICAL_LINES } from '../src/lib/archive';
  * (audit5 L11), so a timestamp here would be dropped rather than sliced.
  */
 const LASTMOD: SitemapLastmod = { deployed: '2026-09-01', data: '2026-09-02' };
+
+/**
+ * A minimal /line/{line} payload, just enough to drive renderLinePage's robots
+ * decision in the L9 test below.
+ */
+function lineStatsFixture(line: string, over: Partial<ArchiveLineStats>): ArchiveLineStats {
+  return {
+    line,
+    days: 30,
+    date_from: '2026-08-06',
+    date_to: '2026-09-04',
+    total_disruptions: 400,
+    daily: [],
+    by_cause: [],
+    recent: [],
+    ...over,
+  };
+}
 
 /**
  * The sitemap lists every indexable route so Google Search Console can
@@ -217,6 +236,60 @@ describe('buildSitemap', () => {
     const train = entries.find((e) => e.includes('<loc>https://oresund.live/line/802</loc>'));
     expect(train).toBeDefined();
     expect(train).toContain('<lastmod>2026-09-01</lastmod>');
+  });
+
+  it('submits exactly the lines whose pages are indexable — one predicate, both surfaces (audit7 L9)', () => {
+    // The sitemap measured all-time `last_seen` while the line page measured
+    // its rolling 30-day window. The two agreed only while the monitoring start
+    // sat inside that window; from 2026-09-05 a line last seen in the era's
+    // first days would have stayed submitted here while its page answered
+    // `noindex,follow`, with archive.ts still claiming the page applied "the
+    // same rule the sitemap applies". Both now call linePageIndexable, so this
+    // test feeds each surface the same row and asserts the same verdict.
+    const rows = [
+      // In the era but quiet for over 30 days: submitted AND indexable.
+      { line: '802', disruptions: 400, last_seen: '2026-08-10' },
+      // Rows only from before monitoring: omitted AND noindex.
+      { line: '16', disruptions: 30, last_seen: '2026-08-02' },
+      // Never observed: omitted, and (no rows in the window) noindex.
+      { line: '801', disruptions: 0 },
+    ];
+    const xml = buildSitemap(rows, [], LASTMOD);
+    const entries = [...xml.matchAll(/<loc>https:\/\/oresund\.live\/line\/([^<]+)<\/loc>/g)].map((m) => m[1]!);
+    expect(entries).toEqual(['802']);
+
+    const quiet = renderLinePage('802', lineStatsFixture('802', { total_disruptions: 0, by_cause: [], recent: [], last_seen: '2026-08-10' }), []);
+    const bus = renderLinePage('16', lineStatsFixture('16', { last_seen: '2026-08-02' }), []);
+    const never = renderLinePage('801', lineStatsFixture('801', { total_disruptions: 0, by_cause: [], recent: [], last_seen: null }), []);
+    expect(quiet).toContain('content="index,follow"');
+    expect(bus).toContain('content="noindex,follow"');
+    expect(never).toContain('content="noindex,follow"');
+  });
+
+  it('omits a line whose /lines last_seen is not a real calendar date (audit7 review)', () => {
+    // archive-http's parseLines produces the ArchiveLine[] the sitemap consumes,
+    // so a shape-only DATE_RE there let "2026-99-99" through to
+    // hasMonitoredEraData. That comparison is lexicographic and the impossible
+    // month sorts above every real date, so the line read as monitored-era and
+    // was submitted even at zero disruptions — while /line/{line} dropped the
+    // same value from its own payload and answered `noindex,follow`. The two
+    // surfaces have to agree, so the parse boundary applies the calendar check
+    // before the era comparison ever sees the string.
+    const lines = parseLines({
+      lines: [
+        { line: '804', disruptions: 0, last_seen: '2026-99-99' },
+        // Positive control: a real date still drives the line's own lastmod.
+        { line: '802', disruptions: 3, last_seen: '2026-08-28' },
+      ],
+    });
+    expect(lines.find((l) => l.line === '804')?.last_seen).toBeUndefined();
+
+    const xml = buildSitemap(lines, [], LASTMOD);
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    expect(locs).toContain('https://oresund.live/line/802');
+    expect(locs).not.toContain('https://oresund.live/line/804');
+    // And nothing leaks the raw value as a <lastmod> either.
+    expect(xml).not.toContain('<lastmod>2026-99-99</lastmod>');
   });
 
   it('submits the canonical train lines when the collector is unreachable (audit6 M10)', () => {

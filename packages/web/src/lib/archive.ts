@@ -89,6 +89,23 @@ export function isBusLine(line: string): boolean {
 }
 
 /**
+ * The line set the /line/{line} archive route answers 200 for (the same
+ * discovery set its isKnownLine guards with): the canonical corridor lines —
+ * static, so they need no fetch and their pages always exist — plus every line
+ * the collector has observed. Defined here, beside CANONICAL_LINES, because
+ * more than the feed needs it: the station pages filter their own "lines
+ * serving this station" cross-links through it (audit7 L8) so they cannot link
+ * a /line/{line} URL the route 404s.
+ *
+ * The collector stores whatever route.designation it accepted, and reports the
+ * observed set capped at its most frequent 500, so a designation can reach a
+ * payload while no archive page answers for it.
+ */
+export function knownArchiveLines(discovered: readonly string[]): readonly string[] {
+  return [...new Set([...CANONICAL_LINES, ...discovered])];
+}
+
+/**
  * The anchor-text key for one line archive. The bus lines label themselves as
  * buses so a crawler reading "Line 6 — disruption archive" does not index a
  * bus under the Øresundståg head terms.
@@ -224,6 +241,14 @@ export interface ArchiveLineStats {
   date_from: string;
   date_to: string;
   total_disruptions: number;
+  /**
+   * The last calendar day the line recorded a disruption, all-time (audit7
+   * L9) — the input `linePageIndexable` shares with the sitemap, so the page's
+   * robots directive and the sitemap's submission rule are one decision.
+   * Optional: the collector deploys independently, and a payload without it
+   * falls back to the window count.
+   */
+  last_seen?: string | null;
   daily: ArchiveHistory['daily'];
   by_cause: { cause: string; count: number }[];
   recent: Disruption[];
@@ -492,6 +517,36 @@ export function hasMonitoredEraData(lastSeen: string | null | undefined): boolea
   return !!lastSeen && lastSeen >= LIVE_DATA_SINCE;
 }
 
+/**
+ * The ONE rule deciding whether a /line/{line} archive is a page a search
+ * engine may keep (audit7 L9). Both surfaces that care go through it:
+ * `buildSitemap` submits a line exactly when this says true, and
+ * `renderLinePage` emits `noindex,follow` exactly when it says false — so the
+ * two can no longer drift the way they did when the page measured its rolling
+ * 30-day window and the sitemap measured the line's all-time `last_seen`. They
+ * agreed only while the monitoring start sat inside the 30-day window, and
+ * would have split on 2026-09-05: a line last seen in the era's first days
+ * stayed submitted while its page answered noindex, contradicting the comment
+ * that claimed the page applied "the same rule the sitemap applies".
+ *
+ * The rule is the era test, because that is what a sitemap entry asserts —
+ * "this archive describes data we actually observed". A line whose last
+ * disruption was six weeks ago is a legitimate, permanent archive URL, not a
+ * thin one; withholding it would drop real pages whenever the corridor has a
+ * quiet month.
+ *
+ * `lastSeen` missing falls back to the caller's count over its own window,
+ * which after migration 0004 implies the era: every row left in the table is a
+ * monitored-era row, so rows in a recent window mean rows in the era. That
+ * covers both shapes — an older collector predating the `last_seen` field
+ * (the /line/{line} payload), and a line reporting a count but no date at all
+ * (the /lines row) — where "no date" is a missing field, not evidence of no
+ * data.
+ */
+export function linePageIndexable(lastSeen: string | null | undefined, windowCount: number): boolean {
+  return lastSeen == null ? windowCount > 0 : hasMonitoredEraData(lastSeen);
+}
+
 const TRAFIKLAB_CREATOR = { '@type': 'Organization', name: 'Trafiklab', url: 'https://www.trafiklab.se' };
 const KODA_CREATOR = { '@type': 'Organization', name: 'KoDa' };
 
@@ -580,6 +635,14 @@ function fmtDelay(seconds: number | null | undefined): string {
  * is worse in kind than an obviously broken one. formatDate (the localized
  * path) got this guard first; the sibling was missed. An invalid value comes
  * back as itself: visibly wrong, never plausibly wrong.
+ *
+ * That fallback also quietly changed this function's contract from "always a
+ * formatted date" to "identity on garbage" (audit7 L7), so every site that
+ * interpolates it goes through esc() — the same treatment every other
+ * fallback in this module gets. Unreachable today (all three call sites read
+ * date_from/date_to, which the route's isWindow validates before the payload
+ * is accepted), but the escape is not optional: the boundary is one payload
+ * shape away from being the only thing between a collector string and the DOM.
  */
 function fmtDate(date: string): string {
   if (!isValidLocalDate(date)) return date;
@@ -770,7 +833,7 @@ export function renderHistoryPage(days: ArchiveDays, history: ArchiveHistory): s
   const body = `
     <p class="crumb"><a href="/">${BRAND_NAME}</a> › <a href="/history">History</a> › ${days} days</p>
     <h1>Disruption history — last ${days} days</h1>
-    <p class="sub">${history.total_disruptions} disruptions between ${fmtDate(history.date_from)} and ${fmtDate(history.date_to)}. ${esc(translate('archive_attribution', 'en'))}.</p>
+    <p class="sub">${history.total_disruptions} disruptions between ${esc(fmtDate(history.date_from))} and ${esc(fmtDate(history.date_to))}. ${esc(translate('archive_attribution', 'en'))}.</p>
     <h2>Daily breakdown</h2>
     ${dailyTable(history.daily)}
     <h2>Other ranges</h2>
@@ -872,7 +935,7 @@ export function renderLinePage(line: string, stats: ArchiveLineStats, allLines: 
   // name carries into the breadcrumb, the description and the JSON-LD below, so
   // the page never contradicts its own heading about what runs on the line.
   const label = lineLabel(line);
-  const description = `Disruption history for ${label} on the Øresund crossing — ${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)}.`;
+  const description = `Disruption history for ${label} on the Øresund crossing — ${stats.total_disruptions} disruptions between ${esc(fmtDate(stats.date_from))} and ${esc(fmtDate(stats.date_to))}.`;
   // M1: a line with no recorded disruptions collapses its zero-data sections
   // into one annotation instead of rendering empty <ul>/<table> blocks.
   const empty = stats.total_disruptions === 0;
@@ -881,7 +944,7 @@ export function renderLinePage(line: string, stats: ArchiveLineStats, allLines: 
   const body = `
     <p class="crumb"><a href="/" lang="da">${BRAND_NAME}</a> › <a href="/line">Lines</a> › ${esc(label)}</p>
     <h1>${esc(h1)}</h1>
-    <p class="sub">${stats.total_disruptions} disruptions between ${fmtDate(stats.date_from)} and ${fmtDate(stats.date_to)} (last ${stats.days} days). ${esc(translate('archive_attribution', 'en'))}.</p>
+    <p class="sub">${stats.total_disruptions} disruptions between ${esc(fmtDate(stats.date_from))} and ${esc(fmtDate(stats.date_to))} (last ${stats.days} days). ${esc(translate('archive_attribution', 'en'))}.</p>
 ${bus ? `    <p class="meta">${esc(translate('line_bus_note', 'en', { line }))}</p>` : ''}
 ${
     empty
@@ -912,12 +975,17 @@ ${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${enco
     title: `${h1} — ${BRAND_NAME}`,
     description,
     canonical: `${SITE_URL}/line/${encodeURIComponent(line)}`,
-    // L2 (audit6): a line with nothing recorded in the window is a real,
-    // linked page with an honest note — not a page a search engine should
-    // index. noindex,follow keeps the link graph flowing (the "Other lines"
-    // and station cross-links still count) while keeping the thin pages out of
-    // the index, which is the same rule the sitemap applies.
-    robots: empty ? 'noindex,follow' : 'index,follow',
+    // L2 (audit6): a line archive with nothing recorded is a real, linked page
+    // with an honest note — not a page a search engine should index.
+    // noindex,follow keeps the link graph flowing (the "Other lines" and
+    // station cross-links still count) while keeping the thin pages out of the
+    // index. L9 (audit7): "thin" is now decided by linePageIndexable — the same
+    // predicate buildSitemap submits on, over the line's all-time last_seen
+    // rather than this page's rolling 30-day window, so the two rules cannot
+    // quietly stop agreeing the way they did once the monitoring start left
+    // this window. The window count still decides whether the zero-data
+    // sections collapse below; it no longer decides indexing.
+    robots: linePageIndexable(stats.last_seen, stats.total_disruptions) ? 'index,follow' : 'noindex,follow',
     jsonLd: {
       '@context': 'https://schema.org',
       '@graph': [
@@ -1000,10 +1068,20 @@ function linkTo(href: string, label: string, pageLang: Lang, targetLang: Lang = 
  * HTML. `lines` comes from the collector payload and is optional (the
  * collector deploys independently of the site), so a page without it renders
  * no section rather than an empty one.
+ *
+ * The list is intersected with `knownArchiveLines` of the route's own
+ * discovery set (audit7 L8): it is read out of `departures`, while the route
+ * guards /line/{line} against `CANONICAL_LINES ∪ /lines`, and /lines is read
+ * out of `disruptions` — so a line running at a monitored stop that has not
+ * yet recorded a disruption was linkable here but answered a 404. The other
+ * half of the same cross-link pair (the feed's item links) got this treatment
+ * in audit6; a station page linking a 404 is the same defect.
  */
-function stationLinesSection(lines: string[] | undefined, lang: Lang): string {
-  if (!lines || lines.length === 0) return '';
-  const items = lines
+function stationLinesSection(lines: string[] | undefined, lang: Lang, discoveredLines: readonly string[]): string {
+  const known = knownArchiveLines(discoveredLines);
+  const linkable = (lines ?? []).filter((line) => known.includes(line));
+  if (linkable.length === 0) return '';
+  const items = linkable
     .map((line) =>
       `      <li>${linkTo(`/line/${encodeURIComponent(line)}`, translate(lineArchiveHrefKey(line), lang, { line }), lang)}</li>`,
     )
@@ -1078,12 +1156,18 @@ ${stations.map((s) => `      <a class="card" href="/station/${encodeURIComponent
  * collector's /live endpoint is fetched best-effort so a snapshot gap degrades
  * the status band instead of failing the page); `lang` localizes the whole
  * document for the /sv/ and /da/ routes.
+ *
+ * `discoveredLines` is the collector's /lines payload — the same set the
+ * /line/{line} route guards with, fetched best-effort by the caller. It bounds
+ * the page's own line cross-links (audit7 L8); a caller that could not fetch
+ * it degrades to the canonical lines only, which always render.
  */
 export function renderStationPage(
   stats: ArchiveStationStats,
   allStations: ArchiveStation[],
   live?: LiveStatus | null,
   lang: Lang = 'en',
+  discoveredLines: readonly string[] = [],
 ): string {
   // A brand-new monitored stop starts with an empty archive (no departures
   // recorded yet): totals are 0, daily rows are zero-filled, and the page
@@ -1163,7 +1247,7 @@ ${
           : ''
       }`
   }
-${stationLinesSection(stats.lines, lang)}
+${stationLinesSection(stats.lines, lang, discoveredLines)}
     <h2>${esc(translate('station_other_heading', lang))}</h2>
     <ul class="plain">
 ${allStations

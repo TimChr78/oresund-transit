@@ -1,6 +1,6 @@
 import type { Disruption } from '@oresund/shared';
 import { causeLabel } from './causes';
-import { CANONICAL_LINES } from './archive';
+import { knownArchiveLines } from './archive';
 import { formatDelaySeconds, stockholmWallClock } from '../i18n/format';
 
 /**
@@ -91,19 +91,19 @@ function toRfc822(timestamp: string): string {
 }
 
 /**
- * The line set the /line/{line} archive route answers 200 for (the same
- * discovery set its isKnownLine guards with): the canonical corridor lines —
- * static, so they need no fetch and their pages always exist — plus every
- * line the collector has observed in its window.
+ * The line set the /line/{line} archive route answers 200 for: the canonical
+ * corridor lines plus every line the collector has observed. Defined in
+ * ./archive (beside CANONICAL_LINES, which it unions) and re-exported here —
+ * it moved when the station pages needed the same set for their own
+ * cross-links (audit7 L8), because a second copy of a guard is a guard waiting
+ * to drift.
  *
  * The collector stores whatever route.designation it accepted, and reports the
  * observed set capped at its most frequent 500, so a designation can sit in
  * the disruption feed while no archive page answers for it. Feeding this set
  * to renderRssFeed keeps every item link inside it.
  */
-export function knownArchiveLines(discovered: readonly string[]): readonly string[] {
-  return [...new Set([...CANONICAL_LINES, ...discovered])];
-}
+export { knownArchiveLines };
 
 /**
  * The item's link (audit6 L17): every item used to point at the channel URL,
