@@ -79,5 +79,11 @@ describe('RSS feed discoverability', () => {
     expect(translate('footer_rss', 'en')).toMatch(/RSS/i);
     expect(translate('footer_rss', 'sv').trim().length).toBeGreaterThan(0);
     expect(translate('footer_rss', 'da').trim().length).toBeGreaterThan(0);
+
+    // R3-C6 sibling link (PR #58 CodeRabbit follow-up): key must exist in all
+    // dictionaries and render the brand name
+    expect(translate('footer_sibling', 'en')).toBe('MartechSignal');
+    expect(translate('footer_sibling', 'sv')).toBe('MartechSignal');
+    expect(translate('footer_sibling', 'da')).toBe('MartechSignal');
   });
 });

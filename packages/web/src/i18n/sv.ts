@@ -256,6 +256,7 @@ export const sv: Dict = {
   footer_lang: 'Språk',
   footer_license: 'CC-BY 4.0-licensen',
   footer_rss: 'RSS-flöde',
+  footer_sibling: 'MartechSignal',
   // Arkivsidor — prerenderade introtexter, sammanfattningsrad och not om
   // övervakningsstart. Arkiv-sidornas SSG-renderare servar en som standard;
   // nycklarna finns ändå i alla tre ordböcker för paritet och framtida
