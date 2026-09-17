@@ -185,7 +185,7 @@ export const sv: Dict = {
     'En avgång räknas som försenad när förseningen är 240 sekunder (4 minuter) eller mer — Skånetrafikens officiella RT3-punktlighetsmått (≤ 3:59 sent = punktligt). Allt under det räknas som i tid.',
   meth_scope_title: 'Omfattning',
   meth_scope_body:
-    'Datan omfattar bara gränsöverskridande Öresundståg (linje 802–805) på sträckan Hyllie ↔ Köpenhamn H. Andra regionala och lokala tåg ingår inte.',
+    'Punktlighetssiffrorna omfattar gränsöverskridande Öresundståg (linje 802–805) på sträckan Hyllie ↔ Köpenhamn H. Linjearkiven är bredare: varje tjänst med registrerade störningar på korridoren — inklusive regionala linje 801, 807–809, 910 och busslinje 6 och 16 — har en egen arkivsida.',
   meth_source_title: 'Datakälla',
   meth_source_body:
     'Datan kommer från Trafiklab (Skånetrafiken) realtidsavgångar, avläst var 5:e minut, under licensen CC-BY 4.0. Live-data startar 2026-08-06; tidigare historik kommer från KoDas historiska arkiv (från maj 2026).',
@@ -358,7 +358,7 @@ export const sv: Dict = {
   // hållplatser och störningstalet en annan enhet, så båda anger vad de räknar.
   hub_stat_departures: 'Avgångar observerade vid 4 hållplatser',
   hub_disruptions_note:
-    'Störningar räknas en gång per berörd avgång och dag i korridoren — inte som summan av de fyra stationssidorna.',
+    'Störningar räknar tre saker: inställda tåg, förseningar på 4 minuter eller mer samt servmeddelanden — en post per berörd avgång och dag. Punktligheten räknar bara de två första, därför är störningssumman högre medvetet.',
 
   // Linjemodaliteter (audit5 M4) — linje 6 och 16 är bussarna vid Hyllie.
   line_mode_bus: 'buss',

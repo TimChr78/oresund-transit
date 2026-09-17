@@ -600,8 +600,10 @@ describe('zero-data days (audit3 M1)', () => {
       ],
     };
     const html = renderStationPage(withGap, stationStatsSlugList());
-    expect(html).toContain('<td class="meta">2026-08-04</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td>');
-    expect(html).toContain('<td class="meta">2026-08-05</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td>');
+    // R1-H5: pre-coverage days (before LIVE_DATA_SINCE = 2026-08-06) render as
+    // no-data rows, not 0s that read as a perfect service day.
+    expect(html).toContain('<td class="meta">2026-08-04</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>');
+    expect(html).toContain('<td class="meta">2026-08-05</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>');
     // An observed day keeps its numbers.
     expect(html).toContain('<td class="meta">2026-08-06</td><td>15</td><td>14</td><td>1</td><td>0</td><td>93.3%</td><td>3 min</td>');
   });
@@ -614,8 +616,32 @@ describe('zero-data days (audit3 M1)', () => {
         { date: '2026-08-05', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
       ],
     });
-    expect(html).toContain('<td class="meta">2026-08-05</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td>');
+    // R1-H5: 2026-08-05 predates live data -> no-data row, not zeros.
+    expect(html).toContain('<td class="meta">2026-08-05</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>');
     expect(html).toContain('<td class="meta">2026-08-06</td><td>3</td><td>0</td><td>3</td><td>0</td><td>11 min</td>');
+  });
+
+  it('R1-H5: a zero day WITHIN the live era still renders as observed zeros (not no-data)', () => {
+    const html = renderHistoryPage(7, {
+      ...history,
+      daily: [
+        { date: '2026-08-07', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-08', count: 2, cancellations: 1, delays: 1, alerts: 0, avg_delay: 300 },
+      ],
+    });
+    expect(html).toContain('<td class="meta">2026-08-07</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td>');
+    expect(html).toContain('<td class="meta">2026-08-08</td><td>2</td><td>1</td><td>1</td><td>0</td><td>5 min</td>');
+  });
+
+  it('R1-H5: /history carries the KoDa pre-coverage caption', () => {
+    const html = renderHistoryPage(90, {
+      ...history,
+      daily: [
+        { date: '2026-08-05', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+      ],
+    });
+    expect(html).toContain('Days before 6 Aug 2026 were not observed live');
   });
 });
 
