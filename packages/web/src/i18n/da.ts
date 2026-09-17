@@ -257,6 +257,7 @@ export const da: Dict = {
   footer_lang: 'Sprog',
   footer_license: 'CC-BY 4.0-licensen',
   footer_rss: 'RSS-feed',
+  footer_sibling: 'MartechSignal',
   // Arkivsider — prerenderede introtekster, opsummeringsrække og note om
   // overvågningsstart. Arkivsidernes SSG-rendere serverer en som standard;
   // nøglerne findes alligevel i alle tre ordbøger for paritet og fremtidige
