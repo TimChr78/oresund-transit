@@ -285,6 +285,7 @@ export interface Dict {
   footer_lang: string;
   footer_license: string;
   footer_rss: string;
+  footer_sibling: string;
   // Archive pages — prerendered intros, summary stats row, monitoring note.
   // The archive SSG renderers serve en by default; the keys still live in all
   // three dictionaries for parity and future localized archive pages.

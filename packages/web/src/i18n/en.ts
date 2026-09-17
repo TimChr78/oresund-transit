@@ -257,6 +257,7 @@ export const en: Dict = {
   footer_lang: 'Language',
   footer_license: 'CC-BY 4.0 license',
   footer_rss: 'RSS feed',
+  footer_sibling: 'MartechSignal',
   // Archive pages — prerendered intros, summary stats row, monitoring note.
   arch_stat_total: 'Total',
   arch_stat_cancellations: 'Cancellations',
