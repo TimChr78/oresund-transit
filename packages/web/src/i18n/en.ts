@@ -300,6 +300,7 @@ export const en: Dict = {
   station_kobenhavn_h: 'København H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Københavns Lufthavn (Kastrup)',
+  station_kastrup_note: 'This is the railway station inside Copenhagen Airport — train services on the Øresund corridor, not the airport itself (flights: cph.dk).',
 
   // Homepage about block (audit3 C2) — evergreen, crawlable copy in the
   // no-JS/crawler shell. Descriptive only: what is tracked, how a number is

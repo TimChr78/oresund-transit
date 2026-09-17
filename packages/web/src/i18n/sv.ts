@@ -300,6 +300,7 @@ export const sv: Dict = {
   station_kobenhavn_h: 'Köpenhamn H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup flygplats',
+  station_kastrup_note: 'Detta är järnvägsstationen i Köpenhamns flygplats — tåg på Öresundskorridoren, inte flygplatsen själv (flyg: cph.dk).',
 
   // Informationstext på startsidan (audit3 C2) — permanent, crawlbar text i
   // skal utan JS. Beskrivande only: vad som mäts, hur ett tal definieras och

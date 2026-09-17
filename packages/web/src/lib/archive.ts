@@ -1205,6 +1205,7 @@ export function renderStationPage(
   const body = `
     <p class="crumb"><a href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
     <h1>${esc(translate('station_h1', lang, { name }))}</h1>
+    ${name.includes('Kastrup') ? `<p class="sub" style="font-size:.85rem;color:var(--muted, #5A6C8F);margin:.3rem 0 0">${esc(translate('station_kastrup_note', lang))} <a href="https://www.cph.dk/" target="_blank" rel="noopener noreferrer">cph.dk</a></p>` : ''}
     <p class="sub">${esc(
       translate('station_sub', lang, {
         days: stats.days,

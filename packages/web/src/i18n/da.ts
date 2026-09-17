@@ -301,6 +301,7 @@ export const da: Dict = {
   station_kobenhavn_h: 'København H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup Lufthavn',
+  station_kastrup_note: 'Dette er jernbanestationen i Københavns Lufthavn — tog på Øresundskorridoren, ikke lufthavnen selv (fly: cph.dk).',
 
   // Forside-tekstblok (audit3 C2) — permanent, crawlbar tekst i skallet uden
   // JS. Kun beskrivende: hvad der måles, hvordan et tal defineres og hvor

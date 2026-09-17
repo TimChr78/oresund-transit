@@ -35,3 +35,14 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
+
+# R1-M2 (2026-09-17, claude-seo audit): content-hashed assets and fonts are
+# safe to cache for a year — the hash changes whenever the content does, so
+# staleness is impossible by construction. The 4h Pages default was the audit's
+# M2 finding. Place these AFTER the /* block: Pages applies the most specific
+# match, and explicit TTLs here override the default for these paths only.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
