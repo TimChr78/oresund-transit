@@ -359,6 +359,7 @@ export const da: Dict = {
   // stoppesteder og forstyrrelsestallet en anden enhed, så begge angiver, hvad
   // de tæller.
   hub_stat_departures: 'Afgange observeret ved 4 stoppesteder',
+  board_observed_badge: 'OBSERVERET, IKKE FORUDSAGT',
   hub_disruptions_note:
     'Forstyrrelser tæller tre ting: aflyste tog, forsinkelser på 4 minutter eller mere samt servicemeddelelser — én post per berørt afgang og dag. Punktlighed tæller kun de to første, derfor er forstyrrelsestallet bevidst højere.',
 

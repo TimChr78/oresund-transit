@@ -357,6 +357,7 @@ export const sv: Dict = {
   // Hubbens tre nyttokort (audit5 M3) — avgångstalet är observationer vid fyra
   // hållplatser och störningstalet en annan enhet, så båda anger vad de räknar.
   hub_stat_departures: 'Avgångar observerade vid 4 hållplatser',
+  board_observed_badge: 'OBSERVERAT, INTE PROGNOS',
   hub_disruptions_note:
     'Störningar räknar tre saker: inställda tåg, förseningar på 4 minuter eller mer samt servmeddelanden — en post per berörd avgång och dag. Punktligheten räknar bara de två första, därför är störningssumman högre medvetet.',
 

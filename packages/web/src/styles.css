@@ -1609,3 +1609,19 @@ body::after {
     grid-template-columns: repeat(5, 1fr);
   }
 }
+
+/* R1-H12 (2026-09-17): the site's differentiator, visible where the board starts. */
+.observed-badge {
+  display: inline-block;
+  font: 700 0.6rem var(--mono);
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-left: 0.8rem;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .observed-badge { display: none; }
+}

@@ -358,6 +358,7 @@ export const en: Dict = {
   // observations at four stops and the disruption count is a different unit
   // again, so both say what they count instead of reading as a contradiction.
   hub_stat_departures: 'Departures observed at 4 stops',
+  board_observed_badge: 'OBSERVED, NOT PREDICTED',
   hub_disruptions_note:
     'Disruptions count three things: cancellations, delays of 4 minutes or more, and service alerts — one record per affected departure and day. Punctuality counts only the first two, so the disruption total is higher by design.',
 

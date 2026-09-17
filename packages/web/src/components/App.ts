@@ -155,6 +155,7 @@ export function renderApp(state: AppState, lang: Lang): string {
     <header class="topbar">
       <a class="brand" href="${esc(localizedPath('/', lang))}" lang="da">${translate('brand_name', lang)}</a>
       <span class="board-label">${esc(stationScopeLabel(lang, state.station))}</span>
+      <span class="observed-badge">${esc(translate('board_observed_badge', lang))}</span>
     </header>
     ${renderStationPicker(lang, state.station)}
     <h1 class="lead">${translate('lead_tagline', lang)}</h1>
