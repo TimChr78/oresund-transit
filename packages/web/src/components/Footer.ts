@@ -26,6 +26,8 @@ export function renderFooter(lang: Lang): string {
         <a href="/feed.xml">${esc(translate('footer_rss', lang))}</a>
         ${sep}
         <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">${esc(translate('footer_license', lang))}</a>
+        ${sep}
+        <a href="https://martechsignal.com/" target="_blank" rel="noopener noreferrer">MartechSignal</a>
       </p>
       <p class="note">${esc(translate('footer_disclaimer', lang))}</p>
       <p class="note">${esc(translate('footer_changes', lang))}</p>
