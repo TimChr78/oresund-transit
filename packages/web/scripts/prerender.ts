@@ -31,6 +31,7 @@ import { getDict, type Lang } from '../src/i18n';
 import { COLLECTOR_BASE } from '../src/lib/config';
 import { renderPrerenderedPage, renderHomeWithSummary } from '../src/lib/prerender';
 import { fetchBuildSummary } from '../src/lib/seo-summary';
+import { fetchBoardFrame, renderBoardFrame } from '../src/lib/board-frame';
 import { STATIC_PAGES, STATIC_LANGS, staticFilePath, type StaticPageId, type PrerenderedPageId } from '../src/lib/static-pages';
 import { META, hreflangCluster, type PageMeta } from '../src/lib/seo';
 import type { Route } from '../src/lib/route';
@@ -51,15 +52,24 @@ const META_ROUTE: Record<StaticPageId, Route> = {
 };
 
 const summary = await fetchBuildSummary(COLLECTOR_BASE, fetch, new Date());
+// Board frame (audit R1 C1/H1): the same corridor snapshot the visitor's own
+// parallel fetches will pull, rendered into #app at build time so the first
+// paint is the board's final geometry. null (collector unreachable) ships the
+// pre-fix empty-#app shell — the build never fails on it.
+const frameData = await fetchBoardFrame(COLLECTOR_BASE, fetch, new Date());
 
 for (const page of STATIC_PAGES) {
   for (const lang of STATIC_LANGS) {
     const meta: PageMeta = META[META_ROUTE[page.id]][lang];
     const hreflang = hreflangCluster(page.path);
 
+    // Only the home page gets the board frame; the static routes render
+    // their own content into #app via renderPrerenderedPage.
+    const frame = page.id === 'home' && frameData ? renderBoardFrame(frameData, lang) : undefined;
+
     const html =
       page.id === 'home'
-        ? renderHomeWithSummary(shell, lang, meta, hreflang, summary)
+        ? renderHomeWithSummary(shell, lang, meta, hreflang, summary, frame)
         : renderPrerenderedPage(shell, RENDERERS[page.id](lang), lang, meta, hreflang);
 
     // e2e guard: every emitted page must load the BUILT bundle + stylesheet.

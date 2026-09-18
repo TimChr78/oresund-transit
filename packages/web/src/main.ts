@@ -24,7 +24,7 @@ import { langFromPath, routePath } from './lib/route';
 import { reconcile, isPlainPrimaryClick } from './lib/dom';
 import { scopedHeadUrl } from './lib/seo';
 import type { Disruption } from '@oresund/shared';
-import { createInitialState, reducer, type Action, type AppState, type DisruptionsMode } from './state';
+import { createInitialState, reducer, boardSettled, type Action, type AppState, type DisruptionsMode } from './state';
 import { delayStatsRange, type DayRange, type Direction } from './lib/stats';
 
 /**
@@ -207,6 +207,10 @@ function mountHomeAbout(lang?: Lang): void {
 export function boot(): void {
   const root = document.getElementById('app');
   if (!root) return;
+  // The deploy-race self-heal guard in index.html checks for this, not for
+  // empty children: since the frame ships inside #app (audit R1 C1/H1), a
+  // non-empty #app no longer means the SPA booted.
+  root.setAttribute('data-app-booted', '1');
 
   // Every route re-renders its own footer (the board's and the static pages'
   // carry the lang switcher), so the shell's static footer — the no-JS
@@ -253,7 +257,23 @@ export function boot(): void {
   if (state.station !== 'all') applyStationSeo(state.station);
   const applyStationTitle = stationTitleUpdater();
 
+  // The prerendered board frame (audit R1 C1/H1): #app ships with the board
+  // already drawn from the build-time snapshot, so its first paint is the
+  // board's final geometry. Rendering the all-loading state over it would
+  // collapse the sections back to `.empty` placeholders — the same shift,
+  // mirrored — so boot() holds the frame until the visitor's own fetches have
+  // all settled, then swaps once. FRAME_HOLD_MS caps the wait: a collector
+  // that hangs for longer than five seconds gets the loading state like any
+  // cold visit used to, rather than a stale frame forever.
+  let holdingFrame = root.hasAttribute('data-prerender-frame');
+  const FRAME_HOLD_MS = 5000;
+
   const render = (): void => {
+    if (holdingFrame) {
+      if (!boardSettled(state)) return;
+      holdingFrame = false;
+      root.removeAttribute('data-prerender-frame');
+    }
     // Reconciled rather than assigned (audit4 N-H7): a 120-second refresh
     // changes a handful of cells, not the board, and the nodes it does not
     // touch keep their place, their selection and their scroll offset.
@@ -264,6 +284,14 @@ export function boot(): void {
     applyStationTitle(state.station, lang);
   };
   render();
+  if (holdingFrame) {
+    setTimeout(() => {
+      if (!holdingFrame) return;
+      holdingFrame = false;
+      root.removeAttribute('data-prerender-frame');
+      render();
+    }, FRAME_HOLD_MS);
+  }
 
   const dispatch = (action: Action): void => {
     state = reducer(state, action);

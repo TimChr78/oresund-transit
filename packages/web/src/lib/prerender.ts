@@ -155,6 +155,15 @@ ${items.join(sep)}
  *
  * `summary` is null when the build-time fetch failed (collector unreachable /
  * no snapshot yet) — the shell then ships exactly like renderLocalizedHome.
+ *
+ * `frame` (audit R1 C1/H1) is the prerendered board markup — renderBoardFrame
+ * over the build-time corridor snapshot — injected into #app so the FIRST
+ * paint is the board's final geometry instead of an empty div the SPA grows
+ * into (measured cold-load CLS 0.88 desktop / 1.11 mobile). The #app keeps a
+ * `data-prerender-frame` marker: main.ts holds that frame until the visitor's
+ * own fetches settle, then swaps it for the live board and drops the marker.
+ * Undefined when the frame data failed to fetch — the home variant then ships
+ * exactly like renderLocalizedHome did before.
  */
 export function renderHomeWithSummary(
   shell: string,
@@ -162,9 +171,13 @@ export function renderHomeWithSummary(
   meta: PageMeta,
   hreflang: string | undefined,
   summary: HomeSummary | null,
+  frame?: string,
 ): string {
   let html = renderLocalizedHome(shell, lang, meta, hreflang);
   if (summary) html = injectHomeSummary(html, lang, summary);
+  if (frame) {
+    html = html.replace('<div id="app"></div>', () => `<div id="app" data-prerender-frame="1">${frame}</div>`);
+  }
   return html;
 }
 
