@@ -301,7 +301,7 @@ export const sv: Dict = {
   station_kobenhavn_h: 'Köpenhamn H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup flygplats',
-  station_kastrup_note: 'Detta är järnvägsstationen i Köpenhamns flygplats — tåg på Öresundskorridoren, inte flygplatsen själv (flyg: cph.dk).',
+  station_kastrup_note: 'Detta är järnvägsstationen på Köpenhamns flygplats — tåg på Öresundskorridoren, inte flygplatsen själv (flyg: cph.dk).',
 
   // Informationstext på startsidan (audit3 C2) — permanent, crawlbar text i
   // skal utan JS. Beskrivande only: vad som mäts, hur ett tal definieras och
@@ -360,7 +360,7 @@ export const sv: Dict = {
   hub_stat_departures: 'Avgångar observerade vid 4 hållplatser',
   board_observed_badge: 'OBSERVERAT, INTE PROGNOS',
   hub_disruptions_note:
-    'Störningar räknar tre saker: inställda tåg, förseningar på 4 minuter eller mer samt servmeddelanden — en post per berörd avgång och dag. Punktligheten räknar bara de två första, därför är störningssumman högre medvetet.',
+    'Störningar räknar tre saker: inställda tåg, förseningar på 4 minuter eller mer samt servicemeddelanden — en post per berörd avgång och dag. Punktligheten räknar bara de två första, därför är störningssumman högre medvetet.',
 
   // Linjemodaliteter (audit5 M4) — linje 6 och 16 är bussarna vid Hyllie.
   line_mode_bus: 'buss',

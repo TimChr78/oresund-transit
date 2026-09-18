@@ -85,6 +85,12 @@ export function renderLocalizedHome(shell: string, lang: Lang, meta: PageMeta, h
       /<span class="board-label">[\s\S]*?<\/span>/,
       () => `<span class="board-label">${esc(stationScopeLabel(lang))}</span>`,
     );
+    // R1-H12 (CodeRabbit PR59): the observed-not-predicted disclosure must be in
+    // the static shell too — no-JS visitors and crawlers never see renderApp().
+    html = html.replace(
+      /(<span class="board-label">[\s\S]*?<\/span>)/,
+      () => `$1\n      <span class="observed-badge">${esc(translate('board_observed_badge', lang))}</span>`,
+    );
     // C2: the evergreen about block is user-visible prose, so the /sv/ and
     // /da/ home variants get their own wording and their own station routes
     // instead of the shell's English paragraph block.

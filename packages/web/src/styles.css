@@ -1623,5 +1623,10 @@ body::after {
   white-space: nowrap;
 }
 @media (max-width: 700px) {
-  .observed-badge { display: none; }
+  /* CodeRabbit PR59: keep the disclosure visible on mobile — compact, not hidden. */
+  .observed-badge {
+    font-size: 0.52rem;
+    padding: 3px 6px;
+    margin-left: 0.4rem;
+  }
 }

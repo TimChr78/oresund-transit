@@ -186,7 +186,7 @@ export const da: Dict = {
     'En afgang tæller som forsinket, når forsinkelsen er 240 sekunder (4 minutter) eller mere — Skånetrafikens officielle RT3-punktlighedsmål (≤ 3:59 forsinket = til tiden). Alt derunder tæller som til tiden.',
   meth_scope_title: 'Dækning',
   meth_scope_body:
-    'Punktualitetstal dækker grænseoverskridende Øresundståg (linje 802–805) på strækningen Hyllie ↔ København H. Linearkiverne er bredere: enhver tjeneste med registrerede forstyrrelser på korridoren — inklusive regionale linje 801, 807–809, 910 og buslinje 6 og 16 — har sin egen arkivside.',
+    'Punktualitetstal dækker grænseoverskridende Øresundståg (linje 802–805) på strækningen Hyllie ↔ København H. Linjearkiverne er bredere: enhver tjeneste med registrerede forstyrrelser på korridoren — inklusive regionale linje 801, 807–809, 910 og buslinje 6 og 16 — har sin egen arkivside.',
   meth_source_title: 'Datakilde',
   meth_source_body:
     'Dataene kommer fra Trafiklab (Skånetrafiken) realtidsafgange, aflæst hver 5. minut, under en CC-BY 4.0-licens. Live-data starter 2026-08-06; tidligere historik kommer fra KoDas historiske arkiv (fra maj 2026).',
