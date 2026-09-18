@@ -645,6 +645,26 @@ describe('zero-data days (audit3 M1)', () => {
   });
 });
 
+describe('R1 fixes (2026-09-17 audit)', () => {
+  const kastrupStats: ArchiveStationStats = {
+    ...stationStats,
+    slug: 'kastrup',
+    stop_id: '860000858',
+    stop_name: 'Københavns Lufthavn (Kastrup)',
+  };
+
+  it('R1-H10: Kastrup page carries the train-station disambiguation note + cph.dk link', () => {
+    const html = renderStationPage(kastrupStats, stationStatsSlugList());
+    expect(html).toContain('railway station');
+    expect(html).toContain('https://www.cph.dk/');
+  });
+
+  it('R1-H10: non-Kastrup station pages do NOT carry the disambiguation note', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    expect(html).not.toContain('https://www.cph.dk/');
+  });
+});
+
 describe('Dataset JSON-LD on archive pages (SEO audit H4)', () => {
   it('line pages carry a Dataset node with temporal coverage, CC-BY license, distribution and variableMeasured', () => {
     const html = renderLinePage('804', lineStats, [{ line: '803', disruptions: 1 }]);
