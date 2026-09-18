@@ -679,6 +679,17 @@ function dailyTable(rows: ArchiveHistory['daily']): string {
       // M1: a day with no recorded disruptions has no average to report —
       // the collector zero-fills the window, so "0 min" would read as a
       // measured (perfect) day rather than an unobserved one.
+      // R1-H5 (2026-09-17): a pre-coverage day (before live data began) is NOT a
+      // zero-disruption day. Render the whole row as unobserved, not 0s that read
+      // as a perfect service day.
+      const preCoverage = r.count === 0 && r.date < LIVE_DATA_SINCE;
+      if (preCoverage) {
+        const nd = NO_DATA_MARK;
+        const cells = [r.date, nd, nd, nd, nd, nd]
+          .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(v)}</td>`)
+          .join('');
+        return `<tr class="no-data">${cells}</tr>`;
+      }
       const cells = [r.date, r.count, r.cancellations, r.delays, r.alerts, r.count === 0 ? NO_DATA_MARK : fmtDelay(r.avg_delay)]
         .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(typeof v === 'number' ? String(v) : v)}</td>`)
         .join('');
@@ -836,6 +847,7 @@ export function renderHistoryPage(days: ArchiveDays, history: ArchiveHistory): s
     <p class="sub">${history.total_disruptions} disruptions between ${esc(fmtDate(history.date_from))} and ${esc(fmtDate(history.date_to))}. ${esc(translate('archive_attribution', 'en'))}.</p>
     <h2>Daily breakdown</h2>
     ${dailyTable(history.daily)}
+    <p class="fine" style="font-size:.72rem;color:var(--muted,#5A6C8F)">Days before 6 Aug 2026 were not observed live; where shown, they are partial KoDa backfill and marked "–" (no data).</p>
     <h2>Other ranges</h2>
     <ul class="plain">
 ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/${d}">Last ${d} days</a></li>`).join('\n')}
@@ -1192,6 +1204,15 @@ export function renderStationPage(
       // recorded traffic) have no on-time share or average delay — the
       // collector zero-fills the window, so rendering the raw 0/0% would
       // read as a catastrophic all-delayed service day.
+      // R1-H5: pre-coverage days (before LIVE_DATA_SINCE) are unobserved, not
+      // zero-disruption — render the whole row as no-data.
+      if (r.total === 0 && r.date < LIVE_DATA_SINCE) {
+        const nd = NO_DATA_MARK;
+        const cells = [r.date, nd, nd, nd, nd, nd, nd]
+          .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(v)}</td>`)
+          .join('');
+        return `<tr class="no-data">${cells}</tr>`;
+      }
       const pct = r.total === 0 ? NO_DATA_MARK : formatPct(r.on_time_pct, lang);
       const avg = r.total === 0 ? NO_DATA_MARK : formatDelaySeconds(r.avg_delay_seconds, lang);
       const cells = [r.date, r.total, r.on_time, r.delayed, r.canceled, pct, avg]
@@ -1205,6 +1226,7 @@ export function renderStationPage(
   const body = `
     <p class="crumb"><a href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
     <h1>${esc(translate('station_h1', lang, { name }))}</h1>
+    ${name.includes('Kastrup') ? `<p class="sub" style="font-size:.85rem;color:var(--muted, #5A6C8F);margin:.3rem 0 0">${esc(translate('station_kastrup_note', lang))} <a href="https://www.cph.dk/" target="_blank" rel="noopener noreferrer">cph.dk</a></p>` : ''}
     <p class="sub">${esc(
       translate('station_sub', lang, {
         days: stats.days,

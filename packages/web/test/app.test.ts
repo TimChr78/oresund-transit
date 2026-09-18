@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderApp } from '../src/components/App';
+import { renderFooter } from '../src/components/Footer';
 import { createInitialState, type AppState } from '../src/state';
 import type { StationResponse } from '../src/api';
 import type { Disruption, LiveStatus } from '@oresund/shared';
@@ -410,5 +411,22 @@ describe('renderApp — landmarks', () => {
   it('renders exactly one <footer> (audit4 N-M2: the shell ships a second one that boot() drops)', () => {
     expect(renderApp(createInitialState(), 'en').match(/<footer/g)).toHaveLength(1);
     expect(renderApp(createInitialState(), 'sv').match(/<footer/g)).toHaveLength(1);
+  });
+});
+
+
+describe('R1-H12/C6: observed badge + sibling link rendering (CodeRabbit PR59)', () => {
+  it('renderApp() emits the observed badge in the topbar', () => {
+    const html = renderApp(createInitialState(), 'en');
+    expect(html).toContain('class="observed-badge"');
+    expect(html).toContain('OBSERVED, NOT PREDICTED');
+  });
+
+  it('renderFooter() renders the MartechSignal sibling link in en/sv/da', () => {
+    for (const lang of ['en', 'sv', 'da'] as const) {
+      const html = renderFooter(lang);
+      expect(html).toContain('href="https://martechsignal.com/"');
+      expect(html).toContain('MartechSignal');
+    }
   });
 });

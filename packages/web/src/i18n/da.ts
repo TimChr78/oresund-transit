@@ -186,7 +186,7 @@ export const da: Dict = {
     'En afgang tæller som forsinket, når forsinkelsen er 240 sekunder (4 minutter) eller mere — Skånetrafikens officielle RT3-punktlighedsmål (≤ 3:59 forsinket = til tiden). Alt derunder tæller som til tiden.',
   meth_scope_title: 'Dækning',
   meth_scope_body:
-    'Dataene dækker kun grænseoverskridende Øresundståg (linje 802–805) på strækningen Hyllie ↔ København H. Andre regionale og lokale tog er ikke inkluderet.',
+    'Punktualitetstal dækker grænseoverskridende Øresundståg (linje 802–805) på strækningen Hyllie ↔ København H. Linjearkiverne er bredere: enhver tjeneste med registrerede forstyrrelser på korridoren — inklusive regionale linje 801, 807–809, 910 og buslinje 6 og 16 — har sin egen arkivside.',
   meth_source_title: 'Datakilde',
   meth_source_body:
     'Dataene kommer fra Trafiklab (Skånetrafiken) realtidsafgange, aflæst hver 5. minut, under en CC-BY 4.0-licens. Live-data starter 2026-08-06; tidligere historik kommer fra KoDas historiske arkiv (fra maj 2026).',
@@ -302,6 +302,7 @@ export const da: Dict = {
   station_kobenhavn_h: 'København H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup Lufthavn',
+  station_kastrup_note: 'Dette er jernbanestationen i Københavns Lufthavn — tog på Øresundskorridoren, ikke lufthavnen selv (fly: cph.dk).',
 
   // Forside-tekstblok (audit3 C2) — permanent, crawlbar tekst i skallet uden
   // JS. Kun beskrivende: hvad der måles, hvordan et tal defineres og hvor
@@ -359,8 +360,9 @@ export const da: Dict = {
   // stoppesteder og forstyrrelsestallet en anden enhed, så begge angiver, hvad
   // de tæller.
   hub_stat_departures: 'Afgange observeret ved 4 stoppesteder',
+  board_observed_badge: 'OBSERVERET, IKKE FORUDSAGT',
   hub_disruptions_note:
-    'Forstyrrelser tælles én gang pr. berørt afgang og dag i korridoren — ikke som summen af de fire stationssider.',
+    'Forstyrrelser tæller tre ting: aflyste tog, forsinkelser på 4 minutter eller mere samt servicemeddelelser — én post per berørt afgang og dag. Punktlighed tæller kun de to første, derfor er forstyrrelsestallet bevidst højere.',
 
   // Linjemodaliteter (audit5 M4) — linje 6 og 16 er busserne ved Hyllie.
   line_mode_bus: 'bus',

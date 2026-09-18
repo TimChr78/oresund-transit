@@ -184,7 +184,7 @@ export const en: Dict = {
     'A departure counts as delayed when its delay is 240 seconds (4 minutes) or more — Skånetrafiken’s official RT3 punctuality measure (≤ 3:59 late = punctual). Everything below that counts as on time.',
   meth_scope_title: 'Coverage',
   meth_scope_body:
-    'Data covers cross-border Øresundståg services (lines 802–805) on the Hyllie ↔ København H corridor only. Other regional and local services are not included.',
+    'Punctuality figures cover cross-border Øresundståg services (lines 802–805) on the Hyllie ↔ København H corridor only. The line archives are broader: every service with recorded disruptions on the corridor — including regional lines 801, 807–809, 910 and bus lines 6 and 16 — has its own archive page.',
   meth_source_title: 'Data source',
   meth_source_body:
     'Data comes from Trafiklab (Skånetrafiken) realtime departures, polled every 5 minutes, under a CC-BY 4.0 license. Live data starts 2026-08-06; earlier history comes from KoDa’s historical archive (May 2026 onward).',
@@ -301,6 +301,7 @@ export const en: Dict = {
   station_kobenhavn_h: 'København H',
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Københavns Lufthavn (Kastrup)',
+  station_kastrup_note: 'This is the railway station inside Copenhagen Airport — train services on the Øresund corridor, not the airport itself (flights: cph.dk).',
 
   // Homepage about block (audit3 C2) — evergreen, crawlable copy in the
   // no-JS/crawler shell. Descriptive only: what is tracked, how a number is
@@ -358,8 +359,9 @@ export const en: Dict = {
   // observations at four stops and the disruption count is a different unit
   // again, so both say what they count instead of reading as a contradiction.
   hub_stat_departures: 'Departures observed at 4 stops',
+  board_observed_badge: 'OBSERVED, NOT PREDICTED',
   hub_disruptions_note:
-    'Disruptions are counted once per affected departure and day across the corridor — not the sum of the four station pages.',
+    'Disruptions count three things: cancellations, delays of 4 minutes or more, and service alerts — one record per affected departure and day. Punctuality counts only the first two, so the disruption total is higher by design.',
 
   // Line modes (audit5 M4) — lines 6 and 16 are the buses that call at Hyllie.
   line_mode_bus: 'bus',

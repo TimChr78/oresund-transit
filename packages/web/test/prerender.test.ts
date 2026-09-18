@@ -305,11 +305,14 @@ describe('SEO — train + Øresundståg in the served HTML', () => {
     expect(h1s[0]).toContain('class="lead"');
   });
 
-  it('META.dashboard.en.description is one sentence with natural train + Øresundståg wording', () => {
+  it('META.dashboard.en.description is one sentence leading with the observed-not-predicted differentiator', () => {
     const description = META.dashboard.en.description;
     const sentences = description.split('.').filter((s) => s.trim().length > 0);
     expect(sentences).toHaveLength(1);
-    expect(description).toMatch(/train/i);
+    // R1-H12: the description states the differentiator up front (audit: it was
+    // buried in the last section of the page).
+    expect(description).toMatch(/Observed/i);
+    expect(description).toMatch(/not predictions/i);
     expect(description).toMatch(/Øresundståg/);
     // the index.html <head> carries the same description (og + twitter + JSON-LD in sync)
     expect(shell).toContain(description);
@@ -756,14 +759,14 @@ describe('JSON-LD description localization (CodeRabbit PR51 critical)', () => {
   // publishes English sentences inside lang="sv"/"da".
   it('keeps the English description on the en home', () => {
     const home = renderLocalizedHome(shell, 'en', META.dashboard.en, hreflangCluster('/'));
-    expect(home).toContain('"description": "Live');
+    expect(home).toContain('"description": "Observed');
   });
 
   it('strips the description members from the sv and da homes, keeps name/url', () => {
     for (const lang of ['sv', 'da'] as Lang[]) {
       const home = renderLocalizedHome(shell, lang, META.dashboard[lang], hreflangCluster(`/${lang}`));
       expect(home, `home/${lang} still has ld+json`).toContain('application/ld+json');
-      expect(home, `home/${lang} kept a description member`).not.toContain('"description": "Live');
+      expect(home, `home/${lang} kept a description member`).not.toContain('"description": "Observed');
       expect(home, `home/${lang} kept name`).toContain('"name"');
     }
   });

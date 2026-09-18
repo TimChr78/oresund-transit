@@ -333,6 +333,7 @@ export interface Dict {
   station_kobenhavn_h: string;
   station_malmo_c: string;
   station_kastrup: string;
+  station_kastrup_note: string;
 
   // Homepage about block (audit3 C2) — the evergreen crawlable copy in the
   // no-JS/crawler home shell. about_corridor takes a {stations} placeholder
@@ -396,6 +397,7 @@ export interface Dict {
    * contradiction under a heading that says they were recorded together.
    */
   hub_stat_departures: string;
+  board_observed_badge: string;
   hub_disruptions_note: string;
   /**
    * Line modes (audit5 M4). Lines 6 and 16 in the canonical set are the buses
