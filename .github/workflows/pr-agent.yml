@@ -27,5 +27,6 @@ jobs:
           OPENAI_API_BASE: ${{ secrets.PR_AGENT_BASE }}
           CONFIG.MODEL: "openai/qwen3.8-flash"
           CONFIG.FALLBACK_MODELS: ""
+          CONFIG.CUSTOM_MODEL_MAX_TOKENS: "8192"
           PR_REVIEWER.MAX_DESCRIPTION_TOKENS: "1000"
           PR_REVIEWER.EXTRA_INSTRUCTIONS: "Focus on functional correctness, security (XSS, injection), CSS cascade/specificity bugs, and test coverage of new behavior. This is a TypeScript monorepo (packages/web, packages/collector); vanilla DOM + Vitest. Be concise; skip style nitpicks."
