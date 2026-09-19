@@ -153,6 +153,16 @@
       </nav>
     </footer>
     <noscript>
+      <!-- The board frame in #app (audit R1 C1/H1) is a build-time snapshot —
+           without JS it never updates, so hide it and let #static-shell below
+           be the page: it carries the same lead, the picker and the evergreen
+           copy. (The prerendered static routes drop this block; they inject
+           their own finished content into #app.) -->
+      <style>
+        #app {
+          display: none;
+        }
+      </style>
       <p lang="sv">Den här sidan kräver JavaScript för att visa avgångstavlan.</p>
       <p lang="da">Denne side kræver JavaScript for at vise afgangstavlen.</p>
       <p lang="en">This page requires JavaScript to show the departure board.</p>
@@ -161,11 +171,14 @@
     <script>
       // Deploy-race self-heal: if the SPA never boots within 6s (typically a
       // module load failure while a new deployment propagates), reload once.
-      // sessionStorage guard prevents reload loops.
+      // sessionStorage guard prevents reload loops. The check is the boot
+      // marker main.ts stamps on #app, NOT #app's children: the prerendered
+      // board frame (audit R1 C1/H1) makes #app non-empty even when no
+      // JavaScript ran at all.
       (function () {
         setTimeout(function () {
           var app = document.getElementById('app');
-          if (app && app.children.length === 0 && !sessionStorage.getItem('oresund-reloaded')) {
+          if (app && !app.getAttribute('data-app-booted') && !sessionStorage.getItem('oresund-reloaded')) {
             sessionStorage.setItem('oresund-reloaded', '1');
             location.reload();
           }

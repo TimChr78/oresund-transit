@@ -99,6 +99,33 @@ export type Action =
   | { type: 'PUNCTUALITY_OK'; id: number; punctuality: PunctualityResponse }
   | { type: 'PUNCTUALITY_ERROR'; id: number; message: string };
 
+/**
+ * True when every board section has a settled answer — the condition that
+ * releases the prerendered board frame at boot (audit R1 C1/H1).
+ *
+ * The frame ships in #app with the build-time snapshot, and its geometry is
+ * the board's final geometry. Rendering the loading state over it — small
+ * `.empty` placeholders where a 1200px chart skeleton stands — would trade
+ * the old expand-shift for an identical collapse-shift. So boot() holds the
+ * frame until the visitor's own parallel fetches have ALL landed (or failed),
+ * and swaps once: the sections then change value, not size.
+ *
+ * The station section counts only when a scope is picked (a shared
+ * ?station= link); the heatmap baseline counts because its reply adds the
+ * heat caption line inside the history section.
+ */
+export function boardSettled(s: AppState): boolean {
+  return (
+    s.liveState !== 'loading' &&
+    (s.stats !== null || s.statsError !== null) &&
+    s.disruptionsState !== 'loading' &&
+    (s.history !== null || s.historyError !== null) &&
+    (s.punctuality !== null || s.punctualityError !== null) &&
+    (s.heatmapHistory !== null || s.heatmapError !== null) &&
+    (s.station === 'all' || s.stationState === 'ok' || s.stationState === 'error')
+  );
+}
+
 export function createInitialState(): AppState {
   return {
     direction: 'all',

@@ -1045,6 +1045,17 @@ body::after {
   display: block;
   width: 100%;
   height: auto;
+  /* Fixed geometry for the cold-load frame (audit R1 C1/H1): the viewBox is
+     560x140, and pinning the aspect ratio means the container reserves the
+     same height at first paint as it has once the punctuality series lands —
+     the chart can never repaint 94→409px mid-load. */
+  aspect-ratio: 560 / 140;
+}
+/* Same reservation for the horizontal-bar charts: the daily history counts
+   barely move through a day, so the build-time row count is a reliable
+   minimum; the floor keeps an early/empty render from collapsing the frame. */
+.chart .hbars {
+  min-height: 110px;
 }
 .punct-ylabels {
   position: absolute;
