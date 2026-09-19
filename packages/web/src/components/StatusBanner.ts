@@ -22,6 +22,13 @@ export interface BannerModel {
   count: string | null;
 }
 
+/** Bands the CSS actually ships; anything else from the collector maps to green. */
+const BANDS = new Set(['green', 'amber', 'blue', 'red']);
+
+function bandForStatus(status: string): string {
+  return BANDS.has(status) ? status : 'green';
+}
+
 /** Pure banner model: band color, translated text, count, clock. */
 export function bannerModel(live: LiveStatus, lang: Lang): BannerModel {
   const key = statusKeyFor(live);
@@ -35,7 +42,9 @@ export function bannerModel(live: LiveStatus, lang: Lang): BannerModel {
       : null;
   return {
     // service_shutdown forces the red band even when status is green.
-    bandClass: `status-${live.service_shutdown ? 'red' : live.status}`,
+    // CodeRabbit PR60 round 2 (CWE-79): live.status is an arbitrary collector
+    // string — allowlist the band instead of interpolating it into class.
+    bandClass: `status-${live.service_shutdown ? 'red' : bandForStatus(live.status)}`,
     text: translate(key, lang),
     updated: translate('banner_updated', lang),
     time: formatTime(live.time_short || live.timestamp, lang),

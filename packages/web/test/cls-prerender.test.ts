@@ -11,6 +11,7 @@ import { renderHomeWithSummary, renderLocalizedHome, type HomeSummary } from '..
 import { META, hreflangCluster } from '../src/lib/seo';
 import { boardSettled, createInitialState } from '../src/state';
 import { translate, type Lang } from '../src/i18n';
+import { bannerModel } from '../src/components/StatusBanner';
 import type { HistoryResponse, PunctualityResponse } from '../src/api';
 
 /**
@@ -461,5 +462,27 @@ describe('CodeRabbit PR60: interaction lifts the frame hold', () => {
     expect(src).toContain("root.addEventListener(\n    'click'");
     expect(src).toContain('capture: true');
     expect(src).toMatch(/holdingFrame = false;[\s\S]{0,120}render\(\);/);
+  });
+});
+
+describe('CodeRabbit PR60 round-2: status band allowlist (CWE-79)', () => {
+  it('bannerModel maps unknown collector status strings to a safe band', () => {
+    const crafted = { status: 'green\"><script>alert(1)</script>', service_shutdown: false, disruption_count: 0, timestamp: '2026-09-19T08:00:00Z', time_short: '08:00' } as unknown as Parameters<typeof bannerModel>[0];
+    const m = bannerModel(crafted, 'en');
+    expect(m.bandClass).toBe('status-green');
+    expect(m.bandClass).not.toContain('<');
+    expect(m.bandClass).not.toContain('"');
+  });
+
+  it('bannerModel keeps the real band vocabulary', () => {
+    for (const status of ['green', 'amber', 'blue', 'red']) {
+      const live = { status, service_shutdown: false, disruption_count: 0, timestamp: '2026-09-19T08:00:00Z', time_short: '08:00' } as unknown as Parameters<typeof bannerModel>[0];
+      expect(bannerModel(live, 'en').bandClass).toBe(`status-${status}`);
+    }
+  });
+
+  it('service_shutdown still forces the red band regardless of status', () => {
+    const live = { status: 'green', service_shutdown: true, disruption_count: 3, timestamp: '2026-09-19T08:00:00Z', time_short: '08:00' } as unknown as Parameters<typeof bannerModel>[0];
+    expect(bannerModel(live, 'en').bandClass).toBe('status-red');
   });
 });
