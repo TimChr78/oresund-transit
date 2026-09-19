@@ -24,6 +24,32 @@
   font-display: swap;
 }
 
+/* Light theme (audit3 L2, card t_4c30d4f9): full token override set wired to
+   prefers-color-scheme: light. Same structure as :root — text tiers re-derived
+   for light surfaces so every tier clears 4.5:1 (pinned in
+   test/styles.test.ts 'light theme' block, which computes real composites).
+   Accent bare tokens are NOT overridden: they are fills carrying white text,
+   and white-on-accent contrast is unchanged by the surrounding theme. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #eef0f4;
+    --text: #171a21;
+    --dim: #454e5e;
+    /* Faintest TEXT tier for light surfaces (mirrors the dark-theme analysis
+       in :root): #5b6472 clears 4.5:1 on all three light surfaces. */
+    --faint: #5b6472;
+    --border: rgba(20, 24, 33, 0.12);
+    /* *-text siblings: darkest steps of the same hues that clear 4.5:1 on the
+       light badge composites (accent at 10-14% alpha over --surface). */
+    --red-text: #c22f2f;
+    --blue-text: #2563eb;
+    --indigo-text: #4a4ede;
+  }
+}
+
 :root {
   --bg: #0a0c10;
   --surface: #1a1d27;

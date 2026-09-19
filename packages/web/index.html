@@ -18,8 +18,9 @@
     <!-- The board is dark-only (styles.css declares no light palette), so the
          theme colour and color-scheme stay dark — a light variant would paint
          the browser UI white over a near-black page. -->
-    <meta name="theme-color" content="#0a0c10" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="normal" />
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230a0c10'/><circle cx='32' cy='18' r='7' fill='%2310b981'/><circle cx='32' cy='32' r='7' fill='%23f59e0b'/><circle cx='32' cy='46' r='7' fill='%23ef4444'/></svg>"
