@@ -405,3 +405,61 @@ describe('boardSettled — the cold-load swap gate', () => {
     expect(settled({ station: 'hyllie', stationState: 'error' })).toBe(true);
   });
 });
+
+describe('CodeRabbit PR60: interaction lifts the frame hold', () => {
+  // The suite is pure-node (no jsdom), so the lift is pinned as the same pure
+  // closure shape main.ts uses: hold active + click -> hold cleared and the
+  // board renders in the SAME pass (the click that lifted the hold is not
+  // swallowed). The wiring in main.ts itself is asserted textually below.
+  function makeHold(getSettled: () => boolean) {
+    let holdingFrame = true;
+    let renders = 0;
+    const render = (): void => {
+      if (holdingFrame) {
+        if (!getSettled()) return;
+        holdingFrame = false;
+      }
+      renders += 1;
+    };
+    const onClick = (): void => {
+      if (!holdingFrame) return;
+      holdingFrame = false;
+      render();
+    };
+    return {
+      get holding() {
+        return holdingFrame;
+      },
+      get renders() {
+        return renders;
+      },
+      render,
+      onClick,
+    };
+  }
+
+  it('a click during the hold lifts it and renders in the same pass', () => {
+    const hold = makeHold(() => false); // data NOT settled yet
+    hold.render();
+    expect(hold.renders).toBe(0); // plain render no-ops while held
+    hold.onClick(); // the user's click proves presence
+    expect(hold.holding).toBe(false);
+    expect(hold.renders).toBe(1); // the same click is not swallowed
+  });
+
+  it('a click after the hold lifted is a no-op for the lift path', () => {
+    const hold = makeHold(() => false);
+    hold.onClick();
+    expect(hold.holding).toBe(false);
+    const before = hold.renders;
+    hold.onClick();
+    expect(hold.renders).toBe(before);
+  });
+
+  it('main.ts wires the lift as a capture-phase root click handler', () => {
+    const src = readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8');
+    expect(src).toContain("root.addEventListener(\n    'click'");
+    expect(src).toContain('capture: true');
+    expect(src).toMatch(/holdingFrame = false;[\s\S]{0,120}render\(\);/);
+  });
+});

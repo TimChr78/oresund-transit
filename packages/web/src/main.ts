@@ -268,6 +268,21 @@ export function boot(): void {
   let holdingFrame = root.hasAttribute('data-prerender-frame');
   const FRAME_HOLD_MS = 5000;
 
+  // CodeRabbit PR60: a click while the frame is held must not meet a dead
+  // control. The first interaction proves the visitor is present — first-paint
+  // protection no longer matters — so lift the hold and re-render BEFORE the
+  // handler's own dispatch runs, so even that first click takes effect.
+  root.addEventListener(
+    'click',
+    () => {
+      if (!holdingFrame) return;
+      holdingFrame = false;
+      root.removeAttribute('data-prerender-frame');
+      render();
+    },
+    { capture: true },
+  );
+
   const render = (): void => {
     if (holdingFrame) {
       if (!boardSettled(state)) return;
