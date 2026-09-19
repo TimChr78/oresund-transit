@@ -376,15 +376,27 @@ describe('styles.css — 375px pass (audit4 N-M14)', () => {
 describe('styles.css — light theme tokens (card t_4c30d4f9)', () => {
   /** Parse light tokens straight from the styles.css media block (F3: the
       contrast assertions must break if the CSS tokens change or vanish). */
-  function lightTokensFromCss(css: string): Record<string, string> {
+  const REQUIRED_LIGHT_TOKENS = [
+    '--bg', '--surface', '--surface-2', '--text', '--dim', '--faint',
+    '--border', '--red-text', '--blue-text', '--indigo-text',
+  ] as const;
+  type LightToken = (typeof REQUIRED_LIGHT_TOKENS)[number];
+  type LightTokenMap = Record<LightToken, string>;
+
+  function lightTokensFromCss(css: string): LightTokenMap {
     const m = css.match(/@media \(prefers-color-scheme: light\) \{[\s\S]*?\n\}\n/);
     expect(m).not.toBeNull();
     const block = m![0];
-    const tokens: Record<string, string> = {};
-    for (const tm of block.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{6})/g)) {
-      tokens[tm[1]!] = tm[2]!;
+    const parsed = new Map<string, string>();
+    for (const tm of block.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{6}|rgba?\([^)]+\))/g)) {
+      parsed.set(tm[1]!, tm[2]!);
     }
-    expect(Object.keys(tokens).length).toBeGreaterThanOrEqual(9);
+    const tokens = {} as LightTokenMap;
+    for (const name of REQUIRED_LIGHT_TOKENS) {
+      const value = parsed.get(name);
+      expect(value, `missing light token ${name}`).toBeDefined();
+      tokens[name] = value!;
+    }
     return tokens;
   }
 
@@ -405,23 +417,22 @@ describe('styles.css — light theme tokens (card t_4c30d4f9)', () => {
     return (l1! + 0.05) / (l2! + 0.05);
   }
 
-  it('ships a prefers-color-scheme: light override block', () => {
-    const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
-    expect(css).toContain('@media (prefers-color-scheme: light)');
-    expect(css).toContain('color-scheme: light');
+  it('ships a prefers-color-scheme: light override block containing the light :root', () => {
+    const m = css.match(/@media \(prefers-color-scheme: light\) \{[\s\S]*?\n\}\n/);
+    expect(m).not.toBeNull();
+    const block = m![0];
+    expect(block).toContain(':root {');
+    expect(block).toContain('color-scheme: light');
+    expect(block).toContain('--bg: #f5f6f8');
   });
 
   it('every light text tier clears 4.5:1 on all three light surfaces', () => {
     const surfaces = [LIGHT['--bg'], LIGHT['--surface'], LIGHT['--surface-2']];
     for (const tier of ['--text', '--dim', '--faint'] as const) {
       for (const bg of surfaces) {
-        const r = ratio(LIGHT[tier], bg);
-        if (tier === 'faint' && bg === LIGHT['--surface-2']) {
-          // faint on the darkest light surface is the tightest pair; still >= 4.5
-          expect(r).toBeGreaterThanOrEqual(4.5);
-        } else {
-          expect(r).toBeGreaterThanOrEqual(4.5);
-        }
+        // Every tier on every surface must clear AA 4.5:1 — including the
+        // tightest pair (--faint on --surface-2).
+        expect(ratio(LIGHT[tier], bg)).toBeGreaterThanOrEqual(4.5);
       }
     }
   });
