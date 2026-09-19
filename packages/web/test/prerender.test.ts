@@ -174,11 +174,11 @@ describe('per-route canonical', () => {
       expect(existsSync(new URL(`../public${icon.src}`, import.meta.url)), icon.src).toBe(true);
       expect(icon.type).toBe('image/png');
     }
-    // The board is dark-only — one dark theme colour, declared as such. No
-    // light variant: styles.css has no light palette to sample a value from.
-    expect(shell).toContain('<meta name="theme-color" content="#0a0c10" />');
-    expect(shell).toContain('<meta name="color-scheme" content="dark" />');
-    expect(shell).not.toMatch(/theme-color[^>]*media=/);
+    // Dual-scheme since card t_4c30d4f9: one theme colour per scheme, both
+    // declared with media so the browser picks at install/paint time.
+    expect(shell).toContain('<meta name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)" />');
+    expect(shell).toContain('<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)" />');
+    expect(shell).toContain('<meta name="color-scheme" content="normal" />');
   });
 
   it('ships the summary_large_image twitter card and og:image:alt on every og-tagged page (L4/L5)', () => {    // The dashboard shell sets the card type + image (with alt)…
