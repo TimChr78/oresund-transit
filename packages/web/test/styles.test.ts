@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
@@ -375,7 +374,7 @@ describe('styles.css — 375px pass (audit4 N-M14)', () => {
 });
 
 describe('styles.css — light theme tokens (card t_4c30d4f9)', () => {
-  const LIGHT: Record<string, string> = {
+  const LIGHT = {
     bg: '#f5f6f8',
     surface: '#ffffff',
     'surface-2': '#eef0f4',

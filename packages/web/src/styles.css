@@ -24,14 +24,7 @@
   font-display: swap;
 }
 
-/* Light theme (audit3 L2, card t_4c30d4f9): full token override set wired to
-   prefers-color-scheme: light. Same structure as :root — text tiers re-derived
-   for light surfaces so every tier clears 4.5:1 (pinned in
-   test/styles.test.ts 'light theme' block, which computes real composites).
-   Accent bare tokens are NOT overridden: they are fills carrying white text,
-   and white-on-accent contrast is unchanged by the surrounding theme. */
-@media (prefers-color-scheme: light) {
-  :root {
+:root {
     color-scheme: light;
     --bg: #f5f6f8;
     --surface: #ffffff;
@@ -48,6 +41,16 @@
     --blue-text: #2563eb;
     --indigo-text: #4a4ede;
   }
+
+/* Light theme (audit3 L2, card t_4c30d4f9): full token override set wired to
+   prefers-color-scheme: light. Same structure as :root — text tiers re-derived
+   for light surfaces so every tier clears 4.5:1 (pinned in
+   test/styles.test.ts 'light theme' block, which computes real composites).
+   Accent bare tokens are NOT overridden: they are fills carrying white text,
+   and white-on-accent contrast is unchanged by the surrounding theme. */
+@media (prefers-color-scheme: light) {
+
+
 }
 
 :root {
