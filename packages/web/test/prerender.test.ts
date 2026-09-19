@@ -178,7 +178,7 @@ describe('per-route canonical', () => {
     // declared with media so the browser picks at install/paint time.
     expect(shell).toContain('<meta name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)" />');
     expect(shell).toContain('<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)" />');
-    expect(shell).toContain('<meta name="color-scheme" content="normal" />');
+    expect(shell).toContain('<meta name="color-scheme" content="dark light" />');
   });
 
   it('ships the summary_large_image twitter card and og:image:alt on every og-tagged page (L4/L5)', () => {    // The dashboard shell sets the card type + image (with alt)…

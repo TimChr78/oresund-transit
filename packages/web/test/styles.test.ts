@@ -374,17 +374,22 @@ describe('styles.css — 375px pass (audit4 N-M14)', () => {
 });
 
 describe('styles.css — light theme tokens (card t_4c30d4f9)', () => {
-  const LIGHT = {
-    bg: '#f5f6f8',
-    surface: '#ffffff',
-    'surface-2': '#eef0f4',
-    text: '#171a21',
-    dim: '#454e5e',
-    faint: '#5b6472',
-    'red-text': '#c22f2f',
-    'blue-text': '#2563eb',
-    'indigo-text': '#4a4ede',
-  };
+  /** Parse light tokens straight from the styles.css media block (F3: the
+      contrast assertions must break if the CSS tokens change or vanish). */
+  function lightTokensFromCss(css: string): Record<string, string> {
+    const m = css.match(/@media \(prefers-color-scheme: light\) \{[\s\S]*?\n\}\n/);
+    expect(m).not.toBeNull();
+    const block = m![0];
+    const tokens: Record<string, string> = {};
+    for (const tm of block.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{6})/g)) {
+      tokens[tm[1]!] = tm[2]!;
+    }
+    expect(Object.keys(tokens).length).toBeGreaterThanOrEqual(9);
+    return tokens;
+  }
+
+  const LIGHT = lightTokensFromCss(css);
+
 
   function lum(hex: string): number {
     const n = hex.replace('#', '');
@@ -407,11 +412,11 @@ describe('styles.css — light theme tokens (card t_4c30d4f9)', () => {
   });
 
   it('every light text tier clears 4.5:1 on all three light surfaces', () => {
-    const surfaces = [LIGHT.bg, LIGHT.surface, LIGHT['surface-2']];
-    for (const tier of ['text', 'dim', 'faint'] as const) {
+    const surfaces = [LIGHT['--bg'], LIGHT['--surface'], LIGHT['--surface-2']];
+    for (const tier of ['--text', '--dim', '--faint'] as const) {
       for (const bg of surfaces) {
-        const r = ratio(LIGHT[tier]!, bg);
-        if (tier === 'faint' && bg === LIGHT['surface-2']) {
+        const r = ratio(LIGHT[tier], bg);
+        if (tier === 'faint' && bg === LIGHT['--surface-2']) {
           // faint on the darkest light surface is the tightest pair; still >= 4.5
           expect(r).toBeGreaterThanOrEqual(4.5);
         } else {
@@ -422,15 +427,15 @@ describe('styles.css — light theme tokens (card t_4c30d4f9)', () => {
   });
 
   it('light accent-text siblings clear 4.5:1 on white and on their 12% badge composite', () => {
-    for (const tier of ['red-text', 'blue-text', 'indigo-text'] as const) {
-      expect(ratio(LIGHT[tier]!, LIGHT.surface!)).toBeGreaterThanOrEqual(4.5);
+    for (const tier of ['--red-text', '--blue-text', '--indigo-text'] as const) {
+      expect(ratio(LIGHT[tier], LIGHT['--surface'])).toBeGreaterThanOrEqual(4.5);
       // badge composite: accent at 12% alpha over white surface
-      const accent = { 'red-text': '#ef4444', 'blue-text': '#3b82f6', 'indigo-text': '#5d60f0' }[tier]!;
+      const accent = { '--red-text': '#ef4444', '--blue-text': '#3b82f6', '--indigo-text': '#5d60f0' }[tier]!;
       const n = (h: string) => [0, 2, 4].map((i) => parseInt(h.replace('#', '').slice(i, i + 2), 16));
       const blend = (fg: number[], bg: number[], a: number) =>
         '#' + fg.map((v, i) => Math.round(v * a + bg[i]! * (1 - a)).toString(16).padStart(2, '0')).join('');
       const badge = blend(n(accent), n('#ffffff'), 0.12);
-      expect(ratio(LIGHT[tier]!, badge)).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(LIGHT[tier], badge)).toBeGreaterThanOrEqual(4.5);
     }
   });
 
