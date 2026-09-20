@@ -372,3 +372,87 @@ describe('styles.css — 375px pass (audit4 N-M14)', () => {
     expect(css).toMatch(/\.hbar-meta \{[^}]*min-width:\s*0/);
   });
 });
+
+describe('styles.css — light theme tokens (card t_4c30d4f9)', () => {
+  /** Parse light tokens straight from the styles.css media block (F3: the
+      contrast assertions must break if the CSS tokens change or vanish). */
+  const REQUIRED_LIGHT_TOKENS = [
+    '--bg', '--surface', '--surface-2', '--text', '--dim', '--faint',
+    '--border', '--red-text', '--blue-text', '--indigo-text',
+  ] as const;
+  type LightToken = (typeof REQUIRED_LIGHT_TOKENS)[number];
+  type LightTokenMap = Record<LightToken, string>;
+
+  function lightTokensFromCss(css: string): LightTokenMap {
+    const m = css.match(/@media \(prefers-color-scheme: light\) \{[\s\S]*?\n\}\n/);
+    expect(m).not.toBeNull();
+    const block = m![0];
+    const parsed = new Map<string, string>();
+    for (const tm of block.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{6}|rgba?\([^)]+\))/g)) {
+      parsed.set(tm[1]!, tm[2]!);
+    }
+    const tokens = {} as LightTokenMap;
+    for (const name of REQUIRED_LIGHT_TOKENS) {
+      const value = parsed.get(name);
+      expect(value, `missing light token ${name}`).toBeDefined();
+      tokens[name] = value!;
+    }
+    return tokens;
+  }
+
+  const LIGHT = lightTokensFromCss(css);
+
+
+  function lum(hex: string): number {
+    const n = hex.replace('#', '');
+    const c = [0, 2, 4].map((i) => {
+      const v = parseInt(n.slice(i, i + 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+  }
+
+  function ratio(fg: string, bg: string): number {
+    const [l1, l2] = [lum(fg), lum(bg)].sort((a, b) => b - a);
+    return (l1! + 0.05) / (l2! + 0.05);
+  }
+
+  it('ships a prefers-color-scheme: light override block containing the light :root', () => {
+    const m = css.match(/@media \(prefers-color-scheme: light\) \{[\s\S]*?\n\}\n/);
+    expect(m).not.toBeNull();
+    const block = m![0];
+    expect(block).toContain(':root {');
+    expect(block).toContain('color-scheme: light');
+    expect(block).toContain('--bg: #f5f6f8');
+  });
+
+  it('every light text tier clears 4.5:1 on all three light surfaces', () => {
+    const surfaces = [LIGHT['--bg'], LIGHT['--surface'], LIGHT['--surface-2']];
+    for (const tier of ['--text', '--dim', '--faint'] as const) {
+      for (const bg of surfaces) {
+        // Every tier on every surface must clear AA 4.5:1 — including the
+        // tightest pair (--faint on --surface-2).
+        expect(ratio(LIGHT[tier], bg)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('light accent-text siblings clear 4.5:1 on white and on their 12% badge composite', () => {
+    for (const tier of ['--red-text', '--blue-text', '--indigo-text'] as const) {
+      expect(ratio(LIGHT[tier], LIGHT['--surface'])).toBeGreaterThanOrEqual(4.5);
+      // badge composite: accent at 12% alpha over white surface
+      const accent = { '--red-text': '#ef4444', '--blue-text': '#3b82f6', '--indigo-text': '#5d60f0' }[tier]!;
+      const n = (h: string) => [0, 2, 4].map((i) => parseInt(h.replace('#', '').slice(i, i + 2), 16));
+      const blend = (fg: number[], bg: number[], a: number) =>
+        '#' + fg.map((v, i) => Math.round(v * a + bg[i]! * (1 - a)).toString(16).padStart(2, '0')).join('');
+      const badge = blend(n(accent), n('#ffffff'), 0.12);
+      expect(ratio(LIGHT[tier], badge)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('index.html theme-color responds to prefers-color-scheme', () => {
+    const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+    expect(html).toContain('name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)"');
+    expect(html).toContain('name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)"');
+  });
+});

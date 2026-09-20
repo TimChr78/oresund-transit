@@ -79,6 +79,30 @@
   --band-ink: #0a0c10;
 }
 
+/* Light theme (audit3 L2, card t_4c30d4f9): full token override set wired to
+   prefers-color-scheme: light. Placed AFTER the base :root block — equal
+   specificity, later declaration wins — so light users get these values.
+   Text tiers re-derived for light surfaces; every tier >= 4.5:1 (computed
+   composites pinned in test/styles.test.ts). Accent bare tokens are NOT
+   overridden: they are fills carrying white text. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #eef0f4;
+    --text: #171a21;
+    --dim: #454e5e;
+    /* Faintest TEXT tier for light surfaces: #5b6472 clears 4.5:1 on all
+       three light surfaces (bg, surface, surface-2). */
+    --faint: #5b6472;
+    --border: rgba(20, 24, 33, 0.12);
+    --red-text: #c22f2f;
+    --blue-text: #2563eb;
+    --indigo-text: #4a4ede;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
