@@ -905,7 +905,12 @@ ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/$
           pageUrl: `${SITE_URL}/history/${days}`,
           dateFrom: rangeFrom,
           dateTo: history.date_to,
-          creators: creatorsFor(history.date_from),
+          // The creators describe the PUBLISHED range. When a requested window
+          // opens before the live era but its only pre-era days are empty
+          // coverage gaps, rangeFrom moves into the live era and no KoDa day
+          // contributes; crediting KoDa from history.date_from would describe
+          // data this dataset does not contain.
+          creators: creatorsFor(rangeFrom),
           variables: [
             'Total disruptions per day',
             'Cancellations per day',

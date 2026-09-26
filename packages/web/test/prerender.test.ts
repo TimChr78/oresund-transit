@@ -9,7 +9,13 @@ import { renderApp } from '../src/components/App';
 import { createInitialState } from '../src/state';
 import { META, hreflangCluster } from '../src/lib/seo';
 import { COLLECTOR_BASE } from '../src/lib/config';
-import { renderPrerenderedPage, renderLocalizedHome, renderHomeWithSummary, type HomeSummary } from '../src/lib/prerender';
+import {
+  assertPristineShell,
+  renderPrerenderedPage,
+  renderLocalizedHome,
+  renderHomeWithSummary,
+  type HomeSummary,
+} from '../src/lib/prerender';
 
 /**
  * SEO prerender: /methodology and /privacy must ship their content in the
@@ -769,5 +775,19 @@ describe('JSON-LD description localization (CodeRabbit PR51 critical)', () => {
       expect(home, `home/${lang} kept a description member`).not.toContain('"description": "Observed');
       expect(home, `home/${lang} kept name`).toContain('"name"');
     }
+  });
+});
+
+describe('prerender shell-integrity guard (2026-09-26)', () => {
+  it('accepts the pristine vite shell and rejects an already-prerendered one', () => {
+    // The double-prerender bug: a second pass over an already-prerendered
+    // dist/index.html matched no '<div id="app"></div>' marker and silently
+    // dropped every page body (each static page shipped as the home board
+    // frame with swapped meta). The guard turns that into a loud failure.
+    expect(() => assertPristineShell('<html><body><div id="app"></div></body></html>')).not.toThrow();
+    const frameShell = '<html><body><div id="app" data-prerender-frame="1"><div class="wrap"></div></div></body></html>';
+    expect(() => assertPristineShell(frameShell)).toThrow(/pristine vite shell/);
+    // A filled #app without the frame is just as far from pristine.
+    expect(() => assertPristineShell('<div id="app"><p>content</p></div>')).toThrow(/pristine vite shell/);
   });
 });

@@ -60,6 +60,29 @@ describe('renderMethodologyPage', () => {
     expect(html).toContain('10–15 minutes');
   });
 
+  it('separates the corridor KPI scope from the line archive scope (H6)', () => {
+    // One merged scope paragraph made this page contradict /line; the fix
+    // renders both scopes in every language, full body text included.
+    const labels: Record<Lang, [string, string]> = {
+      en: ['Corridor KPI scope', 'Line archive scope'],
+      sv: ['KPI-omfattning för korridoren', 'Linjearkivets omfattning'],
+      da: ['KPI-omfang for korridoren', 'Linjearkivernes omfang'],
+    };
+    for (const lang of LANGS) {
+      const html = renderMethodologyPage(lang, getDict(lang));
+      expect(html, lang).toContain(labels[lang][0]);
+      expect(html, lang).toContain(labels[lang][1]);
+      // Both bodies render their content: the corridor KPI lines and the
+      // archive's own line range.
+      expect(html, lang).toContain('802');
+      expect(html, lang).toContain('801');
+    }
+    const html = renderMethodologyPage('en', getDict('en'));
+    // The archive scope names every archive: the train lines and the two buses.
+    expect(html).toContain('twelve services');
+    expect(html).toContain('bus lines 6 and 16');
+  });
+
   it('keeps the lang switcher and footer visible', () => {
     const html = renderMethodologyPage('en', getDict('en'));
     expect(html).toContain('data-action="set-lang"');

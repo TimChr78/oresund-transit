@@ -29,7 +29,7 @@ import { renderMethodologyPage } from '../src/components/MethodologyPage';
 import { renderPrivacyPage } from '../src/components/PrivacyPage';
 import { getDict, type Lang } from '../src/i18n';
 import { COLLECTOR_BASE } from '../src/lib/config';
-import { renderPrerenderedPage, renderHomeWithSummary } from '../src/lib/prerender';
+import { assertPristineShell, renderPrerenderedPage, renderHomeWithSummary } from '../src/lib/prerender';
 import { fetchBuildSummary } from '../src/lib/seo-summary';
 import { fetchBoardFrame, renderBoardFrame } from '../src/lib/board-frame';
 import { STATIC_PAGES, STATIC_LANGS, staticFilePath, type StaticPageId, type PrerenderedPageId } from '../src/lib/static-pages';
@@ -38,17 +38,9 @@ import type { Route } from '../src/lib/route';
 
 const shell = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
 
-// Shell-integrity guard (2026-09-26). This script consumes the PRISTINE vite
-// shell: every page body lands by replacing the empty '<div id="app"></div>'.
-// Run over an already-prerendered dist/index.html the replace matched nothing
-// and every static page silently shipped as the home board frame with swapped
-// meta (what live served from the CLS deploy until this guard). A second pass
-// now fails loudly instead.
-if (!shell.includes('<div id="app"></div>')) {
-  throw new Error(
-    "prerender: dist/index.html is not the pristine vite shell (no empty <div id=\"app\"> marker). Run vite build first, and never run this script twice in one deploy.",
-  );
-}
+// Refuses a non-pristine shell (the double-prerender bug). See the exported
+// guard for the full story; covered in test/prerender.test.ts.
+assertPristineShell(shell);
 
 /** SSG renderers keyed by the shared static route ids (PrerenderedPageId). */
 const RENDERERS: Record<PrerenderedPageId, (lang: Lang) => string> = {

@@ -32,6 +32,22 @@ export type { HomeSummary } from './seo-summary';
  * applies it to dist/index.html after `vite build` and writes the per-language
  * dist/{methodology,privacy}.html (and sv/ da/ sub-directories).
  */
+/**
+ * Shell-integrity guard (2026-09-26). The prerender consumes the PRISTINE vite
+ * shell: every page body lands by replacing the empty '<div id="app"></div>'.
+ * Run over an already-prerendered dist/index.html the replace matched nothing
+ * and every static page silently shipped as the home board frame with swapped
+ * meta (what live served from the CLS deploy until this guard). A second pass
+ * fails loudly instead.
+ */
+export function assertPristineShell(shell: string): void {
+  if (!shell.includes('<div id="app"></div>')) {
+    throw new Error(
+      "prerender: dist/index.html is not the pristine vite shell (no empty <div id=\"app\"> marker). Run vite build first, and never run this script twice in one deploy.",
+    );
+  }
+}
+
 export function renderPrerenderedPage(
   shell: string,
   body: string,

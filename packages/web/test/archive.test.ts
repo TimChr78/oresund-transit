@@ -1955,6 +1955,38 @@ describe('R2 SEO cards (2026-09-26)', () => {
     expect(lead).not.toContain('99 departures');
   });
 
+  it('H5: dataset creators follow the published range start, not the requested one', () => {
+    // Pre-era window whose only pre-era day is an empty coverage gap: rangeFrom
+    // moved into the live era, so no KoDa day contributes and KoDa is not credited.
+    const gapOnly = renderHistoryPage(90, {
+      ...history,
+      days: 90,
+      date_from: '2026-06-29',
+      date_to: '2026-08-06',
+      total_disruptions: 3,
+      daily: [
+        { date: '2026-06-30', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+      ],
+    });
+    const creators = (findNode(gapOnly, 'Dataset')?.creator as { name: string }[]).map((c) => c.name);
+    expect(creators).toEqual(['Trafiklab']);
+    // A real pre-coverage row (KoDa backfill) makes it a two-creator dataset again.
+    const backfill = renderHistoryPage(90, {
+      ...history,
+      days: 90,
+      date_from: '2026-06-29',
+      date_to: '2026-08-06',
+      total_disruptions: 4,
+      daily: [
+        { date: '2026-07-01', count: 1, cancellations: 1, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+      ],
+    });
+    const backfillCreators = (findNode(backfill, 'Dataset')?.creator as { name: string }[]).map((c) => c.name);
+    expect(backfillCreators).toEqual(expect.arrayContaining(['Trafiklab', 'KoDa']));
+  });
+
   it('H12: station meta descriptions carry the observed-not-predicted framing', () => {
     const html = renderStationPage(stationStats, stationStatsSlugList());
     expect(html).toContain(
