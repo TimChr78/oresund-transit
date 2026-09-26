@@ -77,7 +77,8 @@ describe('i18n dictionaries', () => {
       'meth_thresholds_title',
       'meth_thresholds_body',
       'meth_scope_title',
-      'meth_scope_body',
+      'meth_scope_kpi_body',
+      'meth_scope_archive_body',
       'meth_source_title',
       'meth_source_body',
       'meth_lag_title',
@@ -213,6 +214,8 @@ describe('station-page keys (audit3 C1/M4)', () => {
     'station_sub',
     'station_desc',
     'station_desc_empty',
+    'station_lead',
+    'station_lead_empty',
     'station_daily_heading',
     'station_other_heading',
     'station_live_heading',
@@ -248,7 +251,7 @@ describe('station-page keys (audit3 C1/M4)', () => {
 
   it('interpolates the station meta description', () => {
     expect(translate('station_desc', 'en', { name: 'Malmö Hyllie', n: 99, pct: 92.9, days: 30 })).toBe(
-      'Punctuality history for Malmö Hyllie on the Øresund crossing — 99 departures, 92.9% on time over the last 30 days.',
+      'Punctuality history for Malmö Hyllie on the Øresund crossing — 99 departures, 92.9% on time over the last 30 days. Observed, not predicted.',
     );
     expect(translate('station_desc', 'sv', { name: 'Hyllie', n: 10, pct: 90, days: 7 })).toContain('10 avgångar, 90% i tid');
   });

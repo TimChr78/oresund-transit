@@ -183,8 +183,13 @@ export const en: Dict = {
   meth_thresholds_body:
     'A departure counts as delayed when its delay is 240 seconds (4 minutes) or more — Skånetrafiken’s official RT3 punctuality measure (≤ 3:59 late = punctual). Everything below that counts as on time.',
   meth_scope_title: 'Coverage',
-  meth_scope_body:
-    'Punctuality figures cover cross-border Øresundståg services (lines 802–805) on the Hyllie ↔ København H corridor only. The line archives are broader: every service with recorded disruptions on the corridor — including regional lines 801, 807–809, 910 and bus lines 6 and 16 — has its own archive page.',
+  // H6 (2026-09-26): the two scopes separated explicitly — the corridor KPI
+  // and the line archive cover different service sets, and one merged
+  // paragraph made this page contradict the /line index.
+  meth_scope_kpi_body:
+    'Corridor KPI scope: the punctuality figures on the dashboard cover the cross-border Øresundståg services (lines 802–805) on the Hyllie ↔ København H corridor only.',
+  meth_scope_archive_body:
+    'Line archive scope: the line archives are broader, covering twelve services that each have their own archive page: train lines 801–809 and 910, plus bus lines 6 and 16.',
   meth_source_title: 'Data source',
   meth_source_body:
     'Data comes from Trafiklab (Skånetrafiken) realtime departures, polled every 5 minutes, under a CC-BY 4.0 license. Live data starts 2026-08-06; earlier history comes from KoDa’s historical archive (May 2026 onward).',
@@ -219,9 +224,17 @@ export const en: Dict = {
   station_h1: '{name} — punctuality archive',
   station_sub: 'Observed departures over the last {days} days ({from}–{to}).',
   station_desc:
-    'Punctuality history for {name} on the Øresund crossing — {n} departures, {pct}% on time over the last {days} days.',
+    'Punctuality history for {name} on the Øresund crossing — {n} departures, {pct}% on time over the last {days} days. Observed, not predicted.',
   station_desc_empty:
-    'Punctuality history for {name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins.',
+    'Punctuality history for {name} on the Øresund crossing — no departures recorded yet; data starts flowing once live monitoring begins. Observed, not predicted.',
+  // H11 (2026-09-26): the quotable prose lead under the station H1 — what the
+  // board shows, for which station, observed data. 30–50 words in every
+  // language; the data variant carries the window's real figures, the empty
+  // variant carries none (never invented).
+  station_lead:
+    'The punctuality board for {name}: every departure observed at the station over the last {days} days, counted as on time, delayed or canceled. In that window {n} departures were observed, {pct}% of them on time. Every figure is measured, not predicted.',
+  station_lead_empty:
+    'The punctuality board for {name}: every departure observed at the station, counted as on time, delayed or canceled. No departures have been recorded at this stop yet, so the board has no figures to show. Every figure is measured, not predicted.',
   station_daily_heading: 'Daily on-time performance',
   station_other_heading: 'Other stations',
   // Station ↔ line cross-links (audit4 N-M1)
@@ -302,6 +315,10 @@ export const en: Dict = {
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Københavns Lufthavn (Kastrup)',
   station_kastrup_note: 'This is the railway station inside Copenhagen Airport — train services on the Øresund corridor, not the airport itself (flights: cph.dk).',
+  // H10 (2026-09-26): SERP title for the railway station page — the word
+  // "Station" and the "train punctuality" query term, so it can compete with
+  // cph.dk. 56 chars, inside the ≤60 title budget, so no brand suffix here.
+  station_kastrup_title: 'Kastrup Station (Københavns Lufthavn) train punctuality',
 
   // Homepage about block (audit3 C2) — evergreen, crawlable copy in the
   // no-JS/crawler shell. Descriptive only: what is tracked, how a number is
@@ -360,6 +377,9 @@ export const en: Dict = {
   // again, so both say what they count instead of reading as a contradiction.
   hub_stat_departures: 'Departures observed at 4 stops',
   board_observed_badge: 'OBSERVED, NOT PREDICTED',
+  // H12 (2026-09-26): the same badge with the real update time of the
+  // snapshot on screen ({time} = the live payload's clock, never render time).
+  board_observed_badge_updated: 'OBSERVED, NOT PREDICTED - updated {time}',
   hub_disruptions_note:
     'Disruptions count three things: cancellations, delays of 4 minutes or more, and service alerts — one record per affected departure and day. Punctuality counts only the first two, so the disruption total is higher by design.',
 

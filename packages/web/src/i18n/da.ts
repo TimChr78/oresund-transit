@@ -185,8 +185,10 @@ export const da: Dict = {
   meth_thresholds_body:
     'En afgang tæller som forsinket, når forsinkelsen er 240 sekunder (4 minutter) eller mere — Skånetrafikens officielle RT3-punktlighedsmål (≤ 3:59 forsinket = til tiden). Alt derunder tæller som til tiden.',
   meth_scope_title: 'Dækning',
-  meth_scope_body:
-    'Punktualitetstal dækker grænseoverskridende Øresundståg (linje 802–805) på strækningen Hyllie ↔ København H. Linjearkiverne er bredere: enhver tjeneste med registrerede forstyrrelser på korridoren — inklusive regionale linje 801, 807–809, 910 og buslinje 6 og 16 — har sin egen arkivside.',
+  meth_scope_kpi_body:
+    'KPI-omfang for korridoren: punktualitetstallene på tavlen dækker kun de grænseoverskridende Øresundståg (linje 802–805) på strækningen Hyllie ↔ København H.',
+  meth_scope_archive_body:
+    'Linjearkivernes omfang: linjearkiverne er bredere og dækker tolv tjenester, som hver har sin egen arkivside: toglinje 801–809 og 910, samt buslinje 6 og 16.',
   meth_source_title: 'Datakilde',
   meth_source_body:
     'Dataene kommer fra Trafiklab (Skånetrafiken) realtidsafgange, aflæst hver 5. minut, under en CC-BY 4.0-licens. Live-data starter 2026-08-06; tidligere historik kommer fra KoDas historiske arkiv (fra maj 2026).',
@@ -219,9 +221,13 @@ export const da: Dict = {
   station_h1: '{name} — rettidighedsarkiv',
   station_sub: 'Observerede afgange de seneste {days} dage ({from}–{to}).',
   station_desc:
-    'Rettidighedshistorik for {name} over Øresund — {n} afgange, {pct}% til tiden de seneste {days} dage.',
+    'Rettidighedshistorik for {name} over Øresund — {n} afgange, {pct}% til tiden de seneste {days} dage. Observeret, ikke forudsagt.',
   station_desc_empty:
-    'Rettidighedshistorik for {name} over Øresund — ingen afgange registreret endnu; data begynder at samle, så snart den live overvågning starter.',
+    'Rettidighedshistorik for {name} over Øresund — ingen afgange registreret endnu; data begynder at samle, så snart den live overvågning starter. Observeret, ikke forudsagt.',
+  station_lead:
+    'Punktualitetstavlen for {name}: hver afgang, der er observeret ved stationen de seneste {days} dage, talt som rettidig, forsinket eller aflyst. I perioden er {n} afgange observeret, {pct}% af dem rettidige. Hvert tal er målt, ikke forudsagt.',
+  station_lead_empty:
+    'Punktualitetstavlen for {name}: hver afgang, der er observeret ved stationen, talt som rettidig, forsinket eller aflyst. Der er endnu ikke registreret afgange ved stoppestedet, så tavlen har ingen tal at vise. Hvert tal er målt, ikke forudsagt.',
   station_daily_heading: 'Rettidighed dag for dag',
   station_other_heading: 'Andre stationer',
   // Krydslinks station ↔ linje (audit4 N-M1)
@@ -303,6 +309,7 @@ export const da: Dict = {
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup Lufthavn',
   station_kastrup_note: 'Dette er jernbanestationen i Københavns Lufthavn — tog på Øresundskorridoren, ikke lufthavnen selv (fly: cph.dk).',
+  station_kastrup_title: 'Kastrup Station (Københavns Lufthavn) togrettidighed',
 
   // Forside-tekstblok (audit3 C2) — permanent, crawlbar tekst i skallet uden
   // JS. Kun beskrivende: hvad der måles, hvordan et tal defineres og hvor
@@ -361,6 +368,7 @@ export const da: Dict = {
   // de tæller.
   hub_stat_departures: 'Afgange observeret ved 4 stoppesteder',
   board_observed_badge: 'OBSERVERET, IKKE FORUDSAGT',
+  board_observed_badge_updated: 'OBSERVERET, IKKE FORUDSAGT - opdateret {time}',
   hub_disruptions_note:
     'Forstyrrelser tæller tre ting: aflyste tog, forsinkelser på 4 minutter eller mere samt servicemeddelelser — én post per berørt afgang og dag. Punktlighed tæller kun de to første, derfor er forstyrrelsestallet bevidst højere.',
 

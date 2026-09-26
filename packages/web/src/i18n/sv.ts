@@ -184,8 +184,10 @@ export const sv: Dict = {
   meth_thresholds_body:
     'En avgång räknas som försenad när förseningen är 240 sekunder (4 minuter) eller mer — Skånetrafikens officiella RT3-punktlighetsmått (≤ 3:59 sent = punktligt). Allt under det räknas som i tid.',
   meth_scope_title: 'Omfattning',
-  meth_scope_body:
-    'Punktlighetssiffrorna omfattar gränsöverskridande Öresundståg (linje 802–805) på sträckan Hyllie ↔ Köpenhamn H. Linjearkiven är bredare: varje tjänst med registrerade störningar på korridoren — inklusive regionala linje 801, 807–809, 910 och busslinje 6 och 16 — har en egen arkivsida.',
+  meth_scope_kpi_body:
+    'KPI-omfattning för korridoren: punktlighetssiffrorna på tavlan omfattar endast gränsöverskridande Öresundståg (linje 802–805) på sträckan Hyllie ↔ Köpenhamn H.',
+  meth_scope_archive_body:
+    'Linjearkivets omfattning: linjearkiven är bredare och omfattar tolv tjänster som var och en har en egen arkivsida: tåglinje 801–809 och 910, samt busslinje 6 och 16.',
   meth_source_title: 'Datakälla',
   meth_source_body:
     'Datan kommer från Trafiklab (Skånetrafiken) realtidsavgångar, avläst var 5:e minut, under licensen CC-BY 4.0. Live-data startar 2026-08-06; tidigare historik kommer från KoDas historiska arkiv (från maj 2026).',
@@ -218,9 +220,13 @@ export const sv: Dict = {
   station_h1: '{name} — punktlighetsarkiv',
   station_sub: 'Observerade avgångar de senaste {days} dagarna ({from}–{to}).',
   station_desc:
-    'Punktlighetshistorik för {name} över Öresund — {n} avgångar, {pct}% i tid de senaste {days} dagarna.',
+    'Punktlighetshistorik för {name} över Öresund — {n} avgångar, {pct}% i tid de senaste {days} dagarna. Observerat, inte prognos.',
   station_desc_empty:
-    'Punktlighetshistorik för {name} över Öresund — inga avgångar registrerade ännu; data börjar samlas in så snart live-övervakningen startar.',
+    'Punktlighetshistorik för {name} över Öresund — inga avgångar registrerade ännu; data börjar samlas in så snart live-övervakningen startar. Observerat, inte prognos.',
+  station_lead:
+    'Punktlighetstavlan för {name}: varje avgång som observerats vid stationen de senaste {days} dagarna, räknad som i tid, försenad eller inställd. Under perioden observerades {n} avgångar, {pct}% av dem i tid. Varje siffra är mätt, inte förutsagd.',
+  station_lead_empty:
+    'Punktlighetstavlan för {name}: varje avgång som observerats vid stationen, räknad som i tid, försenad eller inställd. Inga avgångar har registrerats vid hållplatsen ännu, så tavlan har inga siffror att visa. Varje siffra är mätt, inte förutsagd.',
   station_daily_heading: 'Punktlighet dag för dag',
   station_other_heading: 'Övriga stationer',
   // Korslänkar station ↔ linje (audit4 N-M1)
@@ -302,6 +308,7 @@ export const sv: Dict = {
   station_malmo_c: 'Malmö C',
   station_kastrup: 'Kastrup flygplats',
   station_kastrup_note: 'Detta är järnvägsstationen på Köpenhamns flygplats — tåg på Öresundskorridoren, inte flygplatsen själv (flyg: cph.dk).',
+  station_kastrup_title: 'Kastrup Station (Köpenhamns flygplats) tågpunktlighet',
 
   // Informationstext på startsidan (audit3 C2) — permanent, crawlbar text i
   // skal utan JS. Beskrivande only: vad som mäts, hur ett tal definieras och
@@ -359,6 +366,7 @@ export const sv: Dict = {
   // hållplatser och störningstalet en annan enhet, så båda anger vad de räknar.
   hub_stat_departures: 'Avgångar observerade vid 4 hållplatser',
   board_observed_badge: 'OBSERVERAT, INTE PROGNOS',
+  board_observed_badge_updated: 'OBSERVERAT, INTE PROGNOS - uppdaterad {time}',
   hub_disruptions_note:
     'Störningar räknar tre saker: inställda tåg, förseningar på 4 minuter eller mer samt servicemeddelanden — en post per berörd avgång och dag. Punktligheten räknar bara de två första, därför är störningssumman högre medvetet.',
 

@@ -50,11 +50,16 @@ describe('buildSitemap', () => {
     expect(locs).toContain('https://oresund.live/line');
     expect(locs).toContain('https://oresund.live/station');
     for (const d of [7, 14, 30, 90]) expect(locs).toContain(`https://oresund.live/history/${d}`);
-    // audit5 M4: a line the collector has never seen is NOT submitted. The
-    // canonical union keeps those pages reachable from /line and the hub, but
-    // an XML entry is a crawl recommendation and 7 of the 12 were pages that
-    // read "no disruptions recorded" — nothing for a crawler to index.
-    expect(locs).not.toContain('https://oresund.live/line/801');
+    // M1 (2026-09-26): every canonical line is submitted — including the 7
+    // URLs the SEO audit found missing (/line/801, 807, 808, 809, 910, 6, 16).
+    // Submission asserts existence; the zero-data pages keep their own
+    // noindex decision (linePageIndexable).
+    for (const line of ['801', '807', '808', '809', '910', '6', '16']) {
+      expect(locs, line).toContain(`https://oresund.live/line/${line}`);
+    }
+    for (const line of CANONICAL_LINES) {
+      expect(locs, line).toContain(`https://oresund.live/line/${line}`);
+    }
     // Stations remain discovery-only (no static station set).
     expect(locs).not.toContain('https://oresund.live/station/hyllie');
   });
@@ -191,31 +196,29 @@ describe('buildSitemap', () => {
     );
   });
 
-  it('omits a line that has never recorded a disruption from the sitemap (audit5 M4)', () => {
-    // audit4 N-M3 stopped those pages claiming a daily lastmod; audit5 M4 goes
-    // one further and stops submitting them — a zero-content URL in a sitemap
-    // is a crawl recommendation for a page with nothing to index. The /line
-    // index still carries its own date and still links every canonical line.
+  it('submits a line that has never recorded a disruption, undated (M1 + audit4 N-M3)', () => {
+    // M1 (2026-09-26) reversed audit5 M4's omission: a zero-content archive is
+    // still a real, linked page and the sitemap lists it (existence). What it
+    // must NOT do is claim freshness it cannot back (audit4 N-M3) — a line the
+    // collector has never seen publishes no <lastmod> at all.
     const xml = buildSitemap([], [], LASTMOD);
     const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
     for (const line of CANONICAL_LINES) {
-      expect(
-        entries.find((e) => e.includes(`<loc>https://oresund.live/line/${encodeURIComponent(line)}</loc>`)),
-        line,
-      ).toBeUndefined();
+      const entry = entries.find((e) => e.includes(`<loc>https://oresund.live/line/${encodeURIComponent(line)}</loc>`));
+      expect(entry, line).toBeDefined();
+      expect(entry, line).not.toContain('<lastmod>');
     }
     expect(entries.find((e) => e.includes('<loc>https://oresund.live/line</loc>'))).toContain(
       '<lastmod>2026-09-02</lastmod>',
     );
-  });
+  });;
 
-  it('omits the pre-monitoring bus lines from the sitemap even though they have rows (audit6 M6)', () => {
-    // Lines 6 and 16 carry real rows in `disruptions` — from 2026-08-04 and
-    // 2026-08-02, BEFORE the 2026-08-06 monitoring start — so they pass a
-    // "has rows" check while their own lastmod says the page had content
-    // before this site existed. hasSubmittableData keys off the monitored era,
-    // not off the row count. The pages stay live and labelled (buses, in the
-    // H1 and breadcrumb), and they now carry noindex too (audit6 L2).
+  it('submits the pre-monitoring bus lines, dated from their own rows (M1)', () => {
+    // Lines 6 and 16 carry real rows — from 2026-08-04 and 2026-08-02, BEFORE
+    // the 2026-08-06 monitoring start. audit6 M6 kept them out of the sitemap;
+    // M1 (2026-09-26) submits every line archive, so they go out dated from
+    // their own last data day (audit4 N-M3) while their pages keep noindex
+    // (audit6 L2). Existence and keepability are separate decisions now.
     const xml = buildSitemap(
       [
         { line: '6', disruptions: 46, last_seen: '2026-08-04' },
@@ -226,37 +229,34 @@ describe('buildSitemap', () => {
       LASTMOD,
     );
     const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
-    for (const bus of ['6', '16']) {
-      expect(
-        entries.find((e) => e.includes(`<loc>https://oresund.live/line/${bus}</loc>`)),
-        bus,
-      ).toBeUndefined();
-    }
+    expect(entries.find((e) => e.includes('<loc>https://oresund.live/line/6</loc>'))).toContain(
+      '<lastmod>2026-08-04</lastmod>',
+    );
+    expect(entries.find((e) => e.includes('<loc>https://oresund.live/line/16</loc>'))).toContain(
+      '<lastmod>2026-08-02</lastmod>',
+    );
     // A line with monitored-era data is still submitted, dated from its own data.
     const train = entries.find((e) => e.includes('<loc>https://oresund.live/line/802</loc>'));
     expect(train).toBeDefined();
     expect(train).toContain('<lastmod>2026-09-01</lastmod>');
-  });
+  });;
 
-  it('submits exactly the lines whose pages are indexable — one predicate, both surfaces (audit7 L9)', () => {
-    // The sitemap measured all-time `last_seen` while the line page measured
-    // its rolling 30-day window. The two agreed only while the monitoring start
-    // sat inside that window; from 2026-09-05 a line last seen in the era's
-    // first days would have stayed submitted here while its page answered
-    // `noindex,follow`, with archive.ts still claiming the page applied "the
-    // same rule the sitemap applies". Both now call linePageIndexable, so this
-    // test feeds each surface the same row and asserts the same verdict.
+  it('submits every line archive while the pages keep their own robots verdict (M1)', () => {
+    // M1 (2026-09-26): submission and indexability are separate decisions
+    // again. The sitemap lists every line archive (existence); each page still
+    // takes its own linePageIndexable verdict (keepability), unchanged here.
+    // Same rows into both surfaces, each asserting its own verdict.
     const rows = [
       // In the era but quiet for over 30 days: submitted AND indexable.
       { line: '802', disruptions: 400, last_seen: '2026-08-10' },
-      // Rows only from before monitoring: omitted AND noindex.
+      // Rows only from before monitoring: submitted, and noindex.
       { line: '16', disruptions: 30, last_seen: '2026-08-02' },
-      // Never observed: omitted, and (no rows in the window) noindex.
+      // Never observed: submitted, and (no rows in the window) noindex.
       { line: '801', disruptions: 0 },
     ];
     const xml = buildSitemap(rows, [], LASTMOD);
     const entries = [...xml.matchAll(/<loc>https:\/\/oresund\.live\/line\/([^<]+)<\/loc>/g)].map((m) => m[1]!);
-    expect(entries).toEqual(['802']);
+    expect(entries).toEqual([...CANONICAL_LINES]);
 
     const quiet = renderLinePage('802', lineStatsFixture('802', { total_disruptions: 0, by_cause: [], recent: [], last_seen: '2026-08-10' }), []);
     const bus = renderLinePage('16', lineStatsFixture('16', { last_seen: '2026-08-02' }), []);
@@ -264,17 +264,15 @@ describe('buildSitemap', () => {
     expect(quiet).toContain('content="index,follow"');
     expect(bus).toContain('content="noindex,follow"');
     expect(never).toContain('content="noindex,follow"');
-  });
+  });;
 
-  it('omits a line whose /lines last_seen is not a real calendar date (audit7 review)', () => {
-    // archive-http's parseLines produces the ArchiveLine[] the sitemap consumes,
-    // so a shape-only DATE_RE there let "2026-99-99" through to
-    // hasMonitoredEraData. That comparison is lexicographic and the impossible
-    // month sorts above every real date, so the line read as monitored-era and
-    // was submitted even at zero disruptions — while /line/{line} dropped the
-    // same value from its own payload and answered `noindex,follow`. The two
-    // surfaces have to agree, so the parse boundary applies the calendar check
-    // before the era comparison ever sees the string.
+  it('submits a line whose /lines last_seen is not a real calendar date — undated (audit7 review + M1)', () => {
+    // archive-http's parseLines produces the ArchiveLine[] the sitemap
+    // consumes, so a shape-only DATE_RE there let "2026-99-99" through to the
+    // era comparison. The parse boundary applies the calendar check first.
+    // Since M1 the line is submitted either way (existence), but the impossible
+    // date is dropped: the entry carries no <lastmod> and never leaks the raw
+    // value.
     const lines = parseLines({
       lines: [
         { line: '804', disruptions: 0, last_seen: '2026-99-99' },
@@ -287,27 +285,30 @@ describe('buildSitemap', () => {
     const xml = buildSitemap(lines, [], LASTMOD);
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
     expect(locs).toContain('https://oresund.live/line/802');
-    expect(locs).not.toContain('https://oresund.live/line/804');
+    expect(locs).toContain('https://oresund.live/line/804');
     // And nothing leaks the raw value as a <lastmod> either.
     expect(xml).not.toContain('<lastmod>2026-99-99</lastmod>');
-  });
+    const entry804 = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)]
+      .map((m) => m[1]!)
+      .find((e) => e.includes('<loc>https://oresund.live/line/804</loc>'));
+    expect(entry804).toBeDefined();
+    expect(entry804).not.toContain('<lastmod>');
+  });;
 
-  it('submits the canonical train lines when the collector is unreachable (audit6 M10)', () => {
+  it('submits the canonical lines when the collector is unreachable (audit6 M10 + M1)', () => {
     // The outage path: nothing is known about any line, which is not the same
-    // as every line having no data. The canonical trains go out (minus the
-    // buses), and none of them claims a freshness date it cannot back.
-    const xml = buildSitemap([], [], LASTMOD, { collectorUnknown: true });
+    // as every line having no data. The whole canonical set goes out — buses
+    // included since M1, like every other line archive — and none of them
+    // claims a freshness date it cannot back.
+    const xml = buildSitemap([], [], LASTMOD);
     const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
-    for (const line of ['801', '802', '806', '807', '910']) {
+    for (const line of ['801', '802', '806', '807', '910', '6', '16']) {
       expect(entries.find((e) => e.includes(`<loc>https://oresund.live/line/${line}</loc>`)), line).toBeDefined();
-    }
-    for (const bus of ['6', '16']) {
-      expect(entries.find((e) => e.includes(`<loc>https://oresund.live/line/${bus}</loc>`)), bus).toBeUndefined();
     }
     const lineEntry = entries.find((e) => e.includes('<loc>https://oresund.live/line/802</loc>'));
     expect(lineEntry).toBeDefined();
     expect(lineEntry).not.toContain('<lastmod>');
-  });
+  });;
 
   it('drops a lastmod source that is not a date instead of clamping it (audit5 L11)', () => {
     // slice(0, 10) made any string LOOK like a date — and <lastmod> is the one

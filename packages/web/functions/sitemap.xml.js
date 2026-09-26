@@ -119,8 +119,9 @@ async function buildDate(context) {
 }
 
 /**
- * The collector-down sitemap: the canonical line set plus the four monitored
- * stations, over the static base.
+ * The collector-down sitemap: the canonical line set (buses included since
+ * M1, 2026-09-26 — the sitemap submits every line archive) plus the four
+ * monitored stations, over the static base.
  *
  * audit6 M10 — this used to be `buildSitemap([], [], lastmod)`, so any
  * collector blip withdrew all 21 line and station URLs (55% of the submitted
@@ -131,20 +132,16 @@ async function buildDate(context) {
  * canonical lines and the monitored stations are static facts that do not
  * depend on collector health, so the outage path serves them whole.
  *
- * The bus lines stay out (audit6 M6): their archives predate monitoring and
- * the steady-state sitemap omits them, so an outage must not add them back.
- * `collectorUnknown` is what lets the train lines survive — buildSitemap's
- * freshness filter drops a line the collector reports as never seen, but during
- * an outage the collector reported NOTHING. Unknown is not never-seen, and a
- * line that turns out to have no data is a labelled, internally linked page
- * with an honest note, not a soft 404.
+ * With M1's always-submit rule the outage path no longer needs a
+ * `collectorUnknown` escape hatch: buildSitemap submits every line in the
+ * union whatever the collector said, and a line with unknown data publishes no
+ * <lastmod> instead of an unverified date.
  */
 function staticBase(lastmod) {
   return buildSitemap(
     CANONICAL_LINES.map((line) => ({ line, disruptions: 0 })),
     STATIC_STATIONS.map(({ slug, stop_id, stop_name }) => ({ slug, stop_id, stop_name })),
     lastmod,
-    { collectorUnknown: true },
   );
 }
 

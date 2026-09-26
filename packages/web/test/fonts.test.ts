@@ -15,6 +15,18 @@ import { renderPrerenderedPage } from '../src/lib/prerender';
  */
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+const headers = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8');
+
+describe('long-term asset caching (M2, 2026-09-26)', () => {
+  it('serves /assets/* and /fonts/* with max-age=31536000, immutable', () => {
+    // The audit pins year-immutable caching on both families; _headers is
+    // where Pages reads the rule (applied inside every ASSETS.fetch).
+    expect(headers).toMatch(/\/assets\/\*\n {2}Cache-Control: public, max-age=31536000, immutable/);
+    expect(headers).toMatch(/\/fonts\/\*\n {2}Cache-Control: public, max-age=31536000, immutable/);
+    // Nothing may restate a short TTL for fonts anywhere in the rule set.
+    expect(headers).not.toMatch(/\/fonts\/\*[\s\S]*?max-age=(?!31536000)\d+/);
+  });
+});
 
 describe('self-hosted fonts', () => {
   it('index.html has no Google Fonts links or preconnects', () => {

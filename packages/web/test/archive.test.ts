@@ -409,7 +409,10 @@ describe('archive renderers', () => {
     // into a <p class="sub"> and into a meta description — so the boundary
     // validators must not be the only thing between a collector string and the
     // DOM.
-    const hostile: ArchiveHistory = { ...history, date_from: '<script>', date_to: '"onmouseover=' };
+    // No rows: the date fallbacks are what surfaces (with rows present the
+    // H5 range cap would legitimately replace a garbage date_from with the
+    // first real data day).
+    const hostile: ArchiveHistory = { ...history, daily: [], date_from: '<script>', date_to: '"onmouseover=' };
     const hub = renderHistoryPage(30, hostile);
     expect(hub).not.toContain('<script>');
     expect(hub).toContain('between &lt;script&gt; and &quot;onmouseover=');
@@ -489,8 +492,8 @@ describe('archive renderers', () => {
       recent: [],
     };
     const html = renderStationPage(empty, stationStatsSlugList());
-    // SERP-safe title: parenthetical qualifier stripped from <title> (audit2 H1)
-    expect(html).toContain('<title>Københavns Lufthavn — punctuality — Øresund.live</title>');
+    // H10 (2026-09-26): Kastrup's title names the railway station page.
+    expect(html).toContain('<title>Kastrup Station (Københavns Lufthavn) train punctuality</title>');
     expect(html).toContain('Københavns Lufthavn (Kastrup)'); // official name kept in body
     expect(html).toContain('No departures recorded since monitoring began 2026-08-06.');
     expect(html).toContain('0%'); // zeroed stats, never NaN
@@ -515,10 +518,14 @@ describe('archive renderers', () => {
     expect(html).toContain('href="/station/kastrup"');
   });
 
-  it('station archive title template keeps the longest monitored stop ≤ 60 chars (L3)', () => {
+  it('keeps the rendered station titles ≤ 60 chars (L3 + H10)', () => {
     // "Københavns Lufthavn (Kastrup)" is 29 chars — the longest name; the old
     // "… — punctuality archive — Øresund.live" template produced a 66-char
-    // <title>. The i18n template must keep the rendered title within limits.
+    // <title>. H10 (2026-09-26) gives Kastrup its own SERP title
+    // ("Kastrup Station (Københavns Lufthavn) train punctuality", 56 chars,
+    // no brand suffix to stay inside the budget); every other stop keeps the
+    // template with the parenthetical qualifier stripped (SERP-safe, audit2
+    // H1).
     const kastrup: ArchiveStationStats = {
       ...stationStats,
       slug: 'kastrup',
@@ -535,15 +542,15 @@ describe('archive renderers', () => {
       ],
       recent: [],
     };
-    // The renderer strips the parenthetical qualifier for <title> (SERP-safe,
-    // audit2 H1), so build the expected title the same way.
-    const titleName = kastrup.stop_name.replace(/\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ').trim();
+    const kastrupTitle = translate('station_kastrup_title', 'en');
+    expect(kastrupTitle.length).toBeLessThanOrEqual(60);
+    const html = renderStationPage(kastrup, stationStatsSlugList());
+    expect(html).toContain(`<title>${kastrupTitle}</title>`);
+    // The template path for every other stop stays within the budget too.
+    const titleName = stationStats.stop_name.replace(/\s*\((?:Kastrup|CPH|Copenhagen)\)\s*/i, ' ').trim();
     const title = translate('station_archive_title', 'en', { name: titleName });
     expect(title.length).toBeLessThanOrEqual(60);
-    // And it renders verbatim into the page <title>.
-    const html = renderStationPage(kastrup, stationStatsSlugList());
-    expect(html).toContain(`<title>${title}</title>`);
-  });
+  });;
 
   it('JSON-LD does not allow </script> breakout via line values', () => {
     const evilLine: ArchiveLineStats = { ...lineStats, line: '</script><script>alert(1)' };
@@ -1817,5 +1824,141 @@ describe('localized station pages link their own language (audit4 N-M4)', () => 
     expect(en).toContain('<a class="brand" href="/" lang="da">Øresund.live</a>');
     expect(en).toContain('<a href="/methodology">');
     expect(en).toContain('<a href="/privacy">');
+  });
+});
+
+describe('R2 SEO cards (2026-09-26)', () => {
+  /** A 90-day window landing mid-gap: two unobserved days, then one real one. */
+  const gapHistory: ArchiveHistory = {
+    days: 90,
+    date_from: '2026-06-29',
+    date_to: '2026-08-06',
+    total_disruptions: 3,
+    daily: [
+      { date: '2026-06-29', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+      { date: '2026-06-30', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+      { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+    ],
+  };
+
+  it('H5: the /history headline range starts at the first day with real data', () => {
+    const html = renderHistoryPage(90, gapHistory);
+    // The two gap days are unobserved — the range must not claim them.
+    expect(html).toContain('3 disruptions between 6 Aug 2026 and 6 Aug 2026');
+    expect(html).not.toContain('between 29 Jun 2026 and');
+  });
+
+  it('H5: KoDa backfill days count as real data and open the range', () => {
+    const html = renderHistoryPage(90, {
+      ...gapHistory,
+      total_disruptions: 4,
+      daily: [
+        { date: '2026-06-30', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-07-01', count: 1, cancellations: 1, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+      ],
+    });
+    // 1 Jul is KoDa backfill (pre-coverage WITH rows) — the range starts there.
+    expect(html).toContain('4 disruptions between 1 Jul 2026 and 6 Aug 2026');
+  });
+
+  it('H5: a window with no real days says "no data" instead of zero-counting one', () => {
+    const html = renderHistoryPage(7, {
+      days: 7,
+      date_from: '2026-07-31',
+      date_to: '2026-08-05',
+      total_disruptions: 0,
+      daily: [{ date: '2026-08-05', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null }],
+    });
+    expect(html).toContain('No data recorded between 31 Jul 2026 and 5 Aug 2026.');
+    expect(html).not.toContain('0 disruptions between');
+  });
+
+  it('H5: the KoDa caption renders only where pre-coverage rows make it relevant', () => {
+    const era = renderHistoryPage(7, {
+      days: 7,
+      date_from: '2026-08-20',
+      date_to: '2026-08-26',
+      total_disruptions: 3,
+      daily: [{ date: '2026-08-26', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 }],
+    });
+    expect(era).not.toContain('Days before 6 Aug 2026 were not observed live');
+    const backfilled = renderHistoryPage(90, gapHistory);
+    expect(backfilled).toContain('Days before 6 Aug 2026 were not observed live');
+    expect(backfilled).toContain('partial KoDa backfill');
+  });
+
+  it('H5: no-data rows render greyscaled with the em-dash mark', () => {
+    const html = renderHistoryPage(7, {
+      days: 7,
+      date_from: '2026-08-05',
+      date_to: '2026-08-06',
+      total_disruptions: 3,
+      daily: [
+        { date: '2026-08-05', count: 0, cancellations: 0, delays: 0, alerts: 0, avg_delay: null },
+        { date: '2026-08-06', count: 3, cancellations: 0, delays: 3, alerts: 0, avg_delay: 650 },
+      ],
+    });
+    expect(html).toContain('<tr class="no-data">');
+    expect(html).toContain('.no-data td { color: #7c8498; }');
+  });
+
+  it('H10: Kastrup titles itself as the railway station page and keeps the disambiguation note', () => {
+    const kastrup: ArchiveStationStats = {
+      ...stationStats,
+      slug: 'kastrup',
+      stop_id: '860000858',
+      stop_name: 'Københavns Lufthavn (Kastrup)',
+    };
+    const html = renderStationPage(kastrup, stationStatsSlugList());
+    expect(html).toContain('<title>Kastrup Station (Københavns Lufthavn) train punctuality</title>');
+    expect(html).toContain('railway station');
+    expect(html).toContain('https://www.cph.dk/');
+  });
+
+  it('H11: station pages carry a 30-50 word prose lead under the H1, with the window figures', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    const leadMatch = /<h1>[^<]*<\/h1>\s*<p class="intro">([^<]*)<\/p>/.exec(html);
+    expect(leadMatch).toBeTruthy();
+    const lead = leadMatch![1]!;
+    // 30-50 words, quotable on its own.
+    const words = lead.trim().split(/\s+/);
+    expect(words.length).toBeGreaterThanOrEqual(30);
+    expect(words.length).toBeLessThanOrEqual(50);
+    // Station-specific where data allows: the name and the real figures.
+    expect(lead).toContain('Malmö Hyllie');
+    expect(lead).toContain('99 departures');
+    expect(lead).toContain('92.9%');
+    expect(lead).toContain('measured, not predicted');
+  });
+
+  it('H11: an empty archive gets the template lead with no invented figures', () => {
+    const empty: ArchiveStationStats = {
+      ...stationStats,
+      total_departures: 0,
+      on_time_count: 0,
+      delayed_count: 0,
+      canceled_count: 0,
+      on_time_pct: 0,
+      avg_delay_seconds: null,
+      daily: [],
+      recent: [],
+    };
+    const html = renderStationPage(empty, stationStatsSlugList());
+    const leadMatch = /<h1>[^<]*<\/h1>\s*<p class="intro">([^<]*)<\/p>/.exec(html);
+    expect(leadMatch).toBeTruthy();
+    const lead = leadMatch![1]!;
+    const words = lead.trim().split(/\s+/);
+    expect(words.length).toBeGreaterThanOrEqual(30);
+    expect(words.length).toBeLessThanOrEqual(50);
+    expect(lead).toContain('Malmö Hyllie');
+    expect(lead).not.toContain('99 departures');
+  });
+
+  it('H12: station meta descriptions carry the observed-not-predicted framing', () => {
+    const html = renderStationPage(stationStats, stationStatsSlugList());
+    expect(html).toContain(
+      'content="Punctuality history for Malmö Hyllie on the Øresund crossing — 99 departures, 92.9% on time over the last 7 days. Observed, not predicted."',
+    );
   });
 });
