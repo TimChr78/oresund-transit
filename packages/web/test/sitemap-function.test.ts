@@ -8,14 +8,19 @@ import { onRequest } from '../functions/sitemap.xml.js';
  */
 
 /**
- * Every URL that IS submitted carries a date at day precision (audit3 H4).
- * Lines the collector has never observed are not submitted at all any more
- * (audit5 M4), so there is no <lastmod>-less line family left to special-case.
+ * Every URL that IS submitted carries a date at day precision (audit3 H4) —
+ * except the /line/{n} pages the collector has never observed: since M1
+ * (2026-09-26) they are submitted, and audit4 N-M3 says a line with no data
+ * to be fresh about publishes NO <lastmod> rather than an unverified one.
+ * Those entries are undated by design and skipped here (the outage test pins
+ * their exact undated shape).
  */
 function assertEveryUrlDated(xml: string): void {
   const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]!);
   expect(entries.length).toBeGreaterThan(0);
   for (const entry of entries) {
+    const isLinePage = /<loc>https:\/\/oresund\.live\/line\/[^<]+<\/loc>/.test(entry);
+    if (isLinePage && !entry.includes('<lastmod>')) continue;
     expect(entry, entry).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
   }
 }
@@ -74,11 +79,10 @@ describe('functions/sitemap.xml.js', () => {
     expect(xml).toContain('https://oresund.live/sv/station/hyllie');
     // The /line index itself is still offered, and dated.
     expect(xml).toContain('https://oresund.live/line</loc>');
-    // audit6 M6 — the bus lines stay out even here: their archives predate
-    // monitoring and the healthy sitemap omits them, so an outage must not
-    // add them back.
-    expect(xml).not.toContain('https://oresund.live/line/6<');
-    expect(xml).not.toContain('https://oresund.live/line/16<');
+    // M1 (2026-09-26) — the bus lines go out here too: the healthy sitemap
+    // submits every line archive now, so an outage must not withdraw them.
+    expect(xml).toContain('<loc>https://oresund.live/line/6</loc>');
+    expect(xml).toContain('<loc>https://oresund.live/line/16</loc>');
     // audit4 N-M3 still holds, and matters more here than anywhere: a line
     // whose data is unknown publishes NO lastmod rather than an unverified
     // date. With the collector down nothing is known about any line, so no

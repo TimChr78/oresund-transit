@@ -51,12 +51,12 @@ export interface ArchiveLine {
  * route `designation` of Trafiklab departures), but a line with no disruptions
  * in the current window never shows up in that discovery. This static set is
  * unioned with whatever is discovered so every line archive is always a real,
- * linked page — but "linked" and "submitted to the sitemap" are deliberately
- * different things since audit5 M4 / audit6 M6: a line the collector has never
- * observed, or whose only rows predate LIVE_DATA_SINCE, renders a labelled
- * "no disruptions" note and is kept out of the sitemap and marked noindex.
- * hasMonitoredEraData below is the era test; sitemap.ts's hasSubmittableData
- * builds the submission rule on it.
+ * linked page — and since M1 (2026-09-26) every one of them is submitted to
+ * the sitemap (submission asserts existence). A line the collector has never
+ * observed, or whose only rows predate LIVE_DATA_SINCE, still renders a
+ * labelled "no disruptions" note and is still marked noindex: keeping it out
+ * of the INDEX is the page's own decision (hasMonitoredEraData below is the
+ * era test behind it), deliberately independent of the sitemap.
  */
 export const CANONICAL_LINES: readonly string[] = [
   '801',
@@ -427,6 +427,9 @@ ${hreflang}
       .table-scroll table { min-width: 540px; }
       th, td { text-align: right; padding: .45rem .5rem; border-bottom: 1px solid #171d28; }
       th:first-child, td:first-child { text-align: left; }
+      /* H5: a no-data row (pre-coverage day) greys out along with its "—"
+         marks, so it reads as unobserved at a glance instead of as data. */
+      .no-data td { color: #7c8498; }
       th { color: #8b93a7; font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
       .stat { display: inline-block; background: #12161f; border: 1px solid #1c2330; border-radius: 10px; padding: .5rem .9rem; margin-right: .5rem; margin-bottom: .5rem; }
       .stat b { display: block; font-size: 1.1rem; }
@@ -518,21 +521,19 @@ export function hasMonitoredEraData(lastSeen: string | null | undefined): boolea
 }
 
 /**
- * The ONE rule deciding whether a /line/{line} archive is a page a search
- * engine may keep (audit7 L9). Both surfaces that care go through it:
- * `buildSitemap` submits a line exactly when this says true, and
- * `renderLinePage` emits `noindex,follow` exactly when it says false — so the
- * two can no longer drift the way they did when the page measured its rolling
- * 30-day window and the sitemap measured the line's all-time `last_seen`. They
- * agreed only while the monitoring start sat inside the 30-day window, and
- * would have split on 2026-09-05: a line last seen in the era's first days
- * stayed submitted while its page answered noindex, contradicting the comment
- * that claimed the page applied "the same rule the sitemap applies".
+ * The rule deciding whether a /line/{line} archive is a page a search engine
+ * may KEEP (audit7 L9; scope narrowed by M1, 2026-09-26). `renderLinePage`
+ * emits `noindex,follow` exactly when this says false. Until M1 the sitemap
+ * submitted on the same predicate; it now submits every line archive instead,
+ * because submission asserts existence (a real, linked, honest page) while
+ * this asserts index-worthiness — two questions the M1 audit wants answered
+ * separately, in the same documented spirit as audit6 L3's three documents
+ * that deliberately count different things.
  *
- * The rule is the era test, because that is what a sitemap entry asserts —
+ * The rule is the era test, because that is what a keepable page asserts —
  * "this archive describes data we actually observed". A line whose last
  * disruption was six weeks ago is a legitimate, permanent archive URL, not a
- * thin one; withholding it would drop real pages whenever the corridor has a
+ * thin one; noindexing it would drop real pages whenever the corridor has a
  * quiet month.
  *
  * `lastSeen` missing falls back to the caller's count over its own window,
@@ -671,6 +672,19 @@ function directionLabel(direction: string | null): string {
 /** Placeholder for a metric a zero-data day cannot have (audit3 M1). */
 const NO_DATA_MARK = '—';
 
+/**
+ * A pre-coverage GAP day (H5, 2026-09-26): before live monitoring began
+ * (LIVE_DATA_SINCE) and with no recorded rows — not even KoDa backfill. The
+ * collector zero-fills such days, so the row renders as no-data and the
+ * /history headline range skips it: an observed zero and an unobserved day are
+ * different facts, and only the second one is true here. Days inside the era
+ * with a 0 count are OBSERVED zeros and keep their numbers; pre-coverage days
+ * WITH counts are KoDa backfill and keep theirs too.
+ */
+function isCoverageGap(date: string, count: number): boolean {
+  return count === 0 && date < LIVE_DATA_SINCE;
+}
+
 function dailyTable(rows: ArchiveHistory['daily']): string {
   const head =
     '<thead><tr><th scope="col">Date</th><th scope="col">Total</th><th scope="col">Cancellations</th><th scope="col">Delays</th><th scope="col">Alerts</th><th scope="col">Avg delay</th></tr></thead>';
@@ -682,8 +696,7 @@ function dailyTable(rows: ArchiveHistory['daily']): string {
       // R1-H5 (2026-09-17): a pre-coverage day (before live data began) is NOT a
       // zero-disruption day. Render the whole row as unobserved, not 0s that read
       // as a perfect service day.
-      const preCoverage = r.count === 0 && r.date < LIVE_DATA_SINCE;
-      if (preCoverage) {
+      if (isCoverageGap(r.date, r.count)) {
         const nd = NO_DATA_MARK;
         const cells = [r.date, nd, nd, nd, nd, nd]
           .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(v)}</td>`)
@@ -840,14 +853,37 @@ ${CANONICAL_LINES.map((line) => `      <li>${linkTo(`/line/${encodeURIComponent(
 
 /** /history/{days} — one day range of daily disruption totals. */
 export function renderHistoryPage(days: ArchiveDays, history: ArchiveHistory): string {
-  const description = `Archived disruption history for the Øresund crossing, last ${days} days — daily totals for cancellations, delays and alerts ${history.date_from} to ${history.date_to}.`;
+  // H5 (2026-09-26): the headline range starts at the first day with real
+  // data, not at the window edge. The collector zero-fills the window, so a
+  // /history/90 landing mid-gap claimed "N disruptions between 29 Jun and
+  // 26 Sept" across a month of days nothing was ever observed on. A real day
+  // is one inside the live era (an observed zero counts) or one with recorded
+  // rows (KoDa backfill) — exactly the inverse of the gap rows isCoverageGap
+  // marks, so the table and the headline can never disagree about which days
+  // hold data. When NO row holds any, the headline says so instead of wrapping
+  // a zero in a date range (H5: never present "no data" as observed zeros).
+  const firstDataDay = history.daily
+    .filter((r) => !isCoverageGap(r.date, r.count))
+    .map((r) => r.date)
+    .sort()[0];
+  const rangeFrom = firstDataDay && isValidLocalDate(firstDataDay) ? firstDataDay : history.date_from;
+  const description = `Archived disruption history for the Øresund crossing, last ${days} days — daily totals for cancellations, delays and alerts ${rangeFrom} to ${history.date_to}.`;
+  // The KoDa credit is a caption "where relevant" (H5): it explains
+  // pre-coverage rows, so on a window that lies wholly inside the live era it
+  // explains nothing and is left out.
+  const hasPreCoverageRows = history.daily.some((r) => r.date < LIVE_DATA_SINCE) || history.date_from < LIVE_DATA_SINCE;
+  const caption = hasPreCoverageRows
+    ? `\n    <p class="fine" style="font-size:.72rem;color:var(--muted,#5A6C8F)">Days before 6 Aug 2026 were not observed live; days with recorded rows there are partial KoDa backfill, and empty days are marked "${NO_DATA_MARK}" (no data).</p>`
+    : '';
+  const headline = firstDataDay
+    ? `${history.total_disruptions} disruptions between ${esc(fmtDate(rangeFrom))} and ${esc(fmtDate(history.date_to))}.`
+    : `No data recorded between ${esc(fmtDate(history.date_from))} and ${esc(fmtDate(history.date_to))}.`;
   const body = `
     <p class="crumb"><a href="/">${BRAND_NAME}</a> › <a href="/history">History</a> › ${days} days</p>
     <h1>Disruption history — last ${days} days</h1>
-    <p class="sub">${history.total_disruptions} disruptions between ${esc(fmtDate(history.date_from))} and ${esc(fmtDate(history.date_to))}. ${esc(translate('archive_attribution', 'en'))}.</p>
+    <p class="sub">${headline} ${esc(translate('archive_attribution', 'en'))}.</p>
     <h2>Daily breakdown</h2>
-    ${dailyTable(history.daily)}
-    <p class="fine" style="font-size:.72rem;color:var(--muted,#5A6C8F)">Days before 6 Aug 2026 were not observed live; where shown, they are partial KoDa backfill and marked "–" (no data).</p>
+    ${dailyTable(history.daily)}${caption}
     <h2>Other ranges</h2>
     <ul class="plain">
 ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/${d}">Last ${d} days</a></li>`).join('\n')}
@@ -867,9 +903,14 @@ ${DAY_RANGES.filter((d) => d !== days).map((d) => `      <li><a href="/history/$
           name: `Disruption history — last ${days} days`,
           description,
           pageUrl: `${SITE_URL}/history/${days}`,
-          dateFrom: history.date_from,
+          dateFrom: rangeFrom,
           dateTo: history.date_to,
-          creators: creatorsFor(history.date_from),
+          // The creators describe the PUBLISHED range. When a requested window
+          // opens before the live era but its only pre-era days are empty
+          // coverage gaps, rangeFrom moves into the live era and no KoDa day
+          // contributes; crediting KoDa from history.date_from would describe
+          // data this dataset does not contain.
+          creators: creatorsFor(rangeFrom),
           variables: [
             'Total disruptions per day',
             'Cancellations per day',
@@ -991,12 +1032,11 @@ ${all.filter((l) => l.line !== line).map((l) => `      <li><a href="/line/${enco
     // with an honest note — not a page a search engine should index.
     // noindex,follow keeps the link graph flowing (the "Other lines" and
     // station cross-links still count) while keeping the thin pages out of the
-    // index. L9 (audit7): "thin" is now decided by linePageIndexable — the same
-    // predicate buildSitemap submits on, over the line's all-time last_seen
-    // rather than this page's rolling 30-day window, so the two rules cannot
-    // quietly stop agreeing the way they did once the monitoring start left
-    // this window. The window count still decides whether the zero-data
-    // sections collapse below; it no longer decides indexing.
+    // index. L9 (audit7): "thin" is decided by linePageIndexable, over the
+    // line's all-time last_seen rather than this page's rolling 30-day window.
+    // M1 (2026-09-26): the sitemap submits this page either way now —
+    // existence vs keepability (see linePageIndexable) — and the window count
+    // still decides only whether the zero-data sections collapse below.
     robots: linePageIndexable(stats.last_seen, stats.total_disruptions) ? 'index,follow' : 'noindex,follow',
     jsonLd: {
       '@context': 'https://schema.org',
@@ -1190,14 +1230,30 @@ export function renderStationPage(
   // M4: the display name comes from the dictionary (see stationName), so the
   // page never renders the collector's untranslated literal by accident.
   const name = stationName(stats, lang);
+  const pct = formatPct(stats.on_time_pct, lang).replace('%', '');
   const description = empty
     ? translate('station_desc_empty', lang, { name })
     : translate('station_desc', lang, {
         name,
         n: stats.total_departures,
-        pct: formatPct(stats.on_time_pct, lang).replace('%', ''),
+        pct,
         days: stats.days,
       });
+  // H11 (2026-09-26): a 30–50 word prose lead under the H1, in the page's own
+  // language: what the board shows, for which station, observed data. The
+  // data-carrying variant names the window's real figures; a station with an
+  // empty archive gets the template variant instead — no numbers invented for
+  // an empty archive.
+  const lead = translate(empty ? 'station_lead_empty' : 'station_lead', lang, {
+    name,
+    n: stats.total_departures,
+    pct,
+    days: stats.days,
+  });
+  // H10 (2026-09-26): Kastrup is the one stop whose name reads as the airport
+  // itself — the slug is the stable identity for the page's airport-vs-station
+  // handling (title + disambiguation note).
+  const isKastrup = stats.slug === 'kastrup';
   const dailyRows = stats.daily
     .map((r) => {
       // M1: zero-data days (before monitoring started, or a stop with no
@@ -1206,7 +1262,7 @@ export function renderStationPage(
       // read as a catastrophic all-delayed service day.
       // R1-H5: pre-coverage days (before LIVE_DATA_SINCE) are unobserved, not
       // zero-disruption — render the whole row as no-data.
-      if (r.total === 0 && r.date < LIVE_DATA_SINCE) {
+      if (isCoverageGap(r.date, r.total)) {
         const nd = NO_DATA_MARK;
         const cells = [r.date, nd, nd, nd, nd, nd, nd]
           .map((v, i) => `<td${i === 0 ? ' class="meta"' : ''}>${esc(v)}</td>`)
@@ -1226,7 +1282,8 @@ export function renderStationPage(
   const body = `
     <p class="crumb"><a href="${localizedPath('/', lang)}" lang="da">${BRAND_NAME}</a> › ${linkTo('/station', translate('nav_stations', lang), lang)} › ${esc(name)}</p>
     <h1>${esc(translate('station_h1', lang, { name }))}</h1>
-    ${name.includes('Kastrup') ? `<p class="sub" style="font-size:.85rem;color:var(--muted, #5A6C8F);margin:.3rem 0 0">${esc(translate('station_kastrup_note', lang))} <a href="https://www.cph.dk/" target="_blank" rel="noopener noreferrer">cph.dk</a></p>` : ''}
+    <p class="intro">${esc(lead)}</p>
+    ${isKastrup ? `<p class="sub" style="font-size:.85rem;color:var(--muted, #5A6C8F);margin:.3rem 0 0">${esc(translate('station_kastrup_note', lang))} <a href="https://www.cph.dk/" target="_blank" rel="noopener noreferrer">cph.dk</a></p>` : ''}
     <p class="sub">${esc(
       translate('station_sub', lang, {
         days: stats.days,
@@ -1302,7 +1359,13 @@ ${allStations
     geo: staticStation?.geo,
   });
   return pageShell({
-    title: translate('station_archive_title', lang, { name: titleName }),
+    // H10 (2026-09-26): Kastrup's SERP title names the railway station with
+    // the word "Station" plus the "train punctuality" query term (56 chars,
+    // inside the ≤60 title budget), so the page can compete with cph.dk for
+    // "kastrup station" lookups. Every other stop keeps the shared template.
+    title: isKastrup
+      ? translate('station_kastrup_title', lang)
+      : translate('station_archive_title', lang, { name: titleName }),
     description,
     canonical: stationPageUrl,
     hreflangPath: stationBasePath,

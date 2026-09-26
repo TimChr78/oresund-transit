@@ -61,6 +61,19 @@ describe('deploy-race protection', () => {
     expect(existsSync(new URL('../public/404.html', import.meta.url))).toBe(false);
   });
 
+  it('deploy.sh runs the prerender exactly once (inside `bun run build`)', () => {
+    // 2026-09-26: deploy.sh used to re-run scripts/prerender.ts after
+    // `bun run build` (which already runs it). The second pass consumed an
+    // already-prerendered dist/index.html as its shell, the '<div id="app">'
+    // body injection matched nothing, and every static page shipped as the
+    // home frame with swapped meta. The prerender now refuses a non-pristine
+    // shell; this pins deploy.sh not to provoke it.
+    const deploy = readFileSync(new URL('../../../deploy.sh', import.meta.url), 'utf8');
+    expect(deploy).toContain('bun run build');
+    expect(deploy).not.toMatch(/bun run scripts\/prerender\.ts/);
+    expect(deploy).not.toMatch(/bun run scripts\/generate-llms\.ts/);
+  });
+
   it('index.html carries the self-heal reload guard (max one reload)', () => {
     expect(indexHtml).toContain('oresund-reloaded');
     expect(indexHtml).toContain('location.reload()');

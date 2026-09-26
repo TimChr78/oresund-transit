@@ -214,7 +214,8 @@ export interface Dict {
   meth_thresholds_title: string;
   meth_thresholds_body: string;
   meth_scope_title: string;
-  meth_scope_body: string;
+  meth_scope_kpi_body: string;
+  meth_scope_archive_body: string;
   meth_source_title: string;
   meth_source_body: string;
   meth_lag_title: string;
@@ -245,6 +246,8 @@ export interface Dict {
   station_sub: string;
   station_desc: string;
   station_desc_empty: string;
+  station_lead: string;
+  station_lead_empty: string;
   station_daily_heading: string;
   station_other_heading: string;
   /**
@@ -334,6 +337,7 @@ export interface Dict {
   station_malmo_c: string;
   station_kastrup: string;
   station_kastrup_note: string;
+  station_kastrup_title: string;
 
   // Homepage about block (audit3 C2) — the evergreen crawlable copy in the
   // no-JS/crawler home shell. about_corridor takes a {stations} placeholder
@@ -398,6 +402,7 @@ export interface Dict {
    */
   hub_stat_departures: string;
   board_observed_badge: string;
+  board_observed_badge_updated: string;
   hub_disruptions_note: string;
   /**
    * Line modes (audit5 M4). Lines 6 and 16 in the canonical set are the buses

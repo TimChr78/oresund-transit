@@ -422,6 +422,25 @@ describe('R1-H12/C6: observed badge + sibling link rendering (CodeRabbit PR59)',
     expect(html).toContain('OBSERVED, NOT PREDICTED');
   });
 
+  it('H12: the badge carries the real update time of the live snapshot', () => {
+    const withLive = {
+      ...createInitialState(),
+      live: {
+        status: 'green' as const,
+        status_text: 'Normal service',
+        timestamp: '2026-09-18T22:00:17',
+        time_short: '22:00',
+        disruption_count: 0,
+        departure_counts: { to_denmark: 0, to_sweden: 0, bus: 0 },
+        service_shutdown: false,
+        directions: { to_denmark: [], to_sweden: [], bus: [] },
+      },
+    };
+    expect(renderApp(withLive, 'en')).toContain('OBSERVED, NOT PREDICTED - updated 22:00');
+    // Without a snapshot the badge keeps its plain form — never an invented time.
+    expect(renderApp(createInitialState(), 'en')).not.toContain('OBSERVED, NOT PREDICTED - updated');
+  });
+
   it('renderFooter() renders the MartechSignal sibling link in en/sv/da', () => {
     for (const lang of ['en', 'sv', 'da'] as const) {
       const html = renderFooter(lang);

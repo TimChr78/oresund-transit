@@ -18,7 +18,6 @@ import {
   unionCanonicalLines,
   CANONICAL_LINES,
   isBusLine,
-  linePageIndexable,
   type ArchiveLine,
   type ArchiveStation,
 } from './archive';
@@ -67,17 +66,19 @@ function w3cDate(value: string): string | null {
 }
 
 /**
- * True when a line's archive is worth a sitemap entry. This IS the page's
- * robots rule (audit7 L9), not a second one: `linePageIndexable` in ./archive
- * decides both, from the same all-time `last_seen` the collector reports to
- * each. Until audit7 the sitemap measured `last_seen` while the line page
- * measured its own rolling 30-day window — two windows that agreed only while
- * the monitoring start sat inside the page's window, and that would have left a
- * line submitted in the sitemap whose page answered `noindex,follow`, with
- * archive.ts's comment still claiming the page applied "the same rule the
- * sitemap applies".
+ * M1 (2026-09-26, SEO audit): every line archive that exists is submitted —
+ * all 12 canonical services (801–809, 910 and the buses 6 and 16) plus any
+ * discovered line. The audit found 7 of the 12 missing from the sitemap even
+ * though their pages are real, linked archives reachable from /line.
+ *
+ * Submission and indexability are two different questions, on purpose (the
+ * same documented shape as audit6 L3's "the three documents disagree by
+ * design"): a sitemap entry says "this page exists, come crawl it"; the page's
+ * own robots directive (linePageIndexable in ./archive) still decides whether
+ * a search engine should KEEP it. A zero-data line page is therefore submitted
+ * and answers `noindex,follow` — a deliberate overlap, because the alternative
+ * is a sitemap that drops real archive URLs whenever a line has a quiet era.
  */
-const hasSubmittableData = (l: ArchiveLine): boolean => linePageIndexable(l.last_seen, l.disruptions);
 
 /**
  * The hreflang xhtml:link cluster for a static page (its en canonical base
@@ -108,22 +109,10 @@ function archiveAlternateLinks(url: string): string {
   ].join('\n');
 }
 
-/** Options for buildSitemap. */
-export interface SitemapOptions {
-  /**
-   * The collector is unreachable, so nothing is known about any line's data.
-   * The canonical train lines are submitted whole (audit6 M10) — "unknown" is
-   * not "never seen" — minus the buses, whose archives predate monitoring and
-   * which the healthy sitemap omits (audit6 M6).
-   */
-  collectorUnknown?: boolean;
-}
-
 export function buildSitemap(
   lines: ArchiveLine[],
   stations: ArchiveStation[],
   lastmod: SitemapLastmod,
-  opts: SitemapOptions = {},
 ): string {
   const locs: string[] = [];
   const allLines = unionCanonicalLines(lines);
@@ -172,28 +161,11 @@ export function buildSitemap(
 
   add(`${SITE_URL}/line`, ARCHIVE_CHANGEFREQ, archiveAlternateLinks(`${SITE_URL}/line`));
   for (const l of allLines) {
-    // audit5 M4 / audit6 M6: only lines whose data falls inside the monitored
-    // era are submitted. The pages for the rest stay live and linked — the
-    // /line index, the hub and llms.txt still reach them — but they render a
-    // "no disruptions recorded" note and carry noindex, and an XML entry is a
-    // recommendation, not a directory listing. Two shapes are withheld:
-    //   - a line the collector has never observed (801, 807, 808, 809, 910) —
-    //     zero-content URLs telling the search engine "crawl me daily";
-    //   - a line whose only rows predate LIVE_DATA_SINCE (the buses 6 and 16,
-    //     last seen 2026-08-04 and 2026-08-02) — pages whose own <lastmod>
-    //     would say "this had content before this site existed".
-    //
-    // `collectorUnknown` (the outage path) submits the canonical TRAIN lines
-    // instead: there the collector said nothing at all, and unknown is not
-    // never-seen. It is a deliberate overlap with the noindex set — five
-    // wasted crawls during the outage — because the alternative is withdrawing
-    // the five line URLs that DO have data, and that is the damage M10 is
-    // about. The buses stay out here too.
-    if (opts.collectorUnknown) {
-      if (isBusLine(l.line)) continue;
-    } else if (!hasSubmittableData(l)) {
-      continue;
-    }
+    // M1 (2026-09-26): every line archive is submitted — the 7 URLs the audit
+    // found missing (/line/801, 807, 808, 809, 910, 6, 16) included. What the
+    // entry asserts is existence, not index-worthiness (see the M1 note above):
+    // the zero-data pages render their honest "no disruptions recorded" note
+    // and keep their own noindex decision.
     const url = `${SITE_URL}/line/${encodeURIComponent(l.line)}`;
     // audit4 N-M3: a line page is only as fresh as the line's own data. The
     // last day that actually recorded a disruption is the honest <lastmod>;

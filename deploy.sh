@@ -1,16 +1,21 @@
 #!/bin/bash
-# oresund.live deploy: build web, wrangler pages deploy, GSC inspection of changed URLs.
+# oresund.live deploy: build web (vite + prerender + llms.txt), wrangler pages
+# deploy, GSC inspection of changed URLs.
 set -e
 export PATH="$HOME/.bun/bin:$PATH"
 
-echo "── Building web ──"
+# `bun run build` in packages/web ALREADY runs scripts/prerender.ts and
+# scripts/generate-llms.ts after vite build. Do not run them again here
+# (2026-09-26): a second prerender pass reads the already-prerendered
+# dist/index.html as its shell, and since the board frame landed in #app (R1
+# C1/H1) that shell no longer carries the empty '<div id="app"></div>' marker
+# the body injection matches — the page bodies were silently dropped and every
+# static page shipped as the home frame with swapped meta (live 2026-09-26).
+# scripts/prerender.ts now refuses a non-pristine shell, so the old double run
+# fails loudly instead of deploying corrupted pages.
+echo "── Building web (vite + prerender + llms.txt) ──"
 cd "$(dirname "$0")/packages/web"
 bun run build
-
-echo ""
-echo "── Prerendering static pages ──"
-bun run scripts/prerender.ts
-bun run scripts/generate-llms.ts
 
 echo ""
 echo "── Deploying to Cloudflare Pages ──"

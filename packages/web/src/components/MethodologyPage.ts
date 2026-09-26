@@ -73,7 +73,11 @@ export function renderMethodologyPage(lang: Lang, dict: Dict): string {
       <h2 class="meth-h">${esc(dict.meth_thresholds_title)}</h2>
       <p>${esc(dict.meth_thresholds_body)}</p>
       <h2 class="meth-h">${esc(dict.meth_scope_title)}</h2>
-      <p>${esc(dict.meth_scope_body)}</p>
+      <!-- H6 (2026-09-26): two scopes on purpose — the corridor KPI and the
+           line archive cover different service sets, and one merged paragraph
+           made this page contradict the /line index. -->
+      <p>${esc(dict.meth_scope_kpi_body)}</p>
+      <p>${esc(dict.meth_scope_archive_body)}</p>
       <h2 class="meth-h">${esc(dict.meth_source_title)}</h2>
       <p>${esc(dict.meth_source_body)}</p>
       <h2 class="meth-h">${esc(dict.meth_lag_title)}</h2>

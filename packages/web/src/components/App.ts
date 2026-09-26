@@ -1,5 +1,6 @@
 import type { AppState } from '../state';
 import { translate, type Lang } from '../i18n';
+import { formatTime } from '../i18n/format';
 import { esc } from '../lib/html';
 import { localizedPath } from '../lib/seo';
 import { filterByDirection, sortNewestFirst } from '../lib/stats';
@@ -150,12 +151,25 @@ export function renderApp(state: AppState, lang: Lang): string {
       ${esc(archiveToggleLabel)}
     </button>`;
 
+  // H12 (2026-09-26): the board-header badge carries the real update time of
+  // the snapshot on screen — the same clock the status banner shows
+  // (live.time_short, falling back to the payload timestamp), never a
+  // render-time guess. Without a snapshot the badge keeps its plain form
+  // rather than inventing an update time. The prerendered frame renders
+  // through this same code path over its build-time snapshot, so frame and
+  // settled board carry the same badge width (equal-width clock) and the swap
+  // stays CLS-neutral.
+  const updated = state.live ? formatTime(state.live.time_short || state.live.timestamp, lang) : '';
+  const observedBadge = updated
+    ? translate('board_observed_badge_updated', lang, { time: updated })
+    : translate('board_observed_badge', lang);
+
   return `
   <div class="wrap">
     <header class="topbar">
       <a class="brand" href="${esc(localizedPath('/', lang))}" lang="da">${translate('brand_name', lang)}</a>
       <span class="board-label">${esc(stationScopeLabel(lang, state.station))}</span>
-      <span class="observed-badge">${esc(translate('board_observed_badge', lang))}</span>
+      <span class="observed-badge">${esc(observedBadge)}</span>
     </header>
     ${renderStationPicker(lang, state.station)}
     <h1 class="lead">${translate('lead_tagline', lang)}</h1>
